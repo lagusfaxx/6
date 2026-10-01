@@ -242,6 +242,119 @@ export const TAG_LANDINGS: TagLanding[] = [
       { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
     ],
   },
+  /* ── Semrush oct 2026: categorías con filtro real y sin tráfico previo en
+     Search Console (antes usaban la plantilla genérica). ── */
+  {
+    slug: "gordita",
+    name: "Escorts gorditas",
+    filter: { profileTags: ["gordita"] },
+    title: "Escort Gordita y Putas Gorditas en Santiago",
+    description:
+      "Escorts gorditas y rellenitas verificadas en Santiago y Chile. Fotos reales, medidas, servicios y tarifa en cada perfil. Contacto directo por WhatsApp.",
+    keywords: [
+      "escort gordita",
+      "putas gorditas",
+      "gordas putas",
+      "escort gordita santiago",
+      "sexo gordita santiago",
+      "escort rellenita",
+    ],
+    h1: "Escorts gorditas y rellenitas",
+    paragraphs: [
+      "Escorts que se describen como gorditas en su perfil, con fotos reales verificadas. En cada ficha verás medidas, estatura, servicios, tarifa y si atiende en su departamento o a domicilio.",
+      "La mayoría atiende en Santiago. Activa tu ubicación para ver primero las que están más cerca de tu comuna.",
+    ],
+    faq: [
+      {
+        question: "¿Las fotos de las escorts gorditas son reales?",
+        answer: `Sí. Las fotos de cada perfil se revisan en la verificación. ${ADULTS_ONLY}`,
+      },
+      {
+        question: "¿Dónde hay escorts gorditas en Santiago?",
+        answer:
+          "En esta página están todas las que publican en UZEED. Ordénalas por cercanía con tu ubicación y escríbeles directo desde su perfil.",
+      },
+    ],
+    related: [
+      { href: "/escorts/culona", label: "Escorts culonas" },
+      { href: "/escorts/tetona", label: "Escorts tetonas" },
+      { href: "/escorts/maduras", label: "Escorts maduras" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+    ],
+  },
+  {
+    slug: "anal",
+    name: "Escorts con anal",
+    filter: { serviceTags: ["anal"] },
+    title: "Escort Anal en Santiago - Perfiles Verificados",
+    description:
+      "Escorts que ofrecen sexo anal en Santiago y Chile. Perfiles verificados con fotos reales, servicios y tarifas claras. Contacto directo por WhatsApp.",
+    keywords: ["escort anal", "escort anal santiago", "sexo anal santiago", "anal santiago", "putas anal"],
+    h1: "Escorts que ofrecen anal",
+    paragraphs: [
+      "Escorts que marcaron el servicio anal en su ficha. Cada perfil muestra fotos reales, la lista completa de servicios, la tarifa y si el anal tiene un valor adicional.",
+      "Confirma siempre el servicio y el precio al escribirle: cada profesional decide qué ofrece y en qué condiciones. La mayoría atiende en Santiago Centro, Providencia y Las Condes.",
+    ],
+    faq: [
+      {
+        question: "¿El anal tiene un costo extra?",
+        answer:
+          "Depende de cada escort. Algunas lo incluyen en la tarifa y otras lo cobran aparte: revisa su perfil o pregúntale al contactarla.",
+      },
+      {
+        question: "¿Las escorts de esta lista están verificadas?",
+        answer: `Sí, identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/trios", label: "Escorts para tríos" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  },
+  {
+    slug: "masaje-erotico",
+    name: "Masajes eróticos",
+    filter: { serviceTags: ["masaje-erotico"] },
+    title: "Masajes Eróticos y Sensitivos en Santiago",
+    description:
+      "Escorts que ofrecen masajes eróticos, sensitivos y con final feliz en Santiago y Chile. Perfiles verificados, fotos reales y contacto directo por WhatsApp.",
+    keywords: [
+      "masajes sexuales",
+      "masajes sensitivos",
+      "masajes eroticos santiago",
+      "masajes con final feliz en santiago",
+      "masajes sensitivos providencia",
+      "masaje erotico",
+    ],
+    h1: "Masajes eróticos y sensitivos",
+    paragraphs: [
+      "Escorts que ofrecen masaje erótico entre sus servicios: masajes sensitivos, de cuerpo completo y con final feliz. Cada ficha muestra fotos reales, tarifa, duración y si atiende en su lugar o a domicilio.",
+      "Las zonas con más perfiles son Santiago Centro, Providencia y Las Condes. Si buscas sólo masajes, revisa también el directorio de masajistas.",
+    ],
+    faq: [
+      {
+        question: "¿Qué es un masaje sensitivo?",
+        answer:
+          "Es un masaje de relajación con contacto sensual en todo el cuerpo. Qué incluye exactamente (por ejemplo, final feliz) lo define cada profesional en su perfil: confírmalo al escribirle.",
+      },
+      {
+        question: "¿Dónde hay masajes eróticos en Santiago?",
+        answer:
+          "En esta página y en el directorio de masajistas de UZEED. Activa tu ubicación para verlas ordenadas por cercanía.",
+      },
+      {
+        question: "¿Las masajistas están verificadas?",
+        answer: `Sí, identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/masajistas", label: "Masajistas" },
+      { href: "/escorts/providencia", label: "Escorts en Providencia" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  },
 ];
 
 const TAG_BY_SLUG = new Map(TAG_LANDINGS.map((t) => [t.slug, t]));
@@ -404,6 +517,268 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
       { href: "/escorts/las-condes", label: "Escorts en Las Condes" },
       { href: "/escorts/santiago-centro", label: "Escorts en Santiago Centro" },
       { href: "/escorts/nunoa", label: "Escorts en Ñuñoa" },
+    ],
+  },
+  // ── Ciudades agregadas con Semrush (oct 2026) ──
+  "la-florida": {
+    keywords: ["escort la florida", "putas en la florida", "sexo en la florida", "escort metro la florida"],
+    h1: "Escorts en La Florida",
+    paragraphs: [
+      "Escorts verificadas en La Florida con fotos reales, tarifa, horario y contacto directo por WhatsApp. Muchas reciben cerca de metro Bellavista de La Florida, Mirador y Vicente Valdés.",
+      "La lista se ordena por cercanía: primero La Florida y después Puente Alto, Macul y Ñuñoa. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts cerca de metro Bellavista de La Florida?",
+        answer:
+          "Sí. Activa tu ubicación y la lista se ordena por distancia; la dirección exacta la entrega cada escort al contactarla.",
+      },
+      {
+        question: "¿Las escorts de La Florida están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/puente-alto", label: "Escorts en Puente Alto" },
+      { href: "/escorts/nunoa", label: "Escorts en Ñuñoa" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+    ],
+  },
+  "estacion-central": {
+    keywords: ["escort estacion central", "putas estacion central", "sexo en estación central"],
+    h1: "Escorts en Estación Central",
+    paragraphs: [
+      "Escorts verificadas en Estación Central con fotos reales, tarifa y contacto directo por WhatsApp. Muchas reciben cerca de metro Estación Central, Universidad de Santiago y San Alberto Hurtado.",
+      "La lista se ordena por cercanía: primero Estación Central y después Santiago Centro y Maipú. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts cerca de metro Estación Central?",
+        answer:
+          "Sí, es una zona con perfiles que reciben en su departamento. Pregúntale la dirección exacta al contactarla.",
+      },
+      {
+        question: "¿Las escorts de Estación Central están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/santiago-centro", label: "Escorts en Santiago Centro" },
+      { href: "/escorts/maipu", label: "Escorts en Maipú" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+    ],
+  },
+  "la-cisterna": {
+    keywords: ["escort la cisterna", "putas la cisterna", "sexo la cisterna"],
+    h1: "Escorts en La Cisterna",
+    paragraphs: [
+      "Escorts verificadas en La Cisterna con fotos reales, tarifa, horario y contacto directo por WhatsApp. Varias reciben cerca de metro La Cisterna y Lo Ovalle.",
+      "La lista se ordena por cercanía: primero La Cisterna y después San Miguel, San Bernardo y Santiago Centro. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts cerca de metro La Cisterna?",
+        answer:
+          "Sí. Activa tu ubicación para ver las más cercanas y escríbeles directo desde su perfil.",
+      },
+      {
+        question: "¿Las escorts de La Cisterna están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/san-bernardo", label: "Escorts en San Bernardo" },
+      { href: "/escorts/santiago-centro", label: "Escorts en Santiago Centro" },
+      { href: "/escorts/santiago", label: "Escorts en Santiago" },
+    ],
+  },
+  "san-antonio": {
+    keywords: ["escort san antonio", "putas san antonio", "damas de compañia san antonio", "sexo san antonio"],
+    h1: "Escorts en San Antonio",
+    paragraphs: [
+      "Escorts y damas de compañía verificadas en San Antonio, en el litoral central, con fotos reales, tarifa y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero San Antonio y después Cartagena, Santo Domingo y el resto de la Región de Valparaíso. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts a domicilio en San Antonio?",
+        answer:
+          "Algunas atienden a domicilio u hotel en el litoral. Revisa en cada perfil si va a domicilio y pregúntale por el traslado.",
+      },
+      {
+        question: "¿Las escorts de San Antonio están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/vina-del-mar", label: "Escorts en Viña del Mar" },
+      { href: "/escorts/valparaiso", label: "Escorts en Valparaíso" },
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  },
+  "coquimbo": {
+    keywords: ["putas coquimbo", "escort coquimbo", "prostitutas coquimbo", "sexo coquimbo"],
+    h1: "Escorts en Coquimbo",
+    paragraphs: [
+      "Escorts verificadas en Coquimbo con fotos reales, tarifa, horario y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Coquimbo y después La Serena, que está a pocos minutos. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Las escorts de La Serena atienden en Coquimbo?",
+        answer:
+          "Muchas sí, por la cercanía entre ambas ciudades. Revisa en su perfil si atiende a domicilio u hotel.",
+      },
+      {
+        question: "¿Las escorts de Coquimbo están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/la-serena", label: "Escorts en La Serena" },
+      { href: "/escorts/ovalle", label: "Escorts en Ovalle" },
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  },
+  "ovalle": {
+    keywords: ["escort en ovalle", "putas en ovalle", "servicios sexuales ovalle"],
+    h1: "Escorts en Ovalle",
+    paragraphs: [
+      "Escorts verificadas en Ovalle, Región de Coquimbo, con fotos reales, tarifa y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Ovalle y después Coquimbo y La Serena. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts en Ovalle hoy?",
+        answer:
+          "Ordena por \"disponible ahora\" para ver las que están atendiendo en este momento cerca de Ovalle.",
+      },
+      {
+        question: "¿Las escorts de Ovalle están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/coquimbo", label: "Escorts en Coquimbo" },
+      { href: "/escorts/la-serena", label: "Escorts en La Serena" },
+    ],
+  },
+  "san-fernando": {
+    keywords: ["escort san fernando", "sexo san fernando", "putas san fernando"],
+    h1: "Escorts en San Fernando",
+    paragraphs: [
+      "Escorts verificadas en San Fernando, Región de O'Higgins, con fotos reales, tarifa, horario y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero San Fernando y después Santa Cruz, Rancagua y Curicó. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts entre San Fernando y Rancagua?",
+        answer:
+          "Sí. Activa tu ubicación y verás primero las más cercanas a ti en el valle de Colchagua y Cachapoal.",
+      },
+      {
+        question: "¿Las escorts de San Fernando están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/santa-cruz", label: "Escorts en Santa Cruz" },
+      { href: "/escorts/rancagua", label: "Escorts en Rancagua" },
+      { href: "/escorts/curico", label: "Escorts en Curicó" },
+    ],
+  },
+  "santa-cruz": {
+    keywords: ["escort en santa cruz", "sexo santa cruz", "damas de compañia santa cruz"],
+    h1: "Escorts en Santa Cruz",
+    paragraphs: [
+      "Escorts y damas de compañía verificadas en Santa Cruz, en el valle de Colchagua, con fotos reales, tarifa y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Santa Cruz y después San Fernando, Rancagua y Curicó. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Atienden en hoteles de Santa Cruz?",
+        answer:
+          "Algunas sí. Revisa en el perfil si atiende a domicilio u hotel y pregúntale por el traslado.",
+      },
+      {
+        question: "¿Las escorts de Santa Cruz están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/san-fernando", label: "Escorts en San Fernando" },
+      { href: "/escorts/rancagua", label: "Escorts en Rancagua" },
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  },
+  "linares": {
+    keywords: ["putas en linares", "escort linares chile", "sexo linares"],
+    h1: "Escorts en Linares",
+    paragraphs: [
+      "Escorts verificadas en Linares, Región del Maule, con fotos reales, tarifa y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Linares y después Talca y Chillán. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts entre Linares y Talca?",
+        answer:
+          "Sí. Activa tu ubicación para ver las más cercanas y escríbeles directo desde su perfil.",
+      },
+      {
+        question: "¿Las escorts de Linares están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/talca", label: "Escorts en Talca" },
+      { href: "/escorts/chillan", label: "Escorts en Chillán" },
+    ],
+  },
+  "valdivia": {
+    keywords: ["putas valdivia", "prostitutas valdivia", "servicios sexuales valdivia", "escort valdivia"],
+    h1: "Escorts en Valdivia",
+    paragraphs: [
+      "Escorts verificadas en Valdivia, Región de Los Ríos, con fotos reales, tarifa, horario y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Valdivia y después Osorno y Temuco. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts a domicilio en Valdivia?",
+        answer:
+          "Algunas atienden a domicilio u hotel. Revisa en cada perfil si va a domicilio y su tarifa.",
+      },
+      {
+        question: "¿Las escorts de Valdivia están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/osorno", label: "Escorts en Osorno" },
+      { href: "/escorts/temuco", label: "Escorts en Temuco" },
+      { href: "/escorts/puerto-montt", label: "Escorts en Puerto Montt" },
+    ],
+  },
+  "chiloe": {
+    keywords: ["escort chiloe", "chiloé sexual", "sexo chiloe", "escort en castro"],
+    h1: "Escorts en Chiloé",
+    paragraphs: [
+      "Escorts verificadas en Chiloé (Castro, Ancud y Quellón) con fotos reales, tarifa y contacto directo por WhatsApp.",
+      "La lista se ordena por cercanía: primero Castro y el resto de la isla, y después Puerto Montt. Si hoy no hay perfiles publicados en la comuna, la lista muestra primero los más cercanos.",
+    ],
+    faq: [
+      {
+        question: "¿Hay escorts en Castro?",
+        answer:
+          "Castro es donde más perfiles hay en la isla. Activa tu ubicación para verlos ordenados por distancia.",
+      },
+      {
+        question: "¿Las escorts de Chiloé están verificadas?",
+        answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
+      },
+    ],
+    related: [
+      { href: "/escorts/puerto-montt", label: "Escorts en Puerto Montt" },
+      { href: "/escorts/osorno", label: "Escorts en Osorno" },
     ],
   },
 };

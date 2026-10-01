@@ -42,6 +42,20 @@ export const CITY_LANDINGS: CityGeo[] = [
   { slug: "maipu", name: "Maipú", lat: -33.51, lng: -70.76, region: "Región Metropolitana" },
   { slug: "puente-alto", name: "Puente Alto", lat: -33.61, lng: -70.57, region: "Región Metropolitana" },
   { slug: "san-bernardo", name: "San Bernardo", lat: -33.59, lng: -70.7, region: "Región Metropolitana" },
+  // Comunas y ciudades que faltaban según Semrush (oct 2026): "escort san
+  // antonio" 9,9k, "putas coquimbo" 6,6k, "escort en santa cruz" 6,6k,
+  // "escort san fernando" 4,4k, "escort la florida" 4,4k, "escort chiloe" 2,9k…
+  { slug: "la-florida", name: "La Florida", lat: -33.52, lng: -70.6, region: "Región Metropolitana" },
+  { slug: "estacion-central", name: "Estación Central", lat: -33.46, lng: -70.69, region: "Región Metropolitana" },
+  { slug: "la-cisterna", name: "La Cisterna", lat: -33.53, lng: -70.66, region: "Región Metropolitana" },
+  { slug: "san-antonio", name: "San Antonio", lat: -33.59, lng: -71.61, region: "Valparaíso" },
+  { slug: "coquimbo", name: "Coquimbo", lat: -29.95, lng: -71.34, region: "Coquimbo" },
+  { slug: "ovalle", name: "Ovalle", lat: -30.6, lng: -71.2, region: "Coquimbo" },
+  { slug: "san-fernando", name: "San Fernando", lat: -34.59, lng: -70.99, region: "O'Higgins" },
+  { slug: "santa-cruz", name: "Santa Cruz", lat: -34.64, lng: -71.37, region: "O'Higgins" },
+  { slug: "linares", name: "Linares", lat: -35.85, lng: -71.59, region: "Maule" },
+  { slug: "valdivia", name: "Valdivia", lat: -39.81, lng: -73.25, region: "Los Ríos" },
+  { slug: "chiloe", name: "Chiloé", lat: -42.48, lng: -73.76, region: "Los Lagos" },
 ];
 
 const CITY_BY_SLUG = new Map(CITY_LANDINGS.map((c) => [c.slug, c]));
