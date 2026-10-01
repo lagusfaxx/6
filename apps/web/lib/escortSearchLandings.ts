@@ -16,6 +16,13 @@
  * Consumido por app/escorts/[tag]/page.tsx y por el sitemap.
  */
 
+import {
+  ADULTS_ONLY,
+  SEMRUSH_ADDITIONS,
+  SEMRUSH_CITY_SEO,
+  SEMRUSH_TAG_LANDINGS,
+} from "./escortSemrushSeo";
+
 export type SeoFaq = { question: string; answer: string };
 
 /** Filtro de la API /directory/search con el que se arma el listado. */
@@ -27,6 +34,8 @@ export type TagFilter = {
   outcalls?: boolean;
   /** Edad >= 40, calculada por la API (nunca es un tag manual). */
   maduras?: boolean;
+  /** Tarifa base máxima en CLP (/escorts/baratas). */
+  maxRate?: number;
 };
 
 export type SeoCopy = {
@@ -48,8 +57,8 @@ export type TagLanding = SeoCopy & {
   filter: TagFilter;
 };
 
-const ADULTS_ONLY =
-  "UZEED es sólo para mayores de 18 años: todas las profesionales son adultas y verifican su identidad antes de publicar.";
+// ADULTS_ONLY vive en escortSemrushSeo para que ambos archivos usen el mismo
+// texto sin importarse en círculo (de acá hacia allá sólo van tipos).
 
 export const TAG_LANDINGS: TagLanding[] = [
   {
@@ -355,6 +364,7 @@ export const TAG_LANDINGS: TagLanding[] = [
       { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
     ],
   },
+  ...SEMRUSH_TAG_LANDINGS,
 ];
 
 const TAG_BY_SLUG = new Map(TAG_LANDINGS.map((t) => [t.slug, t]));
@@ -390,6 +400,7 @@ export function tagFilterParams(filter: TagFilter): Record<string, string> {
   if (filter.gender) params.gender = filter.gender;
   if (filter.outcalls) params.outcalls = "true";
   if (filter.maduras) params.maduras = "true";
+  if (filter.maxRate) params.maxRate = String(filter.maxRate);
   return params;
 }
 
@@ -781,4 +792,16 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
       { href: "/escorts/osorno", label: "Escorts en Osorno" },
     ],
   },
+  ...SEMRUSH_CITY_SEO,
 };
+
+/* Keywords, párrafos y preguntas que se suman al final de landings que ya
+   existían. Título, descripción y texto existentes no se tocan. */
+for (const [slug, add] of Object.entries(SEMRUSH_ADDITIONS)) {
+  const target: Pick<SeoCopy, "keywords" | "paragraphs" | "faq"> | undefined =
+    TAG_BY_SLUG.get(slug) ?? CITY_SEO[slug];
+  if (!target) continue;
+  target.keywords = [...new Set([...target.keywords, ...add.keywords])];
+  if (add.paragraphs) target.paragraphs = [...target.paragraphs, ...add.paragraphs];
+  if (add.faq) target.faq = [...target.faq, ...add.faq];
+}

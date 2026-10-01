@@ -5,6 +5,7 @@ import DirectoryPage from "../../../components/DirectoryPage";
 import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
+import { TEMPLATE_TAG_SEO } from "../../../lib/escortSemrushSeo";
 import { jsonLdString } from "../../../lib/jsonLd";
 
 type Props = { params: Promise<{ tag: string }> };
@@ -209,6 +210,9 @@ export default async function EscortsTagPage({ params }: Props) {
   const landing = getTagLanding(tag);
   const label = tag.charAt(0).toUpperCase() + tag.slice(1).replace(/-/g, " ");
   const name = landing?.name ?? `Escorts ${label}`;
+  /* Plantilla con texto sumado (ej. /escorts/pelirroja): el título no cambia
+     porque la página ya recibe clics con él. */
+  const templateSeo = !landing && Object.prototype.hasOwnProperty.call(TEMPLATE_TAG_SEO, tag) ? TEMPLATE_TAG_SEO[tag] : undefined;
 
   return (
     <>
@@ -246,6 +250,7 @@ export default async function EscortsTagPage({ params }: Props) {
           </p>
         </section>
       )}
+      {templateSeo && <SeoCopySection seo={templateSeo} />}
       {/* Perfiles renderizados en servidor para indexación */}
       <DirectorySeoLinks heading={`Perfiles destacados: ${name}`} filter={filter} />
     </>

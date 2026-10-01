@@ -56,6 +56,26 @@ export const CITY_LANDINGS: CityGeo[] = [
   { slug: "linares", name: "Linares", lat: -35.85, lng: -71.59, region: "Maule" },
   { slug: "valdivia", name: "Valdivia", lat: -39.81, lng: -73.25, region: "Los Ríos" },
   { slug: "chiloe", name: "Chiloé", lat: -42.48, lng: -73.76, region: "Los Lagos" },
+  // Segunda tanda (Semrush oct 2026): todas las comunas con búsquedas en el export.
+  { slug: "talagante", name: "Talagante", lat: -33.66, lng: -70.93, region: "Región Metropolitana" },
+  { slug: "san-miguel", name: "San Miguel", lat: -33.5, lng: -70.65, region: "Región Metropolitana" },
+  { slug: "macul", name: "Macul", lat: -33.49, lng: -70.6, region: "Región Metropolitana" },
+  { slug: "lo-prado", name: "Lo Prado", lat: -33.44, lng: -70.72, region: "Región Metropolitana" },
+  { slug: "penalolen", name: "Peñalolén", lat: -33.48, lng: -70.55, region: "Región Metropolitana" },
+  { slug: "quinta-normal", name: "Quinta Normal", lat: -33.43, lng: -70.7, region: "Región Metropolitana" },
+  { slug: "renca", name: "Renca", lat: -33.4, lng: -70.73, region: "Región Metropolitana" },
+  { slug: "san-ramon", name: "San Ramón", lat: -33.54, lng: -70.64, region: "Región Metropolitana" },
+  { slug: "colina", name: "Colina", lat: -33.2, lng: -70.67, region: "Región Metropolitana" },
+  { slug: "san-felipe", name: "San Felipe", lat: -32.75, lng: -70.72, region: "Valparaíso" },
+  { slug: "quillota", name: "Quillota", lat: -32.88, lng: -71.25, region: "Valparaíso" },
+  { slug: "illapel", name: "Illapel", lat: -31.63, lng: -71.17, region: "Coquimbo" },
+  { slug: "villarrica", name: "Villarrica", lat: -39.28, lng: -72.23, region: "La Araucanía" },
+  { slug: "talcahuano", name: "Talcahuano", lat: -36.72, lng: -73.12, region: "Biobío" },
+  { slug: "chiguayante", name: "Chiguayante", lat: -36.92, lng: -73.03, region: "Biobío" },
+  { slug: "concon", name: "Concón", lat: -32.93, lng: -71.52, region: "Valparaíso" },
+  { slug: "puerto-varas", name: "Puerto Varas", lat: -41.32, lng: -72.98, region: "Los Lagos" },
+  { slug: "san-carlos", name: "San Carlos", lat: -36.42, lng: -71.96, region: "Ñuble" },
+  { slug: "san-javier", name: "San Javier", lat: -35.6, lng: -71.73, region: "Maule" },
 ];
 
 const CITY_BY_SLUG = new Map(CITY_LANDINGS.map((c) => [c.slug, c]));
