@@ -5,13 +5,14 @@ import Link from "next/link";
 import { ShieldCheck, Copy, Check, KeyRound, AlertTriangle, ExternalLink } from "lucide-react";
 import useMe from "../../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../../lib/api";
+import { canOpenAdmin } from "../../../../lib/adminAccess";
 
 type SetupResponse = { secret: string; otpauthUrl: string };
 
 export default function TwoFactorSetupPage() {
   const { me, loading: meLoading, refresh } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(user);
   const already = Boolean(user?.twoFactorEnabled);
 
   const [stage, setStage] = useState<"intro" | "show-secret" | "confirm" | "done">("intro");

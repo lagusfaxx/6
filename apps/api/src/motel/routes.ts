@@ -13,6 +13,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { cleanMotelAmenities, cleanRoomAmenities } from "@uzeed/shared/motel";
 import { loadMotelDetail, loadMotelDirectory } from "./directory";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 /* Fotos de habitaciones: se guardan como archivo suelto, sin pasar por la
    galería del perfil (antes cada foto de habitación aparecía repetida en la
@@ -28,9 +29,7 @@ const roomPhotoUpload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
-      cb(null, `${Date.now()}-room-${safeBase}${ext}`);
+      cb(null, safeUploadFilename(file, "room-"));
     },
   }),
   limits: { fileSize: 15 * 1024 * 1024, files: 10 },

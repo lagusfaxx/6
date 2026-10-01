@@ -221,9 +221,9 @@ export default function AdminIndex() {
     if (loading || !isAdmin) return;
     if (twoFactorPending) {
       window.location.replace("/login?next=/admin");
-    } else if (!twoFactorEnabled && isFullAdmin(user)) {
-      // El enrolamiento obligatorio existe por las acciones destructivas, y
-      // una cuenta de equipo no tiene ninguna: no se la manda al setup.
+    } else if (!twoFactorEnabled) {
+      // Todo el panel (administración y equipo) exige doble factor: la API
+      // responde 403 hasta que quede configurado.
       window.location.replace("/admin/2fa/setup");
     }
   }, [loading, isAdmin, user, twoFactorPending, twoFactorEnabled]);

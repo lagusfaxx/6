@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { COMUNAS, type Comuna } from "../../lib/comunas";
+import { jsonLdString } from "../../lib/jsonLd";
 
 /** JSON-LD en un <script>. */
 export function JsonLd({ data }: { data: unknown }) {
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(data) }} />;
 }
 
 export function breadcrumbLd(items: Array<{ name: string; path?: string }>) {

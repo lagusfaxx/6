@@ -10,6 +10,8 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { safeUploadFilename } from "../lib/uploadFilename";
+import { validateUploadedFile } from "../lib/uploads";
 
 export const storiesRouter = Router();
 
@@ -25,9 +27,7 @@ const uploadMedia = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const name = `story-${Date.now()}${ext}`;
-      cb(null, name);
+      cb(null, safeUploadFilename(file, "story-"));
     },
   }),
   limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB for video
@@ -205,9 +205,13 @@ storiesRouter.post(
 
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
 
-    const mediaType = (req.file.mimetype || "").toLowerCase().startsWith("video/")
-      ? "VIDEO"
-      : "IMAGE";
+    // El tipo lo deciden los bytes del archivo, no lo que declara el navegador.
+    let mediaType: "IMAGE" | "VIDEO";
+    try {
+      mediaType = (await validateUploadedFile(req.file, "image-or-video")).type as "IMAGE" | "VIDEO";
+    } catch {
+      return res.status(400).json({ error: "INVALID_FILE_TYPE", message: "Sube una foto o un video (MP4/MOV)." });
+    }
 
     const finalFilename = mediaType === "IMAGE" ? await optimizeUploadedImage(req.file, "cover") : req.file.filename;
     const publicUrl = `${config.apiUrl.replace(/\/$/, "")}/uploads/${finalFilename}`;

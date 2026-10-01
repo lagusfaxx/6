@@ -57,7 +57,7 @@ ADMIN_PASSWORD=<CAMBIA-ESTO-POR-UNA-CLAVE-SEGURA>
 
 ```bash
 # API Key de Khipu (Receiver ID: 511091)
-KHIPU_API_KEY=5c24de64-13fd-4f64-bdd4-acabe2c46bbb
+KHIPU_API_KEY=<tu KHIPU_API_KEY>
 
 # Base URL de la API de Khipu
 KHIPU_BASE_URL=https://payment-api.khipu.com
@@ -190,7 +190,7 @@ Después del deploy, verifica:
 ## 📝 Notas Adicionales
 
 ### Sobre KHIPU_API_KEY
-El API Key `5c24de64-13fd-4f64-bdd4-acabe2c46bbb` corresponde al Receiver ID `511091`. Este es el cobrador configurado en Khipu para recibir los pagos.
+El API Key `<tu KHIPU_API_KEY>` corresponde al Receiver ID `511091`. Este es el cobrador configurado en Khipu para recibir los pagos.
 
 ### Sobre el precio unificado
 Anteriormente SHOP tenía un precio diferente (10000 CLP). Ahora todos los perfiles de negocio pagan lo mismo: **4990 CLP/mes**.

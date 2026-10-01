@@ -3,6 +3,7 @@ import Link from "next/link";
 import HomeClient from "./HomeClient";
 import { cleanProfileHref } from "../lib/profileUrl";
 import { CITY_LANDINGS } from "../lib/cities";
+import { jsonLdString } from "../lib/jsonLd";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -126,11 +127,11 @@ export default async function HomePage() {
       {/* Server-rendered SEO content crawlable by Google */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeFaqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(homeFaqJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeBreadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(homeBreadcrumbJsonLd) }}
       />
       {/* Enlaces a las landings de comuna. Es el bloque con más peso SEO del
           home: reparte autoridad a las 25 páginas /escorts/{comuna}, que son

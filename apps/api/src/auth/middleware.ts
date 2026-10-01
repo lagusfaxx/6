@@ -296,6 +296,19 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
       });
     }
 
+    // Sin doble factor configurado no se entra al panel: una clave robada o
+    // filtrada no basta para aprobar, borrar o cambiar nada.
+    const mfa = await prisma.user.findUnique({
+      where: { id: (user as any).id },
+      select: { twoFactorEnabled: true },
+    });
+    if (!mfa?.twoFactorEnabled) {
+      return res.status(403).json({
+        error: "TWO_FACTOR_SETUP_REQUIRED",
+        message: "Configura el doble factor (Google Authenticator) para entrar al panel.",
+      });
+    }
+
     return next();
   });
 }

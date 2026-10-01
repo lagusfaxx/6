@@ -18,6 +18,7 @@ import { sendToUser } from "../realtime/sse";
 import { sendServiceRequestConfirmation } from "../lib/notificationEmail";
 import { sendInAppAndPush } from "../lib/sendReminder";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 export const servicesRouter = Router();
 
@@ -32,12 +33,7 @@ const upload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const safeBase = path
-        .basename(file.originalname, ext)
-        .replace(/[^a-zA-Z0-9_-]/g, "");
-      const name = `${Date.now()}-${safeBase}${ext}`;
-      cb(null, name);
+      cb(null, safeUploadFilename(file));
     },
   }),
   limits: { fileSize: 100 * 1024 * 1024 },

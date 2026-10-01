@@ -5,6 +5,7 @@ import "./globals.css";
 import AppShell from '../components/AppShell';
 import AgeGate from '../components/AgeGate';
 import DiscreetProvider from '../components/DiscreetProvider';
+import { jsonLdString } from "../lib/jsonLd";
 
 export const metadata: Metadata = {
   title: {
@@ -161,7 +162,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" as="image" href="/brand/bg.webp" type="image/webp" fetchPriority="high" />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
         />
         {/* Anti-flash modo discreto: aplica clase al <html> antes del primer paint */}
         <script

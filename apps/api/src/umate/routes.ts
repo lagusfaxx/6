@@ -13,6 +13,7 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
+import { FFMPEG_SAFE_INPUT_ARGS, looksLikePlainVideo, safeUploadExt } from "../lib/uploadFilename";
 import { sendToUser } from "../realtime/sse";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendUmatePromotionalEmail } from "../lib/notificationEmail";
@@ -61,11 +62,13 @@ async function extractVideoThumbnail(
   opts: { privateAsset?: boolean } = {},
 ): Promise<string | null> {
   try {
+    if (!looksLikePlainVideo(videoBuffer)) return null;
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "umate-thumb-"));
-    const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
+    const tmpVideo = path.join(tmpDir, "input" + safeUploadExt(originalFilename, "video/mp4"));
     const tmpThumb = path.join(tmpDir, "thumb.jpg");
     await fs.writeFile(tmpVideo, videoBuffer);
     await execFileAsync("ffmpeg", [
+      ...FFMPEG_SAFE_INPUT_ARGS,
       "-i", tmpVideo,
       "-vframes", "1",
       "-ss", "0.5",

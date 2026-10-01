@@ -25,7 +25,7 @@ SHOP_MONTHLY_PRICE_CLP=4990          # ← CAMBIADO: Precio unificado de 4990 CL
 
 ```bash
 # Khipu - Sistema de Pagos
-KHIPU_API_KEY=5c24de64-13fd-4f64-bdd4-acabe2c46bbb
+KHIPU_API_KEY=<tu KHIPU_API_KEY>
 KHIPU_BASE_URL=https://payment-api.khipu.com
 KHIPU_SUBSCRIPTION_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/subscription
 KHIPU_CHARGE_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/charge

@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { safeUploadExt } from "../lib/uploadFilename";
 
 export type UploadResult = { url: string; type: "image" | "video" };
 
@@ -17,18 +18,15 @@ function mimeToType(mime: string): "image" | "video" {
   return "video";
 }
 
-/** Extensions that could execute scripts when served by the browser */
-const DANGEROUS_EXTENSIONS = new Set([
-  ".html", ".htm", ".xhtml", ".svg", ".xml",
-  ".php", ".jsp", ".asp", ".aspx", ".cgi",
-  ".js", ".mjs", ".ts", ".css",
-  ".swf", ".xss",
-]);
-
-function sanitizeExtension(ext: string): string {
+/**
+ * Lista blanca, no negra: sólo imágenes, videos y PDF (comprobantes) salen
+ * con su extensión. Cualquier otra cosa se guarda como ".bin" para que el
+ * navegador nunca la interprete como página o script.
+ */
+function sanitizeExtension(ext: string, mime: string): string {
   const lower = ext.toLowerCase();
-  if (DANGEROUS_EXTENSIONS.has(lower)) return ".bin";
-  return lower;
+  if (lower === ".pdf") return lower;
+  return safeUploadExt(`x${lower}`, mime);
 }
 
 export class LocalStorageProvider {
@@ -77,7 +75,7 @@ export class LocalStorageProvider {
     const folder = !isMulter ? (file as any).folder : undefined;
 
     const rawExt = path.extname(filenameIn || "") || "";
-    const ext = sanitizeExtension(rawExt);
+    const ext = sanitizeExtension(rawExt, String(mime || ""));
     const safeFolder = folder ? String(folder).replace(/[^a-zA-Z0-9_-]/g, "") : "";
     const unique = randomUUID();
 

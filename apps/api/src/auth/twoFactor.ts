@@ -27,6 +27,15 @@ function isAdminRoleOrEmail(user: { email?: string | null; role?: string | null 
   return Boolean(byRole || byEmail);
 }
 
+/**
+ * Quién entra al panel: administración y equipo. Todos ellos deben tener el
+ * doble factor (ver `requireAdmin`); las acciones destructivas con código
+ * fresco (`requireFresh2FA`) siguen siendo sólo del administrador.
+ */
+export function isPanelStaff(user: { email?: string | null; role?: string | null }): boolean {
+  return isAdminRoleOrEmail(user) || (user.role || "").toUpperCase() === "MODERATOR";
+}
+
 async function requireSession(req: Request, res: Response): Promise<{ id: string; email: string; role: string; twoFactorSecret: string | null; twoFactorEnabled: boolean; twoFactorLastUsedStep: bigint | null } | null> {
   if (!req.session.userId) {
     res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -55,7 +64,7 @@ twoFactorRouter.get(
   asyncHandler(async (req, res) => {
     const user = await requireSession(req, res);
     if (!user) return;
-    const adminRequired = isAdminRoleOrEmail(user);
+    const adminRequired = isPanelStaff(user);
     return res.json({
       enabled: user.twoFactorEnabled,
       required: adminRequired,
@@ -70,8 +79,8 @@ twoFactorRouter.post(
     const user = await requireSession(req, res);
     if (!user) return;
 
-    if (!isAdminRoleOrEmail(user)) {
-      return res.status(403).json({ error: "FORBIDDEN", message: "Solo administradores pueden configurar 2FA." });
+    if (!isPanelStaff(user)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Solo el equipo del panel puede configurar 2FA." });
     }
     if (user.twoFactorEnabled) {
       return res.status(409).json({ error: "ALREADY_ENABLED", message: "El doble factor ya está activado." });
@@ -95,7 +104,7 @@ twoFactorRouter.post(
     const user = await requireSession(req, res);
     if (!user) return;
 
-    if (!isAdminRoleOrEmail(user)) {
+    if (!isPanelStaff(user)) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
     if (user.twoFactorEnabled) {
@@ -184,7 +193,7 @@ twoFactorRouter.post(
     if (!user.twoFactorEnabled || !user.twoFactorSecret) {
       return res.status(400).json({ error: "NOT_ENROLLED" });
     }
-    if (!isAdminRoleOrEmail(user)) {
+    if (!isPanelStaff(user)) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
     const code = String(req.body?.code || "");
