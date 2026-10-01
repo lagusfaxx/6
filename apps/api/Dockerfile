@@ -39,19 +39,6 @@ FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg && rm -rf /var/lib/apt/lists/*
-# pg_dump para el respaldo diario a S3 (src/storage/dbBackup.ts). Cliente 17,
-# igual al servidor de producción (Postgres 17), del repositorio oficial de
-# PostgreSQL: el de Debian es 15 y no puede respaldar un servidor 17. Si se
-# actualiza el servidor, subir este número a la misma versión.
-RUN apt-get update -y \
-  && apt-get install -y --no-install-recommends ca-certificates curl \
-  && install -d /usr/share/postgresql-common/pgdg \
-  && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
-  && apt-get update -y \
-  && apt-get install -y --no-install-recommends postgresql-client-17 \
-  && apt-get purge -y curl && apt-get autoremove -y \
-  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma/node_modules ./prisma/node_modules

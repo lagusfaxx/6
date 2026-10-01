@@ -47,33 +47,6 @@ S3, así que las URLs guardadas en la base siguen funcionando.
 
 Estado del espejo (admin): `GET /admin/storage/s3-status`.
 
-#### Respaldo diario de la base de datos (mismo bucket)
-```bash
-# Se activa solo si están S3_BUCKET, AWS_REGION y las claves AWS de arriba
-# (aunque STORAGE_DRIVER siga en local). Para apagarlo:
-# DB_BACKUP_ENABLED=false
-```
-
-Todos los días a las 04:10 (hora de Chile) la API corre `pg_dump` y sube el
-archivo a `s3://<bucket>/db-backups/uzeed-AAAA-MM-DD-HHmmZ.dump`. Si al arrancar
-no hay un respaldo de las últimas 20 h, hace uno a los 5 minutos. Ese prefijo no
-se sirve nunca por `/uploads`. La tabla de sesiones se respalda sin datos.
-
-Estado (admin): `GET /admin/db-backup`. En los logs: `[db-backup] ok ...` o `[db-backup] FALLÓ: ...`.
-
-**Blindaje recomendado en AWS** (para que ni con las claves de la API se puedan borrar):
-1. Activar *Versioning* en el bucket: sobrescribir o borrar deja la versión anterior.
-2. Regla de ciclo de vida sobre `db-backups/`: borrar a los 30 días (y las versiones antiguas a los 30 días).
-3. Política IAM de `uzeed-api` sin `s3:DeleteObject` ni `s3:DeleteObjectVersion`
-   (el espejo y el respaldo sólo suben; nunca borran).
-
-**Restaurar** (con `pg_restore` 17, la misma versión del servidor, por ejemplo con Docker):
-```bash
-aws s3 cp s3://uzeed-media-prod/db-backups/uzeed-2026-10-01-0710Z.dump .
-docker run --rm -v "$PWD:/b" postgres:17 pg_restore --clean --if-exists \
-  --no-owner --no-privileges -d "postgresql://USER:PASS@HOST:5432/uzeed" /b/uzeed-2026-10-01-0710Z.dump
-```
-
 ### Admin
 ```bash
 ADMIN_EMAIL=admin@uzeed.cl
