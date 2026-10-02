@@ -124,6 +124,54 @@ escanear el QR otra vez. Para que la sesión sobreviva:
    WHATSAPP_GRAPH_VERSION=v21.0
    ```
 
+6. **Plantilla de mensajes** (para reenviar lo que escribe el cliente):
+   nombre `uzeed_mensaje` · Categoría **Utility** · Idioma **es** · Cuerpo:
+
+   ```
+   Hola {{1}} 👋 {{2}} te escribió en UZEED: "{{3}}"
+   Responde a este mensaje y se lo enviamos.
+   ```
+
+   (`{{1}}` profesional, `{{2}}` cliente, `{{3}}` texto. Se cambia con
+   `WHATSAPP_MESSAGE_TEMPLATE_NAME`.)
+
+### Responder desde WhatsApp
+
+Con la Cloud API, cuando un cliente escribe, a la profesional le llega su
+mensaje por WhatsApp y puede **responder ahí mismo**: la respuesta se envía
+como mensaje en el chat de UZEED y el bot reacciona con ✅.
+
+- **A qué chat va**: si desliza el mensaje del cliente y responde, a ese
+  chat. Si escribe sin citar, al chat del último aviso que recibió (máx. 48 h).
+  Responder a un aviso que no es de un chat (videollamada, reserva…) no se
+  envía a nadie: el bot le pide entrar a la app.
+- **Costo**: si la profesional escribió al bot en las últimas 24 h, los
+  mensajes siguientes se reenvían como texto libre (gratis y sin cooldown).
+  Si no, va la plantilla `uzeed_mensaje` (pagada) con el cooldown de
+  `WHATSAPP_MESSAGE_COOLDOWN_MIN`. En la práctica: responder abre la ventana
+  y la conversación sigue gratis.
+- Solo texto: fotos y audios se piden por la app.
+
+**Configurar el webhook** (Meta → tu app → WhatsApp → *Configuration*):
+
+1. Callback URL: `https://api.uzeed.cl/webhooks/whatsapp`
+2. Verify token: el mismo valor que `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+   (cualquier texto largo inventado). Pulsa *Verify and save* con el API ya
+   desplegado con esa variable.
+3. En *Webhook fields* suscribe **messages**.
+4. En *API Setup* pulsa **Subscribe webhooks** en la cuenta de WhatsApp
+   Business del número del bot.
+5. **Publica la app** (*App settings → Basic*: URL de política de privacidad
+   e ícono → *Publish*). Sin publicar, Meta no envía webhooks reales.
+6. Copia el **App Secret** (*App settings → Basic*) a `WHATSAPP_APP_SECRET`:
+   sin él el API rechaza todas las entregas (valida la firma).
+
+```env
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=un-texto-largo-inventado
+WHATSAPP_APP_SECRET=abc123...
+WHATSAPP_MESSAGE_TEMPLATE_NAME=uzeed_mensaje   # opcional
+```
+
 Tarifas vigentes: https://developers.facebook.com/docs/whatsapp/pricing
 (categoría Utility en Chile ≈ USD $0.005–0.02 por mensaje).
 

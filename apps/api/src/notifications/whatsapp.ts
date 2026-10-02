@@ -18,6 +18,10 @@ import { isBaileysEnabled, sendBaileysText } from "./whatsappBaileys";
 const GRAPH_VERSION = process.env.WHATSAPP_GRAPH_VERSION || "v21.0";
 const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion";
 const TEMPLATE_LANG = process.env.WHATSAPP_TEMPLATE_LANG || "es";
+/* Plantilla de mensajes de clientes: {{1}} profesional, {{2}} cliente, {{3}} texto. */
+const MESSAGE_TEMPLATE_NAME = process.env.WHATSAPP_MESSAGE_TEMPLATE_NAME || "uzeed_mensaje";
+/* Meta da 24 h; se deja margen para que el texto libre no llegue tarde. */
+const SERVICE_WINDOW_MS = 23 * 60 * 60 * 1000;
 const MESSAGE_COOLDOWN_MIN = Number(process.env.WHATSAPP_MESSAGE_COOLDOWN_MIN || 30);
 const CHAT_URL = process.env.WHATSAPP_NOTIFY_URL || "https://uzeed.cl/chats";
 
@@ -59,20 +63,11 @@ function sanitizeParam(text: string, max = 200): string {
   return String(text || "").replace(/\s+/g, " ").trim().slice(0, max) || "-";
 }
 
-/**
- * Envía la plantilla de notificación. La plantilla debe estar aprobada en
- * Meta Business y tener 2 variables de cuerpo: {{1}} nombre, {{2}} novedad.
- */
-export async function sendWhatsAppTemplate(
-  phone: string,
-  params: [name: string, info: string],
-): Promise<SendResult> {
+/** POST a la Cloud API de Meta con el número del bot. */
+async function cloudSend(payload: Record<string, any>): Promise<SendResult> {
   if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
     return { ok: false, error: "CLOUD_API_NOT_CONFIGURED" };
   }
-  const to = normalizePhoneForWhatsApp(phone);
-  if (!to) return { ok: false, error: "INVALID_PHONE" };
-
   try {
     const res = await fetch(
       `https://graph.facebook.com/${GRAPH_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
@@ -82,24 +77,7 @@ export async function sendWhatsAppTemplate(
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to,
-          type: "template",
-          template: {
-            name: TEMPLATE_NAME,
-            language: { code: TEMPLATE_LANG },
-            components: [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: sanitizeParam(params[0], 60) },
-                  { type: "text", text: sanitizeParam(params[1]) },
-                ],
-              },
-            ],
-          },
-        }),
+        body: JSON.stringify({ messaging_product: "whatsapp", ...payload }),
       },
     );
     const json: any = await res.json().catch(() => ({}));
@@ -113,6 +91,47 @@ export async function sendWhatsAppTemplate(
     console.error("[whatsapp] send error:", err?.message || err);
     return { ok: false, error: err?.message || "NETWORK_ERROR" };
   }
+}
+
+/** Plantilla aprobada en Meta con variables de cuerpo {{1}}, {{2}}, ... */
+async function sendCloudTemplate(to: string, template: string, params: string[]): Promise<SendResult> {
+  return cloudSend({
+    to,
+    type: "template",
+    template: {
+      name: template,
+      language: { code: TEMPLATE_LANG },
+      components: [
+        {
+          type: "body",
+          parameters: params.map((text) => ({ type: "text", text })),
+        },
+      ],
+    },
+  });
+}
+
+/** Texto libre: Meta solo lo entrega dentro de las 24 h desde que el número escribió. */
+export async function sendCloudText(to: string, text: string): Promise<SendResult> {
+  return cloudSend({ to, type: "text", text: { body: text, preview_url: false } });
+}
+
+/** Reacción a un mensaje recibido (confirma que la respuesta se envió). */
+export async function sendCloudReaction(to: string, messageId: string, emoji: string): Promise<SendResult> {
+  return cloudSend({ to, type: "reaction", reaction: { message_id: messageId, emoji } });
+}
+
+/**
+ * Envía la plantilla de notificación. La plantilla debe estar aprobada en
+ * Meta Business y tener 2 variables de cuerpo: {{1}} nombre, {{2}} novedad.
+ */
+export async function sendWhatsAppTemplate(
+  phone: string,
+  params: [name: string, info: string],
+): Promise<SendResult> {
+  const to = normalizePhoneForWhatsApp(phone);
+  if (!to) return { ok: false, error: "INVALID_PHONE" };
+  return sendCloudTemplate(to, TEMPLATE_NAME, [sanitizeParam(params[0], 60), sanitizeParam(params[1])]);
 }
 
 /**
@@ -208,9 +227,44 @@ function markSent(key: string) {
   lastSentAt.set(key, Date.now());
 }
 
+/** Texto del mensaje del cliente para reenviarlo (las fotos van como aviso). */
+async function relayedMessageText(prisma: PrismaClient, payload: Record<string, any>): Promise<string> {
+  const id = typeof payload?.messageId === "string" ? payload.messageId : null;
+  const message = id
+    ? await prisma.message.findUnique({ where: { id }, select: { body: true } }).catch(() => null)
+    : null;
+  const body = message?.body ?? String(payload?.body || "");
+  if (body.startsWith("ATTACHMENT_IMAGE:")) return "📷 Te envió una foto";
+  return body.trim().slice(0, 1000) || "-";
+}
+
+/** Guarda a qué chat pertenece un aviso enviado, para enrutar la respuesta. */
+async function saveRelay(
+  prisma: PrismaClient,
+  wamid: string | undefined,
+  userId: string,
+  peerId: string | null,
+  waId: string,
+): Promise<void> {
+  if (!wamid) return;
+  await prisma.whatsAppRelay
+    .create({ data: { wamid, userId, peerId, waId } })
+    .catch((err: any) => console.error("[whatsapp] relay save failed:", err?.message || err));
+  // Limpieza ocasional: una respuesta a un aviso de hace más de 30 días ya no se enruta.
+  if (Math.random() < 0.01) {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await prisma.whatsAppRelay.deleteMany({ where: { createdAt: { lt: cutoff } } }).catch(() => {});
+  }
+}
+
 /**
  * Punto de entrada llamado desde el middleware de Notification.create.
  * Decide si corresponde avisar por WhatsApp y envía. Nunca lanza.
+ *
+ * Con la Cloud API, los mensajes de clientes se reenvían con su texto y la
+ * profesional puede responder desde WhatsApp (ver whatsappWebhook.ts). Si
+ * escribió al bot en las últimas 24 h se reenvían todos como texto libre;
+ * si no, va una plantilla con el cooldown de siempre.
  */
 export async function maybeNotifyByWhatsApp(
   prisma: PrismaClient,
@@ -219,12 +273,16 @@ export async function maybeNotifyByWhatsApp(
   payload: Record<string, any>,
 ): Promise<void> {
   try {
-    if (!isWhatsAppConfigured() || !type) return;
+    const provider = getWhatsAppProvider();
+    if (!provider || !type) return;
     const rule = RULES[type];
     if (!rule) return;
 
+    const peerId = typeof payload?.fromId === "string" ? payload.fromId : null;
+    const relay = provider === "cloud" && type === "MESSAGE_RECEIVED" && Boolean(peerId);
+
     const key = `${userId}:${type}`;
-    if (underCooldown(key, rule.cooldownMin)) return;
+    if (!relay && underCooldown(key, rule.cooldownMin)) return;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -244,9 +302,42 @@ export async function maybeNotifyByWhatsApp(
     if (rule.onlyIfOffline && isActiveInApp(user.isOnline, user.lastSeen)) return;
 
     const name = user.displayName || user.username || "";
+
+    if (relay) {
+      const to = normalizePhoneForWhatsApp(user.phone);
+      if (!to) return;
+      const contact = await prisma.whatsAppContact.findUnique({ where: { waId: to } });
+      const windowOpen = Boolean(contact && Date.now() - contact.lastInboundAt.getTime() < SERVICE_WINDOW_MS);
+      if (!windowOpen && underCooldown(key, rule.cooldownMin)) return;
+
+      const sender = await prisma.user.findUnique({
+        where: { id: peerId! },
+        select: { displayName: true, username: true },
+      });
+      const senderName = sanitizeParam(sender?.displayName || sender?.username || "Un cliente", 60);
+      const text = await relayedMessageText(prisma, payload);
+
+      const result = windowOpen
+        ? await sendCloudText(to, `💬 *${senderName}*: ${text}\n\n↩️ Responde aquí para contestarle.`)
+        : await sendCloudTemplate(to, MESSAGE_TEMPLATE_NAME, [
+            sanitizeParam(name, 60),
+            senderName,
+            sanitizeParam(text, 300),
+          ]);
+      if (result.ok) {
+        if (!windowOpen) markSent(key);
+        await saveRelay(prisma, result.messageId, userId, peerId, to);
+        console.log(`[whatsapp] relayed user=${userId} from=${peerId} msg=${result.messageId}`);
+      }
+      return;
+    }
+
     const result = await sendWhatsAppNotification(user.phone, name, rule.info(payload));
     if (result.ok) {
       markSent(key);
+      // Responder a un aviso que no es de un chat no debe caer en el último chat.
+      const to = normalizePhoneForWhatsApp(user.phone);
+      if (provider === "cloud" && to) await saveRelay(prisma, result.messageId, userId, null, to);
       console.log(`[whatsapp] notified user=${userId} type=${type} msg=${result.messageId}`);
     }
   } catch (err: any) {

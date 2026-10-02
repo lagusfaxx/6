@@ -914,6 +914,26 @@ model AutoReplyLog {
 /// Respuestas rápidas entregadas: marca los mensajes que la plataforma envió en
 /// nombre de la profesional cuando el cliente tocó una pregunta, para que las
 /// estadísticas de respuesta no los cuenten como respuestas escritas por ella.
+/// Avisos enviados por WhatsApp (Cloud API). Si la profesional responde a uno
+/// desde WhatsApp, su respuesta va al chat de ese aviso (peerId). Los avisos
+/// que no son de un chat se guardan con peerId nulo.
+model WhatsAppRelay {
+  wamid     String   @id
+  userId    String   @db.Uuid
+  peerId    String?  @db.Uuid
+  waId      String
+  createdAt DateTime @default(now())
+
+  @@index([waId, createdAt])
+}
+
+/// Última vez que el número escribió al bot. Durante las 24 h siguientes Meta
+/// permite enviarle texto libre (gratis) en vez de plantillas.
+model WhatsAppContact {
+  waId          String   @id
+  lastInboundAt DateTime
+}
+
 model QuickReplyAnswer {
   messageId      String   @id @db.Uuid
   professionalId String   @db.Uuid

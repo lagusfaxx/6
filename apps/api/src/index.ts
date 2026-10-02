@@ -38,6 +38,7 @@ import { creatorRouter } from "./creator/routes";
 import { billingRouter } from "./billing/routes";
 import { promoRouter } from "./promo/routes";
 import { notificationsRouter } from "./notifications/routes";
+import { whatsappWebhookRouter } from "./notifications/whatsappWebhook";
 import { realtimeRouter } from "./realtime/routes";
 import { FlowError } from "./khipu/client";
 import { statsRouter } from "./stats/routes";
@@ -168,7 +169,13 @@ app.use((req, res, next) => {
 
 // JSON body parser
 app.use((req, res, next) => {
-  express.json({ limit: "2mb" })(req, res, next);
+  express.json({
+    limit: "2mb",
+    // El webhook de WhatsApp firma el cuerpo exacto: se guarda para validarlo.
+    verify: (r, _res, buf) => {
+      if (r.url?.startsWith("/webhooks/whatsapp")) (r as any).rawBody = buf;
+    },
+  })(req, res, next);
 });
 
 // Flow webhooks (and some third-party callbacks) arrive as application/x-www-form-urlencoded.
@@ -283,6 +290,7 @@ app.use("/", creatorRouter);
 app.use("/", billingRouter);
 app.use("/", promoRouter);
 app.use("/", notificationsRouter);
+app.use("/", whatsappWebhookRouter);
 app.use("/", realtimeRouter);
 app.use("/", statsRouter);
 app.use("/", favoritesRouter);
