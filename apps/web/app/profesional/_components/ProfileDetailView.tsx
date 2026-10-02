@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import {
@@ -36,8 +36,23 @@ import {
   Play,
   Share2,
   Check,
+  Gem,
+  Crown,
+  Medal,
+  Cake,
+  Ruler,
+  Weight,
+  Palette,
+  Languages,
+  Sun,
+  Zap,
+  BadgeCheck,
+  ShieldCheck,
+  House,
+  Car,
+  type LucideIcon,
 } from "lucide-react";
-import { EXAMS_ENABLED, hasVerifiedBadge } from "../../../lib/systemBadges";
+import { hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
 import WhatsAppIcon from "../../../components/icons/WhatsAppIcon";
 
@@ -142,6 +157,59 @@ type SurveySummary = {
    columnas justas en el escritorio y deja la sección corta en el teléfono. */
 const VISIBLE_SERVICES = 9;
 
+/* Insignia del plan. Cada nivel con su color e icono: en texto plano
+   ("Escort GOLD") el rango —que es lo que la profesional paga— no se notaba. */
+const LEVEL_BADGES: Record<string, { label: string; Icon: LucideIcon; className: string }> = {
+  DIAMOND: {
+    label: "Diamond",
+    Icon: Gem,
+    className:
+      "border-cyan-300/40 bg-gradient-to-r from-cyan-500/30 to-sky-500/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.18)]",
+  },
+  GOLD: {
+    label: "Gold",
+    Icon: Crown,
+    className:
+      "border-amber-300/40 bg-gradient-to-r from-amber-500/30 to-yellow-500/10 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.15)]",
+  },
+  SILVER: {
+    label: "Silver",
+    Icon: Medal,
+    className: "border-white/20 bg-gradient-to-r from-white/[0.12] to-white/[0.03] text-white/85",
+  },
+};
+
+/* Icono y tono de cada dato de la ficha técnica. */
+const SPEC_ICONS: Record<string, { Icon: LucideIcon; tint: string }> = {
+  Edad: { Icon: Cake, tint: "bg-fuchsia-500/15 text-fuchsia-300" },
+  Estatura: { Icon: Ruler, tint: "bg-violet-500/15 text-violet-300" },
+  Peso: { Icon: Weight, tint: "bg-sky-500/15 text-sky-300" },
+  Medidas: { Icon: Sparkles, tint: "bg-rose-500/15 text-rose-300" },
+  Cabello: { Icon: Palette, tint: "bg-amber-500/15 text-amber-300" },
+  Piel: { Icon: Sun, tint: "bg-orange-500/15 text-orange-300" },
+  Idiomas: { Icon: Languages, tint: "bg-emerald-500/15 text-emerald-300" },
+};
+
+/** Título de sección con el icono dentro de un cuadrito de color. */
+function SectionTitle({
+  Icon,
+  tint,
+  children,
+}: {
+  Icon: LucideIcon;
+  tint: string;
+  children: ReactNode;
+}) {
+  return (
+    <h2 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${tint}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      {children}
+    </h2>
+  );
+}
+
 const SERVICE_SUBCATEGORIES = [
   "Anal",
   "Oral",
@@ -164,14 +232,6 @@ const SERVICE_SUBCATEGORIES = [
   "Fetichismo",
   "Novia experience",
 ] as const;
-
-/** La insignia de exámenes viene con y sin tilde según cuándo se guardó. */
-function hasExamsBadge(tags: string[] | null | undefined): boolean {
-  return (tags || []).some((t) => {
-    const n = t.toLowerCase().trim();
-    return n === "profesional con examenes" || n === "profesional con exámenes";
-  });
-}
 
 function splitCsv(value?: string | null) {
   return (value || "")
@@ -407,14 +467,6 @@ export default function ProfileDetailView({
       ),
     [matchedSubcategories, professional?.serviceTags],
   );
-
-  const availabilityChips = useMemo(() => {
-    if (!professional) return [] as string[];
-    const chips: string[] = [];
-    if (professional.acceptsIncalls) chips.push("Recibe");
-    if (professional.acceptsOutcalls) chips.push("Se desplaza");
-    return chips;
-  }, [professional]);
 
   const availableNow = useMemo(
     () => isRecentlySeen(professional?.lastSeen),
@@ -685,13 +737,69 @@ export default function ProfileDetailView({
   // cruzada abajo: se ve de una y dice qué es sin que nadie tenga que tocar
   // un escudo diminuto.
   const isVerifiedProfile = hasVerifiedBadge(professional?.profileTags);
-  const hasExams = hasExamsBadge(professional?.profileTags);
+
+  /* "Responde al instante" sólo si el dato existe y es bueno: prometer
+     rapidez sin respaldo es lo que hace que el cliente escriba y se queme. */
+  const fastResponse =
+    professional.avgResponseMinutes != null && professional.avgResponseMinutes <= 30
+      ? professional.avgResponseMinutes <= 5
+        ? "Responde al instante"
+        : `Responde en ${professional.avgResponseMinutes} min`
+      : null;
 
   /* Línea bajo el nombre: el nivel es lo que la distingue de un aviso
      cualquiera, y si no tiene, la categoría dice al menos qué ofrece. */
   const levelLabel = professional.userLevel
     ? `Escort ${professional.userLevel}`
     : professional.category || "Escort";
+  const levelBadge = professional.userLevel
+    ? LEVEL_BADGES[professional.userLevel.toUpperCase()] ?? null
+    : null;
+  const levelPill = levelBadge ? (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${levelBadge.className}`}
+    >
+      <levelBadge.Icon className="h-3.5 w-3.5" />
+      {levelBadge.label}
+    </span>
+  ) : (
+    <span className="text-white/55">{levelLabel}</span>
+  );
+
+  /* Atributos en pastillas con icono: verificación, rapidez de respuesta,
+     servicios y modalidad. "Disponible ahora" ya va sobre la foto. Se leen de un vistazo sin armar un párrafo. */
+  const highlights: { key: string; Icon: LucideIcon; label: string; className: string }[] = [
+    isVerifiedProfile && {
+      key: "verified",
+      Icon: ShieldCheck,
+      label: "Verificada",
+      className: "border-sky-400/35 bg-sky-500/15 text-sky-100",
+    },
+    fastResponse && {
+      key: "fast",
+      Icon: Zap,
+      label: fastResponse,
+      className: "border-amber-400/30 bg-amber-500/12 text-amber-100",
+    },
+    (professional.completedServices ?? 0) > 0 && {
+      key: "done",
+      Icon: BadgeCheck,
+      label: `${professional.completedServices} servicios completados`,
+      className: "border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-100",
+    },
+    professional.acceptsIncalls && {
+      key: "in",
+      Icon: House,
+      label: "Recibe",
+      className: "border-white/15 bg-white/[0.05] text-white/80",
+    },
+    professional.acceptsOutcalls && {
+      key: "out",
+      Icon: Car,
+      label: "Se desplaza",
+      className: "border-white/15 bg-white/[0.05] text-white/80",
+    },
+  ].filter(Boolean) as { key: string; Icon: LucideIcon; label: string; className: string }[];
 
   /* Ficha técnica en pares dato/valor. Antes esto eran dos filas de etiquetas
      de colores; en una página de verdad los datos van en una lista y las
@@ -712,14 +820,6 @@ export default function ProfileDetailView({
 
   const aboutText = cleanProfileText(professional.description);
 
-  /* "Responde al instante" sólo si el dato existe y es bueno: prometer
-     rapidez sin respaldo es lo que hace que el cliente escriba y se queme. */
-  const fastResponse =
-    professional.avgResponseMinutes != null && professional.avgResponseMinutes <= 30
-      ? professional.avgResponseMinutes <= 5
-        ? "Responde al instante"
-        : `Responde en ${professional.avgResponseMinutes} min`
-      : null;
 
   /* Lo que ofrece, en una sola lista: las etiquetas que marcó más las
      subcategorías deducidas de ellas, sin repetir y en orden. Sin useMemo a
@@ -789,10 +889,10 @@ export default function ProfileDetailView({
                     </span>
                   ) : null}
                 </p>
-                <p className="mt-1 text-[13px] text-white/55">{levelLabel}</p>
+                <p className="mt-2 flex text-[13px]">{levelPill}</p>
               </div>
 
-              {isVerifiedProfile && <VerifiedBand size="md" />}
+              {isVerifiedProfile && <VerifiedBand size="md" corner text="Verificada" />}
             </button>
 
             {availableNow && (
@@ -835,11 +935,14 @@ export default function ProfileDetailView({
                   </span>
                 ) : null}
               </h1>
-              <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-white/55">
-                <span>
-                  {levelLabel}
-                  {professional.city ? ` · ${professional.city}` : ""}
-                </span>
+              <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/55">
+                {levelPill}
+                {professional.city && (
+                  <span className="inline-flex items-center gap-1 text-white/70">
+                    <MapPin className="h-3.5 w-3.5 text-fuchsia-400/80" />
+                    {professional.city}
+                  </span>
+                )}
                 {professional.nearestMetro && (
                   /* La referencia con la que se ubica media Santiago. Va junto
                      al nombre porque es de las primeras cosas que se buscan. */
@@ -851,82 +954,52 @@ export default function ProfileDetailView({
               </p>
             </div>
 
-            {/* Ficha técnica: una lista de datos, no una fila de etiquetas de
-                colores. Se lee igual de rápido y no parece un formulario. */}
+            {/* Ficha técnica: cada dato en su recuadro con icono, para que la
+                vista encuentre edad o estatura sin leer la lista entera. */}
             {specs.length > 0 && (
-              <dl className="mt-5 grid grid-cols-2 gap-x-8 border-t border-white/[0.08] sm:grid-cols-3">
-                {specs.map(({ label, value }) => (
-                  <div
-                    key={label}
-                    className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] py-2.5"
-                  >
-                    <dt className="text-[13px] text-white/40">{label}</dt>
-                    <dd className="text-right text-[14px] font-medium text-white/90">
-                      {value}
-                    </dd>
-                  </div>
-                ))}
+              <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {specs.map(({ label, value }) => {
+                  const spec = SPEC_ICONS[label] ?? {
+                    Icon: Sparkles,
+                    tint: "bg-white/10 text-white/70",
+                  };
+                  return (
+                    <div
+                      key={label}
+                      className="flex min-w-0 items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5"
+                    >
+                      <span
+                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${spec.tint}`}
+                      >
+                        <spec.Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <dt className="text-[11px] uppercase tracking-wide text-white/40">
+                          {label}
+                        </dt>
+                        <dd className="truncate text-[14px] font-semibold text-white/90">
+                          {value}
+                        </dd>
+                      </div>
+                    </div>
+                  );
+                })}
               </dl>
             )}
 
-            {/* Verificación. Cada línea lleva su color: verde cuando el dato
-                está comprobado y ámbar cuando falta. En gris parejo el cliente
-                no distinguía una cosa de la otra y la verificación —que es el
-                argumento de venta del perfil— pasaba desapercibida. */}
-            <div className="mt-5 space-y-2.5">
-              <p
-                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
-                  isVerifiedProfile
-                    ? "border-sky-400/70 text-sky-100/75"
-                    : "border-amber-400/60 text-amber-100/70"
-                }`}
-              >
-                <span>
-                  <span
-                    className={`font-semibold ${
-                      isVerifiedProfile ? "text-sky-400" : "text-amber-300"
-                    }`}
+            {highlights.length > 0 && (
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {highlights.map(({ key, Icon, label, className }) => (
+                  <li
+                    key={key}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-medium ${className}`}
                   >
-                    {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}
-                  </span>
-                  {isVerifiedProfile
-                    ? `El equipo comprobó que las fotos publicadas corresponden a ${professional.name}.`
-                    : "Todavía no comprobamos que las fotos correspondan a esta persona."}
-                </span>
-              </p>
-              {EXAMS_ENABLED && (
-              <p
-                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
-                  hasExams
-                    ? "border-emerald-400/70 text-emerald-100/75"
-                    : "border-amber-400/60 text-amber-100/70"
-                }`}
-              >
-                <span>
-                  <span
-                    className={`font-semibold ${hasExams ? "text-emerald-300" : "text-amber-300"}`}
-                  >
-                    {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
-                  </span>
-                  {hasExams
-                    ? "Presentó exámenes médicos vigentes al equipo."
-                    : "No hay exámenes médicos vigentes en el perfil."}
-                </span>
-              </p>
-              )}
-              {(fastResponse || (professional.completedServices ?? 0) > 0) && (
-                <p className="border-l-2 border-white/15 pl-3 text-[13.5px] leading-relaxed text-white/55">
-                  {[
-                    fastResponse,
-                    (professional.completedServices ?? 0) > 0
-                      ? `${professional.completedServices} servicios completados`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-            </div>
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {/* Sobre mí */}
             {aboutText && (
@@ -954,12 +1027,15 @@ export default function ProfileDetailView({
               </div>
             )}
 
-            {/* Contacto y precio: lo único con peso visual de la columna. */}
-            <div className="mt-6 border-t border-white/[0.08] pt-5">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Banknote className="h-5 w-5 shrink-0 text-emerald-400/80" />
+            {/* Contacto y precio en un recuadro con degradado: es lo que el
+                cliente busca para decidir, así que es lo que más resalta. */}
+            <div className="mt-6 rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/[0.12] via-violet-500/[0.06] to-transparent p-4 md:p-5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300">
+                  <Banknote className="h-5 w-5" />
+                </span>
                 <span className="text-2xl font-semibold tracking-tight">{priceLabel}</span>
-                <span className="inline-flex items-center gap-1.5 text-[13px] text-white/45">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[12.5px] text-white/60">
                   <Clock className="h-3.5 w-3.5" />
                   {durationLabel}
                 </span>
@@ -968,8 +1044,9 @@ export default function ProfileDetailView({
               <div className="mt-4 hidden flex-wrap gap-2.5 md:flex">
                 <button
                   onClick={() => handleChatClick("message")}
-                  className="rounded-lg bg-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-fuchsia-500"
+                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(192,38,211,0.35)] transition hover:from-fuchsia-500 hover:to-violet-500"
                 >
+                  <MessageSquare className="h-4 w-4" />
                   Enviar mensaje
                 </button>
                 {professional.phone && (
@@ -1000,8 +1077,9 @@ export default function ProfileDetailView({
                           displayName: professional.name,
                         })
                       }
-                      className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                     >
+                      <Phone className="h-4 w-4" />
                       {professional.phone}
                     </a>
                   </>
@@ -1009,8 +1087,9 @@ export default function ProfileDetailView({
                 {hasStore && (
                   <Link
                     href={`/marketplace/tienda/${professional.username ?? ""}`}
-                    className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                   >
+                    <ShoppingBag className="h-4 w-4" />
                     Su tienda
                   </Link>
                 )}
@@ -1031,9 +1110,6 @@ export default function ProfileDetailView({
                       <span className="text-white/45">
                         {" · "}Metro {professional.nearestMetro.name}
                       </span>
-                    )}
-                    {availabilityChips.length > 0 && (
-                      <span className="text-white/45"> · {availabilityChips.join(" · ")}</span>
                     )}
                   </dd>
                 </div>
@@ -1068,10 +1144,9 @@ export default function ProfileDetailView({
         {gallery.length > 0 && (
           <section id="fotos" className="mt-10 px-4 md:px-0">
             <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.08] pb-2.5">
-              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                <Camera className="h-4 w-4 text-white/35" />
+              <SectionTitle Icon={Camera} tint="bg-sky-500/15 text-sky-300">
                 Fotos
-              </h2>
+              </SectionTitle>
               <p className="text-[13px] text-white/40">
                 {photoCount} foto{photoCount === 1 ? "" : "s"}
                 {videoCount > 0
@@ -1142,23 +1217,24 @@ export default function ProfileDetailView({
               veinte pastillas de colores, que era el otro extremo. */}
           {(serviceList.length > 0 || styleChips.length > 0) && (
             <section id="servicios" className="min-w-0 scroll-mt-24 py-8 first:pt-0">
-              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                <ListChecks className="h-4 w-4 text-white/35" />
+              <SectionTitle Icon={ListChecks} tint="bg-emerald-500/15 text-emerald-300">
                 Servicios
-              </h2>
+              </SectionTitle>
 
               {serviceList.length > 0 && (
                 <>
-                  <ul className="mt-4 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                  <ul className="mt-4 flex flex-wrap gap-2">
                     {(showAllServices
                       ? serviceList
                       : serviceList.slice(0, VISIBLE_SERVICES)
                     ).map((item) => (
                       <li
                         key={item}
-                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14.5px] text-white/85"
+                        className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/[0.08] py-1.5 pl-1.5 pr-3.5 text-[14px] text-white/90"
                       >
-                        <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-500/25">
+                          <Check className="h-3 w-3 text-emerald-300" strokeWidth={3} />
+                        </span>
                         <span className="first-letter:uppercase">{item}</span>
                       </li>
                     ))}
@@ -1180,13 +1256,13 @@ export default function ProfileDetailView({
               {styleChips.length > 0 && (
                 <div className="mt-5">
                   <h3 className="text-[13px] font-medium text-white/40">Estilo</h3>
-                  <ul className="mt-2 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                  <ul className="mt-2 flex flex-wrap gap-2">
                     {styleChips.map((item) => (
                       <li
                         key={item}
-                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14px] text-white/60"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[13.5px] text-white/75"
                       >
-                        <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+                        <Sparkles className="h-3 w-3 text-fuchsia-300/80" />
                         <span className="first-letter:uppercase">{item}</span>
                       </li>
                     ))}
@@ -1200,15 +1276,22 @@ export default function ProfileDetailView({
               no la pastilla verde alrededor. */}
           {reviewTags.length > 0 && (
             <section className="min-w-0 py-8">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <SectionTitle Icon={Sparkles} tint="bg-violet-500/15 text-violet-300">
                 Lo que repiten los clientes
-              </h2>
-              <p className="mt-3 text-[15px] leading-[1.8] text-white/75">
-                {reviewTags
-                  .map(({ tag, count }) => `${tag} (${count})`)
-                  .join(", ")}
-                .
-              </p>
+              </SectionTitle>
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {reviewTags.map(({ tag, count }) => (
+                  <li
+                    key={tag}
+                    className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-500/10 py-1 pl-3 pr-1 text-[13.5px] text-white/85"
+                  >
+                    <span className="first-letter:uppercase">{tag}</span>
+                    <span className="grid min-w-[22px] place-items-center rounded-full bg-violet-500/30 px-1.5 text-[11px] font-semibold text-violet-100">
+                      {count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
@@ -1216,10 +1299,9 @@ export default function ProfileDetailView({
           {reviews.length > 0 && (
             <section className="min-w-0 py-8">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                  <MessageSquare className="h-4 w-4 text-white/35" />
+                <SectionTitle Icon={MessageSquare} tint="bg-rose-500/15 text-rose-300">
                   Reseñas ({professional.reviewCount || reviews.length})
-                </h2>
+                </SectionTitle>
                 {professional.rating != null && (
                   <span className="text-[13px] text-white/45">
                     {professional.rating.toFixed(1)} de 5
@@ -1287,15 +1369,14 @@ export default function ProfileDetailView({
           {/* Survey Rating Summary + Button */}
           <section className="min-w-0 py-8">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                <Star className="h-4 w-4 fill-amber-300/80 text-amber-300/80" />
+              <SectionTitle Icon={Star} tint="bg-amber-500/15 text-amber-300">
                 Calificaciones
                 {surveySummary && surveySummary.count > 0 && (
-                  <span className="ml-1.5 text-[13px] font-normal text-white/40">
+                  <span className="ml-1 text-[13px] font-normal text-white/40">
                     ({surveySummary.count})
                   </span>
                 )}
-              </h2>
+              </SectionTitle>
               <button
                 type="button"
                 onClick={() => {
@@ -1309,7 +1390,7 @@ export default function ProfileDetailView({
             </div>
 
             {surveySummary && surveySummary.count > 0 ? (
-              <div className="space-y-3">
+              <div className="mt-4 space-y-3">
                 {/* Rating bars */}
                 <div className="space-y-2">
                   {[
@@ -1329,12 +1410,12 @@ export default function ProfileDetailView({
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
                       <span className="flex w-32 shrink-0 items-center gap-2 text-xs text-white/50">
-                        <item.Icon className="h-3.5 w-3.5 text-white/30" />
+                        <item.Icon className="h-3.5 w-3.5 text-fuchsia-300/70" />
                         {item.label}
                       </span>
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-white/45"
+                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-amber-300"
                           style={{ width: `${item.value * 10}%` }}
                         />
                       </div>
@@ -1403,9 +1484,9 @@ export default function ProfileDetailView({
           {professional.forumThread && (
             <section className="min-w-0 py-8">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">
+                <SectionTitle Icon={MessageSquare} tint="bg-fuchsia-500/15 text-fuchsia-300">
                   Opiniones en el foro
-                </h2>
+                </SectionTitle>
                 {forumComments.length > 0 && (
                   <Link
                     href={professional.forumThread.url}
@@ -1447,18 +1528,6 @@ export default function ProfileDetailView({
             </section>
           )}
 
-          {/* La descripción del servicio venía en la barra lateral, que ya no
-              existe: ahora va con el resto del contenido. */}
-          {cleanProfileText(professional.serviceSummary) && (
-            <section className="min-w-0 py-8">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Cómo trabaja
-              </h2>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-[1.8] text-white/75">
-                {cleanProfileText(professional.serviceSummary)}
-              </p>
-            </section>
-          )}
         </div>
       </div>
 
@@ -1497,7 +1566,7 @@ export default function ProfileDetailView({
                     alt="Vista ampliada"
                     className="h-full w-full rounded-3xl border border-white/10 object-contain"
                   />
-                  {isVerifiedProfile && <VerifiedBand size="lg" />}
+                  {isVerifiedProfile && <VerifiedBand size="lg" corner text="Verificada" />}
                 </div>
               )}
               {gallery.length > 1 && (

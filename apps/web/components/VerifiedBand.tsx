@@ -56,6 +56,17 @@ const STRIPES: CSSProperties = {
     "repeating-linear-gradient(115deg, rgba(255,255,255,0.13) 0 10px, rgba(255,255,255,0) 10px 22px)",
 };
 
+/* Cinta de esquina: `box` es el cuadrado que la recorta, `width` el largo de la
+   cinta y `offset` cuánto se mete hacia la esquina. */
+const CORNER_PRESETS: Record<
+  BandSize,
+  { box: number; width: number; offset: number; font: number; tick: number; padY: number }
+> = {
+  sm: { box: 80, width: 130, offset: 26, font: 7.5, tick: 8, padY: 2 },
+  md: { box: 110, width: 180, offset: 38, font: 9, tick: 10, padY: 3 },
+  lg: { box: 130, width: 220, offset: 46, font: 11, tick: 12, padY: 4 },
+};
+
 type Props = {
   /** Escala de la banda. "sm" en tarjetas, "md" en galerías, "lg" en el lightbox. */
   size?: BandSize;
@@ -63,6 +74,10 @@ type Props = {
   text?: string;
   /** Colócala en el flujo (dentro del bloque inferior) en vez de anclarla a la foto. */
   inline?: boolean;
+  /** Cinta chica cruzada en la esquina inferior derecha en vez de la franja
+   *  de lado a lado. Es la del detalle del perfil: la franja ancha tapaba
+   *  la foto y sumaba otro bloque de texto a una ficha que ya tenía mucho. */
+  corner?: boolean;
   className?: string;
 };
 
@@ -70,9 +85,55 @@ export default function VerifiedBand({
   size = "md",
   text = "PERFIL VERIFICADO",
   inline = false,
+  corner = false,
   className = "",
 }: Props) {
   const preset = PRESETS[size];
+
+  if (corner) {
+    const c = CORNER_PRESETS[size];
+    return (
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-0 right-0 z-[3] select-none overflow-hidden ${className}`}
+        style={{ width: c.box, height: c.box }}
+      >
+        <div
+          className="absolute flex items-center justify-center gap-1 bg-sky-400 text-[#04121c] shadow-[0_2px_8px_rgba(56,189,248,0.4)]"
+          style={{
+            width: c.width,
+            /* El centro de la cinta va sobre la diagonal, a `offset` de la
+               esquina; desde ahí se gira. */
+            left: c.box - c.offset,
+            top: c.box - c.offset,
+            transform: "translate(-50%, -50%) rotate(-45deg)",
+            paddingTop: c.padY,
+            paddingBottom: c.padY,
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width={c.tick}
+            height={c.tick}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <span
+            className="whitespace-nowrap font-extrabold uppercase"
+            style={{ fontSize: c.font, letterSpacing: "0.08em", lineHeight: 1.15 }}
+          >
+            {text}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const content = (
     <>

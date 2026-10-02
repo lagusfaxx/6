@@ -148,7 +148,7 @@ function LivePreviewProfessional({ state, user }: Props) {
               </p>
             )}
           </div>
-          {isVerified && photoUrl && <VerifiedBand size="sm" />}
+          {isVerified && photoUrl && <VerifiedBand size="sm" corner text="Verificada" />}
         </div>
 
         <div className="px-4 pb-5 pt-4">
