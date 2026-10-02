@@ -1,5 +1,6 @@
 import type { Prisma, PromoCode, PromoProduct } from "@prisma/client";
 import { prisma } from "../db";
+import { membershipRenewalBase } from "./billingSettings";
 
 /**
  * Membresía y boosts (Subir al top, Destacada) de los perfiles profesionales.
@@ -101,8 +102,7 @@ export function computeMembershipPurchase(
   days: number,
   now = new Date()
 ): Date {
-  const base =
-    user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now.getTime() ? user.membershipExpiresAt : now;
+  const base = membershipRenewalBase(user.membershipExpiresAt, now);
   return new Date(base.getTime() + days * DAY_MS);
 }
 

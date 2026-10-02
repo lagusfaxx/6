@@ -6,6 +6,7 @@ import { config } from "../config";
 import { prisma } from "../db";
 import { confirmOrderPaid, rejectOrderPayment } from "../market/orders";
 import { applyPromoPurchase, invalidateBoostCache } from "../lib/promo";
+import { membershipRenewalBase } from "../lib/billingSettings";
 import {
   createProfessionalUser,
   EmailInUseError,
@@ -405,8 +406,7 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       const current = await tx.user.findUnique({ where: { id: user.id }, select: { membershipExpiresAt: true } });
-      const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-        ? current.membershipExpiresAt : now;
+      const base = membershipRenewalBase(current?.membershipExpiresAt, now);
       const expiresAt = addDays(base, config.membershipDays);
       await tx.user.update({ where: { id: user.id }, data: { membershipExpiresAt: expiresAt } });
       await tx.notification.create({
@@ -484,9 +484,7 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       select: { membershipExpiresAt: true }
     });
 
-    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-      ? current.membershipExpiresAt
-      : now;
+    const base = membershipRenewalBase(current?.membershipExpiresAt, now);
     const expiresAt = addDays(base, config.membershipDays);
 
     await tx.user.update({
@@ -913,9 +911,7 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
           select: { membershipExpiresAt: true }
         });
 
-        const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-          ? current.membershipExpiresAt
-          : now;
+        const base = membershipRenewalBase(current?.membershipExpiresAt, now);
         const expiresAt = addDays(base, config.membershipDays);
 
         await tx.user.update({

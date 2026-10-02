@@ -213,6 +213,18 @@ export function activePlanRelationWhere(): Prisma.UserWhereInput | undefined {
   return "OR" in extra ? extra : undefined;
 }
 
+/**
+ * Desde cuándo se cuentan los días de un pago de membresía: lo más tarde entre
+ * hoy, el vencimiento vigente y el fin de la gracia general. Así quien paga
+ * durante la gracia (p. ej. avisos desde el 2/10 y cobro desde el 5/11) no
+ * pierde días: su mes empieza cuando termina la gracia.
+ */
+export function membershipRenewalBase(current: Date | null | undefined, now = new Date()): Date {
+  const s = getBillingSettingsSync();
+  const grace = s.enabled ? graceEndsAt(s) : null;
+  return new Date(Math.max(now.getTime(), current?.getTime() ?? 0, grace?.getTime() ?? 0));
+}
+
 /** Días que le quedan a un perfil de acceso gratis/pagado (0 si ninguno). */
 export function remainingAccessDays(
   user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt?: Date | null },

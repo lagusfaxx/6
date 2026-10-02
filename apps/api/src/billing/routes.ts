@@ -7,6 +7,7 @@ import {
   getBillingSettings,
   updateBillingSettings,
   graceEndsAt,
+  membershipRenewalBase,
   isBillingEnforced,
   remainingAccessDays,
 } from "../lib/billingSettings";
@@ -427,9 +428,7 @@ billingRouter.post("/admin/billing/transfers/:id/approve", requireAdmin, asyncHa
       select: { membershipExpiresAt: true }
     });
 
-    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-      ? current.membershipExpiresAt
-      : now;
+    const base = membershipRenewalBase(current?.membershipExpiresAt, now);
     const expiresAt = addDays(base, config.membershipDays);
 
     await tx.user.update({
