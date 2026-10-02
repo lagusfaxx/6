@@ -36,16 +36,18 @@ prisma.$use(async (params, next) => {
   // Estadísticas: historial de tier y última edición de la ficha. Se resuelve
   // antes de la escritura para leer el tier anterior.
   let tierBefore: { id: string; tier: string | null }[] | null = null;
-  // El rango (Silver/Gold/Diamond) sigue a la tarifa: cada vez que se escribe
-  // `baseRate` sin un `tier` explícito (el admin puede fijarlo a mano), se
-  // recalcula. Ya no hay planes pagados que venzan.
+  // El rango (Silver/Gold/Diamond) sale SÓLO de la tarifa: cada vez que se
+  // escribe `baseRate` se recalcula, y un `tier` escrito a mano se ignora.
   if (params.model === "User" && ["create", "update", "updateMany"].includes(params.action)) {
     const data = params.args?.data;
-    if (data && typeof data === "object" && "baseRate" in data && !("tier" in data)) {
+    if (data && typeof data === "object") {
       const rate = data.baseRate;
-      if (rate === null || typeof rate === "number") {
+      if ("baseRate" in data && (rate === null || typeof rate === "number")) {
         data.tier = tierFromRate(rate);
         data.tierExpiresAt = null;
+      } else if ("tier" in data) {
+        delete data.tier;
+        delete data.tierExpiresAt;
       }
     }
   }

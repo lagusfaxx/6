@@ -37,7 +37,7 @@ import {
   Share2,
   Check,
 } from "lucide-react";
-import { hasVerifiedBadge } from "../../../lib/systemBadges";
+import { EXAMS_ENABLED, hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
 import WhatsAppIcon from "../../../components/icons/WhatsAppIcon";
 
@@ -894,6 +894,7 @@ export default function ProfileDetailView({
                     : "Todavía no comprobamos que las fotos correspondan a esta persona."}
                 </span>
               </p>
+              {EXAMS_ENABLED && (
               <p
                 className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
                   hasExams
@@ -912,6 +913,7 @@ export default function ProfileDetailView({
                     : "No hay exámenes médicos vigentes en el perfil."}
                 </span>
               </p>
+              )}
               {(fastResponse || (professional.completedServices ?? 0) > 0) && (
                 <p className="border-l-2 border-white/15 pl-3 text-[13.5px] leading-relaxed text-white/55">
                   {[

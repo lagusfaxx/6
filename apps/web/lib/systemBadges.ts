@@ -12,6 +12,12 @@ export const SYSTEM_BADGE_TAGS = new Set([
   "profesional con examenes",
 ]);
 
+/**
+ * Acreditación de exámenes desactivada: no se muestra la insignia ni el aviso
+ * de exámenes, ni se pueden subir documentos. Espeja EXAMS_ENABLED del API.
+ */
+export const EXAMS_ENABLED = false;
+
 /** Returns true if the tag is a system badge managed by admin. */
 export function isSystemBadge(tag: string): boolean {
   return SYSTEM_BADGE_TAGS.has(tag.toLowerCase().trim());

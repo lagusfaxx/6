@@ -4,7 +4,7 @@ import { memo } from "react";
 import Link from "next/link";
 import { Check, TrainFront } from "lucide-react";
 import { resolveMediaUrl } from "../../../../lib/api";
-import { hasVerifiedBadge } from "../../../../lib/systemBadges";
+import { EXAMS_ENABLED, hasVerifiedBadge } from "../../../../lib/systemBadges";
 import VerifiedBand from "../../../../components/VerifiedBand";
 import type { DashboardFormState } from "../../../../hooks/useDashboardForm";
 
@@ -188,6 +188,7 @@ function LivePreviewProfessional({ state, user }: Props) {
                 ? "El equipo comprobó que las fotos corresponden a este perfil."
                 : "Pide la verificación al equipo: los perfiles verificados reciben más contactos."}
             </p>
+{EXAMS_ENABLED && (
             <p className="text-[12.5px] leading-relaxed text-white/60">
               <span className="font-medium text-white/80">
                 {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
@@ -196,6 +197,7 @@ function LivePreviewProfessional({ state, user }: Props) {
                 ? "Presentaste exámenes médicos vigentes."
                 : "Súbelos para que aparezca el sello de exámenes."}
             </p>
+            )}
           </div>
 
           {/* Sobre mí */}

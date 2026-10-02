@@ -39,13 +39,13 @@ const ADMIN_TIER_MAP: Record<string, ProfessionalMeritLevel> = {
 };
 
 export interface ProfileMetricsWithTier extends ProfileMetrics {
-  /** Tier guardado en la base (se sincroniza con la tarifa o lo pone el admin). */
+  /** Tier guardado en la base (sincronizado con la tarifa). */
   adminTier?: string | null;
 }
 
 /**
- * Nivel del perfil: el `tier` guardado (que sigue a la tarifa y el admin puede
- * corregir a mano) y, si no hay, el que corresponde a la tarifa.
+ * Nivel del perfil: sale de la tarifa. Si quien llama no trae la tarifa, usa
+ * el `tier` guardado, que la base mantiene sincronizado con ella.
  */
 export function resolveProfessionalLevel(
   metrics: ProfileMetricsWithTier | number | null | undefined,
@@ -53,10 +53,11 @@ export function resolveProfessionalLevel(
   if (typeof metrics === "number" || metrics === null || metrics === undefined) {
     return "SILVER";
   }
+  if (metrics.baseRate !== undefined) return levelFromRate(metrics.baseRate);
   if (metrics.adminTier && ADMIN_TIER_MAP[metrics.adminTier]) {
     return ADMIN_TIER_MAP[metrics.adminTier];
   }
-  return levelFromRate(metrics.baseRate);
+  return "SILVER";
 }
 
 export function compareProfessionalLevelDesc(
