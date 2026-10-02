@@ -242,15 +242,17 @@ export default function PlanesClient() {
             })}
           </div>
 
-          {/* Membresía */}
+          {/* Membresía: tarifa fija mensual por PAC (se gestiona en /pago) */}
           {plans.map((p) => (
             <article key={p.id} className="mt-6 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center">
               <div className="flex-1">
-                <h2 className="font-semibold">Membresía</h2>
+                <h2 className="font-semibold">Membresía mensual</h2>
                 <p className="mt-1 text-xl font-bold">
-                  {clp(p.priceClp)} <span className="text-sm font-normal text-white/45">{durationLabel(p)}</span>
+                  {clp(p.priceClp)} <span className="text-sm font-normal text-white/45">cada 30 días</span>
                 </p>
-                {selling && <p className="text-[11px] text-white/35">o {p.tokens} tokens</p>}
+                <p className="text-[11px] text-white/40">
+                  Tarifa fija para todos los rangos. Cobro automático (PAC): si el pago pasa tu perfil sigue activo; si no, se oculta hasta que pagues.
+                </p>
                 <ul className="mt-2 space-y-1 text-sm text-white/70">
                   {MEMBERSHIP_PERKS.map((perk) => (
                     <li key={perk} className="flex gap-2">
@@ -260,16 +262,12 @@ export default function PlanesClient() {
                 </ul>
               </div>
               {selling && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPayError("");
-                    setSelected(p);
-                  }}
-                  className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
+                <Link
+                  href="/pago"
+                  className="rounded-xl bg-white px-4 py-2.5 text-center text-sm font-semibold text-black transition hover:bg-white/90"
                 >
-                  {me?.membershipExpiresAt && new Date(me.membershipExpiresAt).getTime() > Date.now() ? "Extender" : "Activar"}
-                </button>
+                  {me?.membershipExpiresAt && new Date(me.membershipExpiresAt).getTime() > Date.now() ? "Gestionar pago" : "Activar con PAC"}
+                </Link>
               )}
             </article>
           ))}

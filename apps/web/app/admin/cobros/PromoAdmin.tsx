@@ -129,7 +129,7 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
         </h2>
         <p className="mt-1 text-xs text-white/45">
           {billingEnabled
-            ? "A la venta en /planes. El precio de Silver es la tarifa de membresía. Gold y Diamond ya no se cobran: salen de la tarifa del perfil (Gold desde $50.000, Diamond desde $100.000)."
+            ? "Boosts a la venta en /planes. El precio de Silver es la tarifa fija de la membresía mensual, que se cobra por PAC (/pago) cada 30 días. Gold y Diamond ya no se cobran: salen de la tarifa del perfil (Gold desde $50.000, Diamond desde $100.000)."
             : "Con el cobro apagado no se venden: las profesionales ven la membresía y los boosts como informativos."}
         </p>
 

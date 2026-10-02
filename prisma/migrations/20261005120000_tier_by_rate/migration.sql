@@ -30,3 +30,8 @@ WHERE "profileType" = 'PROFESSIONAL';
 UPDATE "PromoProduct"
 SET "isActive" = false, "updatedAt" = CURRENT_TIMESTAMP
 WHERE "kind" = 'PLAN' AND "code" IN ('GOLD', 'DIAMOND');
+
+-- La membresía (Silver) es una tarifa fija mensual cobrada por PAC: 30 días.
+UPDATE "PromoProduct"
+SET "duration" = 30, "name" = 'Membresía', "updatedAt" = CURRENT_TIMESTAMP
+WHERE "kind" = 'PLAN' AND "code" = 'SILVER';

@@ -118,6 +118,14 @@ promoRouter.post(
 
     const check = checkPurchase(user, product, { billingEnabled: billing.enabled });
     if (!check.ok) return res.status(check.status).json({ error: check.error, message: check.message });
+    // La membresía es una tarifa fija mensual que se cobra sólo por PAC
+    // (/pago): cada 30 días, si el cargo pasa sigue activa; si no, se oculta.
+    if (product.kind === "PLAN") {
+      return res.status(409).json({
+        error: "MEMBERSHIP_VIA_PAC",
+        message: "La membresía se paga con cobro mensual automático (PAC). Actívala desde Pago.",
+      });
+    }
 
     const notes = JSON.stringify({ productId: product.id, code: product.code, kind: product.kind, name: product.name });
 
