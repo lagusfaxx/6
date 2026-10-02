@@ -33,6 +33,7 @@ const PUBLIC_PREFIXES = [
   "/promo/catalog",     // ✅ planes y boosts (público; con sesión agrega el estado propio)
   "/boosts/spotlight",  // ✅ perfiles "Destacadas" del inicio
   "/webhooks/flow",     // Flow subscription webhooks
+  "/webhooks/whatsapp", // Meta WhatsApp (la firma HMAC es la autorización)
   "/directory",         // ✅ búsqueda pública de directorio (escorts, moteles, etc.)
   "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
   "/videocall/config",  // ✅ config pública de videollamada por profesional
