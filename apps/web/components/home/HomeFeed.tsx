@@ -32,7 +32,10 @@ export default function HomeFeed({ goldProfiles }: Props) {
           Repetirlos en las dos zonas mostraba a la misma persona dos veces. */}
       {gold.length > 0 && <DestacadasGrid profiles={gold} tier="GOLD" />}
 
-      <InfiniteFeed categorySlug="escort,masajes" />
+      {/* Sin filtro de categoría: con "escort,masajes" quedaban fuera las de
+          otras categorías (experiencias íntimas, videollamadas) aunque sí
+          salían en Novedades. El inicio muestra a todas. */}
+      <InfiniteFeed categorySlug="" />
     </>
   );
 }
