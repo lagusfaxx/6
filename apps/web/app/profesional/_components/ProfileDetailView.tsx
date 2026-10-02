@@ -165,14 +165,6 @@ const SERVICE_SUBCATEGORIES = [
   "Novia experience",
 ] as const;
 
-/** La insignia de exámenes viene con y sin tilde según cuándo se guardó. */
-function hasExamsBadge(tags: string[] | null | undefined): boolean {
-  return (tags || []).some((t) => {
-    const n = t.toLowerCase().trim();
-    return n === "profesional con examenes" || n === "profesional con exámenes";
-  });
-}
-
 function splitCsv(value?: string | null) {
   return (value || "")
     .split(",")
@@ -685,7 +677,6 @@ export default function ProfileDetailView({
   // cruzada abajo: se ve de una y dice qué es sin que nadie tenga que tocar
   // un escudo diminuto.
   const isVerifiedProfile = hasVerifiedBadge(professional?.profileTags);
-  const hasExams = hasExamsBadge(professional?.profileTags);
 
   /* Línea bajo el nombre: el nivel es lo que la distingue de un aviso
      cualquiera, y si no tiene, la categoría dice al menos qué ofrece. */
@@ -792,7 +783,7 @@ export default function ProfileDetailView({
                 <p className="mt-1 text-[13px] text-white/55">{levelLabel}</p>
               </div>
 
-              {isVerifiedProfile && <VerifiedBand size="md" />}
+              {isVerifiedProfile && <VerifiedBand size="md" corner text="Verificada" />}
             </button>
 
             {availableNow && (
@@ -869,62 +860,21 @@ export default function ProfileDetailView({
               </dl>
             )}
 
-            {/* Verificación. Cada línea lleva su color: verde cuando el dato
-                está comprobado y ámbar cuando falta. En gris parejo el cliente
-                no distinguía una cosa de la otra y la verificación —que es el
-                argumento de venta del perfil— pasaba desapercibida. */}
-            <div className="mt-5 space-y-2.5">
-              <p
-                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
-                  isVerifiedProfile
-                    ? "border-emerald-400/70 text-emerald-100/75"
-                    : "border-amber-400/60 text-amber-100/70"
-                }`}
-              >
-                <span>
-                  <span
-                    className={`font-semibold ${
-                      isVerifiedProfile ? "text-emerald-300" : "text-amber-300"
-                    }`}
-                  >
-                    {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}
-                  </span>
-                  {isVerifiedProfile
-                    ? `El equipo comprobó que las fotos publicadas corresponden a ${professional.name}.`
-                    : "Todavía no comprobamos que las fotos correspondan a esta persona."}
-                </span>
+            {/* La verificación va como cinta en la esquina de la foto. Las dos
+                líneas de texto (verificación y exámenes) que iban aquí sumaban
+                párrafos a una ficha que ya se leía cargada. */}
+            {(fastResponse || (professional.completedServices ?? 0) > 0) && (
+              <p className="mt-5 border-l-2 border-white/15 pl-3 text-[13.5px] leading-relaxed text-white/55">
+                {[
+                  fastResponse,
+                  (professional.completedServices ?? 0) > 0
+                    ? `${professional.completedServices} servicios completados`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
-              <p
-                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
-                  hasExams
-                    ? "border-emerald-400/70 text-emerald-100/75"
-                    : "border-amber-400/60 text-amber-100/70"
-                }`}
-              >
-                <span>
-                  <span
-                    className={`font-semibold ${hasExams ? "text-emerald-300" : "text-amber-300"}`}
-                  >
-                    {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
-                  </span>
-                  {hasExams
-                    ? "Presentó exámenes médicos vigentes al equipo."
-                    : "No hay exámenes médicos vigentes en el perfil."}
-                </span>
-              </p>
-              {(fastResponse || (professional.completedServices ?? 0) > 0) && (
-                <p className="border-l-2 border-white/15 pl-3 text-[13.5px] leading-relaxed text-white/55">
-                  {[
-                    fastResponse,
-                    (professional.completedServices ?? 0) > 0
-                      ? `${professional.completedServices} servicios completados`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-            </div>
+            )}
 
             {/* Sobre mí */}
             {aboutText && (
@@ -1445,18 +1395,6 @@ export default function ProfileDetailView({
             </section>
           )}
 
-          {/* La descripción del servicio venía en la barra lateral, que ya no
-              existe: ahora va con el resto del contenido. */}
-          {cleanProfileText(professional.serviceSummary) && (
-            <section className="min-w-0 py-8">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Cómo trabaja
-              </h2>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-[1.8] text-white/75">
-                {cleanProfileText(professional.serviceSummary)}
-              </p>
-            </section>
-          )}
         </div>
       </div>
 
@@ -1495,7 +1433,7 @@ export default function ProfileDetailView({
                     alt="Vista ampliada"
                     className="h-full w-full rounded-3xl border border-white/10 object-contain"
                   />
-                  {isVerifiedProfile && <VerifiedBand size="lg" />}
+                  {isVerifiedProfile && <VerifiedBand size="lg" corner text="Verificada" />}
                 </div>
               )}
               {gallery.length > 1 && (
