@@ -150,7 +150,7 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
     "cambiar_tier",
     {
       title: "Cambiar tier de un perfil",
-      description: "Asigna el tier PREMIUM, GOLD o SILVER a un perfil, o lo quita con NINGUNO. Afecta su posición en el directorio. Confirma con el usuario antes de ejecutar.",
+      description: "Asigna el tier PREMIUM, GOLD o SILVER a un perfil, o lo quita con NINGUNO. Afecta su posición en el directorio. El tier sigue a la tarifa (GOLD desde $50.000, PREMIUM/Diamond desde $100.000) y se recalcula cuando la profesional cambia su tarifa; este cambio manual dura hasta entonces. Confirma con el usuario antes de ejecutar.",
       inputSchema: { usuario: usuarioField, tier: z.enum([...TIERS, "NINGUNO"]), motivo: motivoField },
       annotations: WRITE,
     },

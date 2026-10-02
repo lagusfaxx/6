@@ -26,7 +26,7 @@ type Overview = {
     username: string;
     displayName: string | null;
   }[];
-  paidPlans: Record<string, number>;
+  levels: Record<string, number>;
   sales30d: { method: string; count: number; amountClp: number }[];
 };
 
@@ -115,7 +115,8 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
     }
   };
 
-  const plans = (products ?? []).map((p, i) => ({ p, i })).filter(({ p }) => p.kind === "PLAN");
+  // Gold y Diamond ya no se venden (el rango sale de la tarifa): sólo queda la membresía.
+  const plans = (products ?? []).map((p, i) => ({ p, i })).filter(({ p }) => p.kind === "PLAN" && p.code === "SILVER");
   const boosts = (products ?? []).map((p, i) => ({ p, i })).filter(({ p }) => p.kind === "BOOST");
   const sales = overview?.sales30d ?? [];
   const salesTotal = sales.reduce((s, x) => s + x.amountClp, 0);
@@ -124,19 +125,19 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
     <>
       <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold">
-          <Sparkles className="h-4 w-4 text-fuchsia-300" /> Planes y boosts
+          <Sparkles className="h-4 w-4 text-fuchsia-300" /> Membresía y boosts
         </h2>
         <p className="mt-1 text-xs text-white/45">
           {billingEnabled
-            ? "A la venta en /planes. El precio de Silver es la tarifa de membresía."
-            : "Con el cobro apagado no se venden: las profesionales ven los planes como informativos."}
+            ? "A la venta en /planes. El precio de Silver es la tarifa de membresía. Gold y Diamond ya no se cobran: salen de la tarifa del perfil (Gold desde $50.000, Diamond desde $100.000)."
+            : "Con el cobro apagado no se venden: las profesionales ven la membresía y los boosts como informativos."}
         </p>
 
         {!products ? (
           <div className="mt-4 h-40 animate-pulse rounded-xl bg-white/[0.04]" />
         ) : (
           <>
-            <p className="mt-4 text-[11px] font-semibold uppercase tracking-widest text-white/40">Planes (duración en días)</p>
+            <p className="mt-4 text-[11px] font-semibold uppercase tracking-widest text-white/40">Membresía (duración en días)</p>
             <div className="mt-2 space-y-2">
               {plans.map(({ p, i }) => (
                 <ProductRow key={p.id || i} p={p} onChange={(patch) => edit(i, patch)} unit="días" />
@@ -177,7 +178,7 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
       {/* Regalar */}
       <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold">
-          <Gift className="h-4 w-4 text-emerald-300" /> Regalar un plan o boost
+          <Gift className="h-4 w-4 text-emerald-300" /> Regalar membresía o boost
         </h2>
         <p className="mt-1 text-xs text-white/45">Para compensaciones o promociones. No cobra nada y funciona con el cobro apagado.</p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -194,7 +195,7 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
           >
             <option value="">Elige qué regalar…</option>
             {(products ?? [])
-              .filter((p) => p.id)
+              .filter((p) => p.id && (p.kind === "BOOST" || p.code === "SILVER"))
               .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} · {p.duration} {p.kind === "PLAN" ? "días" : "horas"}
@@ -231,8 +232,8 @@ export default function PromoAdmin({ billingEnabled, onSaved }: { billingEnabled
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Mini label="Ventas 30 días" value={clp(salesTotal)} />
-            <Mini label="Diamond pagados" value={String(overview.paidPlans.DIAMOND ?? 0)} />
-            <Mini label="Gold pagados" value={String(overview.paidPlans.GOLD ?? 0)} />
+            <Mini label="Diamond (≥ $100k)" value={String(overview.levels.DIAMOND ?? 0)} />
+            <Mini label="Gold ($50k–$99k)" value={String(overview.levels.GOLD ?? 0)} />
             <Mini label="Boosts activos" value={String(overview.activeBoosts.length)} />
           </div>
           {sales.length > 0 && (

@@ -1,13 +1,37 @@
 export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND";
 
-import {
-  calculateProfileScore,
-  getTierFromScore,
-  type ProfileMetrics,
-} from "./profileRanking";
-import { getBillingSettingsSync } from "./billingSettings";
+import type { ProfessionalTier } from "@prisma/client";
+import type { ProfileMetrics } from "./profileRanking";
 
-/** Maps admin-set ProfessionalTier (DB) to the display merit level. */
+/**
+ * Rango interno por tarifa (CLP). Ya no se vende: Gold y Diamond salen de la
+ * tarifa del perfil; lo que se cobra son los boosts.
+ *   SILVER  : menos de $50.000
+ *   GOLD    : $50.000 – $99.999
+ *   DIAMOND : $100.000 o más
+ */
+export const RATE_TIER_THRESHOLDS = {
+  GOLD: 50_000,
+  DIAMOND: 100_000,
+} as const;
+
+export function levelFromRate(rate: number | null | undefined): ProfessionalMeritLevel {
+  const r = Number(rate);
+  if (!Number.isFinite(r) || r <= 0) return "SILVER";
+  if (r >= RATE_TIER_THRESHOLDS.DIAMOND) return "DIAMOND";
+  if (r >= RATE_TIER_THRESHOLDS.GOLD) return "GOLD";
+  return "SILVER";
+}
+
+/** Valor de `User.tier` para una tarifa. Sin tarifa queda sin rango. */
+export function tierFromRate(rate: number | null | undefined): ProfessionalTier | null {
+  const r = Number(rate);
+  if (rate == null || !Number.isFinite(r) || r <= 0) return null;
+  const level = levelFromRate(r);
+  return level === "DIAMOND" ? "PREMIUM" : level;
+}
+
+/** Maps ProfessionalTier (DB) to the display merit level. */
 const ADMIN_TIER_MAP: Record<string, ProfessionalMeritLevel> = {
   PREMIUM: "DIAMOND",
   GOLD: "GOLD",
@@ -15,33 +39,24 @@ const ADMIN_TIER_MAP: Record<string, ProfessionalMeritLevel> = {
 };
 
 export interface ProfileMetricsWithTier extends ProfileMetrics {
-  /** Admin-set tier from DB (ProfessionalTier enum). Overrides computed level. */
+  /** Tier guardado en la base (se sincroniza con la tarifa o lo pone el admin). */
   adminTier?: string | null;
 }
 
 /**
- * Score-based professional level resolver.
- * If an admin-set tier exists, it takes priority over the computed score.
- * Uses real profile metrics: price, views, activity, completed services.
- * Accepts either a ProfileMetricsWithTier object or a single number (backward compat).
+ * Nivel del perfil: el `tier` guardado (que sigue a la tarifa y el admin puede
+ * corregir a mano) y, si no hay, el que corresponde a la tarifa.
  */
 export function resolveProfessionalLevel(
   metrics: ProfileMetricsWithTier | number | null | undefined,
 ): ProfessionalMeritLevel {
   if (typeof metrics === "number" || metrics === null || metrics === undefined) {
-    return getTierFromScore(
-      calculateProfileScore({ completedServices: metrics as number | null }),
-    );
+    return "SILVER";
   }
-  // Admin-set tier overrides computed level
   if (metrics.adminTier && ADMIN_TIER_MAP[metrics.adminTier]) {
     return ADMIN_TIER_MAP[metrics.adminTier];
   }
-  // Con el cobro encendido, Gold y Diamond son planes pagados: sin plan (ni
-  // rango puesto a mano) el perfil es Silver. Apagado, el nivel se sigue
-  // calculando por puntaje como siempre.
-  if (getBillingSettingsSync().enabled) return "SILVER";
-  return getTierFromScore(calculateProfileScore(metrics));
+  return levelFromRate(metrics.baseRate);
 }
 
 export function compareProfessionalLevelDesc(
