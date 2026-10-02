@@ -17,7 +17,7 @@ import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
-  TrendingUp, Zap, Shield, ShieldCheck, Wallet, RefreshCw,
+  TrendingUp, Zap, Shield, Wallet, RefreshCw,
   VenetianMask, ArrowRight, Bell, BadgeCheck,
   Settings, BedDouble, CalendarDays, Package, ClipboardList,
 } from "lucide-react";
@@ -175,7 +175,6 @@ export default function AccountPage() {
     quickActions.push(
       { label: "Subir historia", description: "Foto o video de 20 días", href: "/dashboard/stories?nueva=1", icon: Camera, tone: "pink" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, tone: "violet" },
-      { label: "Acreditar exámenes", description: "Sube documentos profesionales", href: "/cuenta/acreditacion", icon: ShieldCheck, tone: "blue" },
     );
   }
   if (!canManageProfile) {
@@ -433,7 +432,7 @@ export default function AccountPage() {
                   </p>
                   {!isTrialPeriod && subscriptionStatus.flowSubscriptionStatus !== "active" && (
                     <p className="mt-1 text-xs text-white/45">
-                      ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP/mes
+                      ${(subscriptionStatus.subscriptionPrice || 45000).toLocaleString("es-CL")} CLP/mes
                     </p>
                   )}
                 </div>

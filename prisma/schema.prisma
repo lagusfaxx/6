@@ -453,9 +453,10 @@ model User {
   /// revise de nuevo vea por qué se rechazó antes.
   verificationRejectedAt   DateTime?
   verificationRejectReason   String?
+  /// Rango interno por tarifa (Gold $50.000–$99.999, Diamond/PREMIUM desde
+  /// $100.000). Se recalcula al guardar `baseRate`; el admin puede fijarlo.
   tier                ProfessionalTier?
-  /// Vencimiento del plan pagado (Silver/Gold/Diamond). Null con `tier`
-  /// puesto = asignado a mano desde el admin, sin vencimiento.
+  /// Ya no se usa: Gold y Diamond dejaron de venderse. Queda en NULL.
   tierExpiresAt       DateTime?
   isOnline            Boolean           @default(false)
   lastSeen            DateTime?

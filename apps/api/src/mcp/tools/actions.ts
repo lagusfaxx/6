@@ -4,7 +4,7 @@ import { prisma } from "../../db";
 import { missingProfileFields } from "../../lib/profileCompletion";
 import { REJECT_REASON_MIN_LENGTH, rejectVerification } from "../../lib/verificationReject";
 import { guarded, type McpContext } from "../audit";
-import { TIERS, errorResult, findUserRef, jsonResult } from "../helpers";
+import { errorResult, findUserRef, jsonResult } from "../helpers";
 
 /**
  * Acciones que cambian datos. Sólo se registran con el token completo y todas
@@ -142,31 +142,6 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
         const { emailSent } = await rejectVerification(id, reason);
         const updated = await prisma.user.findUnique({ where: { id }, select: PROFILE_SELECT });
         return jsonResult({ perfil: updated, correoEnviado: emailSent });
-      }
-    ),
-  );
-
-  server.registerTool(
-    "cambiar_tier",
-    {
-      title: "Cambiar tier de un perfil",
-      description: "Asigna el tier PREMIUM, GOLD o SILVER a un perfil, o lo quita con NINGUNO. Afecta su posición en el directorio. Confirma con el usuario antes de ejecutar.",
-      inputSchema: { usuario: usuarioField, tier: z.enum([...TIERS, "NINGUNO"]), motivo: motivoField },
-      annotations: WRITE,
-    },
-    guarded(
-      "cambiar_tier",
-      ctx,
-      async ({ usuario, tier }: { usuario: string; tier: (typeof TIERS)[number] | "NINGUNO"; motivo?: string }) => {
-        const id = await findUserRef(usuario);
-        if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
-        const before = await prisma.user.findUnique({ where: { id }, select: { tier: true } });
-        const updated = await prisma.user.update({
-          where: { id },
-          data: { tier: tier === "NINGUNO" ? null : tier },
-          select: PROFILE_SELECT,
-        });
-        return jsonResult({ antes: before, perfil: updated });
       }
     ),
   );

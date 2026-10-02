@@ -548,12 +548,12 @@ export default function PublicateClient() {
                 <div className="mb-3 flex items-center gap-2">
                   <Star className="h-4 w-4 text-white/40" />
                   <span className="text-sm font-bold text-white">Gratis</span>
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-white/45">
                   <li>• {billingOn ? "Periodo de prueba gratis" : "Gratis y sin vencimiento"}</li>
                   <li>• Visibilidad básica</li>
-                  <li>• Puedes pasarte a Gold o Diamond cuando quieras</li>
+                  <li>• Tu rango (Silver, Gold o Diamond) sale de tu tarifa</li>
+                  <li>• Destaca tu perfil con boosts cuando quieras</li>
                 </ul>
               </button>
 

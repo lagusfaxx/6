@@ -9,7 +9,6 @@ import { getBillingSettings, withActivePlan } from "../lib/billingSettings";
 import {
   applyPromoPurchase,
   checkPurchase,
-  currentPlan,
   getActiveCatalog,
   getTokenRate,
   invalidateBoostCache,
@@ -41,7 +40,7 @@ promoRouter.get(
       const [user, boosts, wallet] = await Promise.all([
         prisma.user.findUnique({
           where: { id: userId },
-          select: { profileType: true, tier: true, tierExpiresAt: true, membershipExpiresAt: true },
+          select: { profileType: true, tier: true, baseRate: true, membershipExpiresAt: true },
         }),
         prisma.profileBoost.findMany({
           where: { userId, endsAt: { gt: now } },
@@ -51,11 +50,11 @@ promoRouter.get(
         prisma.wallet.findUnique({ where: { userId }, select: { balance: true } }),
       ]);
       if (user) {
-        const plan = currentPlan(user, now);
         me = {
           profileType: user.profileType,
           canBuy: user.profileType === "PROFESSIONAL",
-          plan: plan ? { code: plan.code, manual: plan.manual, expiresAt: plan.expiresAt?.toISOString() ?? null } : null,
+          // Rango interno: sale de la tarifa, no se compra.
+          level: resolveProfessionalLevel({ baseRate: user.baseRate, adminTier: user.tier }),
           membershipExpiresAt: user.membershipExpiresAt?.toISOString() ?? null,
           boosts: boosts.map((b) => ({
             id: b.id,
@@ -119,6 +118,14 @@ promoRouter.post(
 
     const check = checkPurchase(user, product, { billingEnabled: billing.enabled });
     if (!check.ok) return res.status(check.status).json({ error: check.error, message: check.message });
+    // La membresía es una tarifa fija mensual que se cobra sólo por PAC
+    // (/pago): cada 30 días, si el cargo pasa sigue activa; si no, se oculta.
+    if (product.kind === "PLAN") {
+      return res.status(409).json({
+        error: "MEMBERSHIP_VIA_PAC",
+        message: "La membresía se paga con cobro mensual automático (PAC). Actívala desde Pago.",
+      });
+    }
 
     const notes = JSON.stringify({ productId: product.id, code: product.code, kind: product.kind, name: product.name });
 
@@ -421,7 +428,8 @@ promoRouter.get(
       }),
       prisma.user.groupBy({
         by: ["tier"],
-        where: { profileType: "PROFESSIONAL", tier: { not: null }, tierExpiresAt: { gt: now } },
+        // Rango interno por tarifa (ya no se vende): cuántos perfiles hay en cada uno.
+        where: { profileType: "PROFESSIONAL", isActive: true, tier: { not: null } },
         _count: { _all: true },
       }),
       prisma.paymentIntent.groupBy({
@@ -442,7 +450,7 @@ promoRouter.get(
         username: b.user.username,
         displayName: b.user.displayName,
       })),
-      paidPlans: Object.fromEntries(plans.map((p) => [p.tier === "PREMIUM" ? "DIAMOND" : p.tier, p._count._all])),
+      levels: Object.fromEntries(plans.map((p) => [p.tier === "PREMIUM" ? "DIAMOND" : p.tier, p._count._all])),
       sales30d: sales.map((s) => ({ method: s.method, count: s._count._all, amountClp: s._sum.amount ?? 0 })),
     });
   })

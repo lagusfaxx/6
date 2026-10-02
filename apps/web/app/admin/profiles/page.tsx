@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import { EXAMS_ENABLED } from "../../../lib/systemBadges";
 import {
   canDeleteProfiles,
   canEditProfileIdentity,
@@ -448,31 +449,6 @@ export default function AdminProfilesPage() {
     }
   }
 
-  async function updateTier(profile: Profile, tier: "PREMIUM" | "GOLD" | "SILVER" | null) {
-    if (profile.tier === tier) return;
-    setBusy(profile.id);
-    setError(null);
-    const prevProfiles = [...profiles];
-    setProfiles((prev) => prev.map((pr) => pr.id === profile.id ? { ...pr, tier } : pr));
-    try {
-      await apiFetch(`/admin/profiles/${profile.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ tier }),
-      });
-      setSuccess(
-        tier
-          ? `Tier ${tier} asignado a ${profile.displayName || profile.username}.`
-          : `Tier removido de ${profile.displayName || profile.username}.`,
-      );
-      await loadProfiles();
-    } catch {
-      setProfiles(prevProfiles);
-      setError("No se pudo actualizar el tier del perfil.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function updateGender(profile: Profile, gender: GenderValue) {
     if (profile.gender === gender) return;
     setBusy(profile.id);
@@ -785,7 +761,7 @@ export default function AdminProfilesPage() {
                         p.tier === "GOLD" ? "bg-amber-500/20 text-amber-300" :
                         "bg-white/10 text-white/50"
                       }`}>
-                        {p.tier}
+                        {p.tier === "PREMIUM" ? "DIAMOND" : p.tier}
                       </span>
                     )}
                     {hasLabel(p, "premium") && (
@@ -794,7 +770,7 @@ export default function AdminProfilesPage() {
                     {hasLabel(p, "verificada") && (
                       <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200">Verificada</span>
                     )}
-                    {hasLabel(p, "profesional con examenes") && (
+                    {EXAMS_ENABLED && hasLabel(p, "profesional con examenes") && (
                       <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-200">Profesional con exámenes</span>
                     )}
                   </div>
@@ -898,6 +874,7 @@ export default function AdminProfilesPage() {
                 >
                   Verificada
                 </button>
+                {EXAMS_ENABLED && (
                 <button
                   disabled={busy === p.id}
                   onClick={() => updateAdminLabel(p, "profesional con examenes", !hasLabel(p, "profesional con examenes"))}
@@ -909,55 +886,12 @@ export default function AdminProfilesPage() {
                 >
                   Profesional con exámenes
                 </button>
+                )}
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-white/40">Tier:</span>
-                <button
-                  disabled={busy === p.id}
-                  onClick={() => updateTier(p, null)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
-                    p.tier === null
-                      ? "border-white/30 bg-white/10 text-white"
-                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Sin tier
-                </button>
-                <button
-                  disabled={busy === p.id}
-                  onClick={() => updateTier(p, "SILVER")}
-                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
-                    p.tier === "SILVER"
-                      ? "border-slate-300/40 bg-slate-200/15 text-slate-100"
-                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Silver
-                </button>
-                <button
-                  disabled={busy === p.id}
-                  onClick={() => updateTier(p, "GOLD")}
-                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
-                    p.tier === "GOLD"
-                      ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
-                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Gold
-                </button>
-                <button
-                  disabled={busy === p.id}
-                  onClick={() => updateTier(p, "PREMIUM")}
-                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
-                    p.tier === "PREMIUM"
-                      ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
-                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  Premium
-                </button>
-              </div>
+              <p className="mt-2 text-[11px] text-white/40">
+                Tier según tarifa: Gold desde $50.000, Diamond desde $100.000. Se cambia editando la tarifa.
+              </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] uppercase tracking-wide text-white/40">Género:</span>

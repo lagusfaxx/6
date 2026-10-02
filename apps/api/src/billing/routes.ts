@@ -7,10 +7,12 @@ import {
   getBillingSettings,
   updateBillingSettings,
   graceEndsAt,
+  membershipRenewalBase,
   isBillingEnforced,
   remainingAccessDays,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
+import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
 import {
   createFlowCustomer,
   registerFlowCustomer,
@@ -194,7 +196,10 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
   const billing = await getBillingSettings();
   if (!billing.enabled) return res.status(409).json(BILLING_DISABLED);
   const userId = req.session.userId!;
-  const { folio, bank, notes } = req.body;
+  const { bank, notes } = req.body;
+  // Por WhatsApp no hay folio que escribir: el comprobante llega por el chat.
+  const viaWhatsapp = req.body?.channel === "whatsapp";
+  const folio = viaWhatsapp ? "whatsapp" : req.body?.folio;
 
   if (!folio) return res.status(400).json({ error: "FOLIO_REQUIRED", message: "Debes ingresar el número de folio o comprobante de la transferencia" });
 
@@ -225,7 +230,25 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
     }
   }
 
+  // Volver a tocar "enviar por WhatsApp" no duplica el pago pendiente.
+  if (viaWhatsapp) {
+    const pending = await prisma.paymentIntent.findFirst({
+      where: {
+        subscriberId: userId,
+        purpose: "MEMBERSHIP_PLAN",
+        method: "TRANSFER",
+        status: "PENDING",
+        createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      },
+      select: { id: true },
+    });
+    if (pending) {
+      return res.json({ ok: true, intentId: pending.id, message: "Envía el comprobante por WhatsApp. El equipo lo revisará en 24 horas hábiles." });
+    }
+  }
+
   const notesParts: string[] = [];
+  if (viaWhatsapp) notesParts.push("Comprobante por WhatsApp");
   if (bank) notesParts.push(`Banco: ${bank}`);
   notesParts.push(`Folio/ref: ${folio}`);
   if (notes) notesParts.push(notes);
@@ -244,6 +267,19 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 
   console.log("[billing] bank transfer submitted", { userId, intentId: intent.id, folio });
   return res.json({ ok: true, intentId: intent.id, message: "Tu comprobante fue enviado. El equipo lo revisará en 24 horas hábiles." });
+}));
+
+// ── Datos para pagar por transferencia (comprobante por WhatsApp) ─────────────
+billingRouter.get("/billing/transfer-info", requireAuth, asyncHandler(async (_req, res) => {
+  const [billing, market] = await Promise.all([getBillingSettings(), getMarketSettings()]);
+  // Misma cuenta de UZEED que usa el marketplace para las transferencias.
+  const bankReady = transferDataComplete(market);
+  return res.json({
+    available: billing.enabled && bankReady && Boolean(billing.receiptWhatsapp),
+    priceClp: billing.priceClp,
+    whatsapp: billing.receiptWhatsapp || null,
+    transferData: bankReady ? publicTransferData(market) : null,
+  });
 }));
 
 // ── Admin: interruptor de cobro y tarifa ─────────────────────────────────────
@@ -282,6 +318,7 @@ function serializeSettings(s: Awaited<ReturnType<typeof getBillingSettings>>) {
     graceEndsAt: grace?.toISOString() ?? null,
     enforced: isBillingEnforced(s),
     flowPlanId: s.flowPlanPriceClp === s.priceClp ? s.flowPlanId : null,
+    receiptWhatsapp: s.receiptWhatsapp,
   };
 }
 
@@ -309,6 +346,13 @@ billingRouter.put("/admin/billing/settings", requireAdmin, asyncHandler(async (r
     const n = Number(body.graceDays);
     if (!Number.isInteger(n) || n < 0 || n > 90) return bad("Los días de gracia deben estar entre 0 y 90.");
     patch.graceDays = n;
+  }
+  if (body.receiptWhatsapp !== undefined) {
+    const digits = String(body.receiptWhatsapp ?? "").replace(/\D/g, "");
+    if (digits && (digits.length < 8 || digits.length > 15)) {
+      return bad("El WhatsApp debe ir con código de país, por ejemplo 56912345678.");
+    }
+    patch.receiptWhatsapp = digits;
   }
   if (body.trialDays !== undefined) {
     const n = Number(body.trialDays);
@@ -384,9 +428,7 @@ billingRouter.post("/admin/billing/transfers/:id/approve", requireAdmin, asyncHa
       select: { membershipExpiresAt: true }
     });
 
-    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-      ? current.membershipExpiresAt
-      : now;
+    const base = membershipRenewalBase(current?.membershipExpiresAt, now);
     const expiresAt = addDays(base, config.membershipDays);
 
     await tx.user.update({

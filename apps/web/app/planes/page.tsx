@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import PlanesClient from "./PlanesClient";
 
 export const metadata: Metadata = {
-  title: "Planes y boosts",
-  description: "Planes Silver, Gold y Diamond y boosts para destacar tu perfil profesional en UZEED.",
+  title: "Membresía y boosts",
+  description: "Membresía y boosts para destacar tu perfil profesional en UZEED. Los rangos Silver, Gold y Diamond salen de tu tarifa.",
 };
 
 export default function PlanesPage() {

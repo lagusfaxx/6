@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CreditCard, CheckCircle, Loader2, ChevronLeft,
-  AlertCircle, Shield, Zap, RefreshCw,
+  AlertCircle, Shield, Zap, RefreshCw, Landmark, MessageCircle,
 } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import useMe from "../../hooks/useMe";
+import BankData from "../../components/marketplace/BankData";
+import type { MarketTransferData } from "../../lib/marketplace";
 
-type Tab = "pac" | "flow";
+type Tab = "pac" | "flow" | "transfer";
+
+type TransferInfo = {
+  available: boolean;
+  priceClp: number;
+  whatsapp: string | null;
+  transferData: MarketTransferData | null;
+};
 
 export default function PagoPage() {
   const router = useRouter();
@@ -30,8 +39,19 @@ export default function PagoPage() {
   const [flowBusy, setFlowBusy] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
 
+  // Transferencia: datos de UZEED y WhatsApp donde se manda el comprobante
+  const [transfer, setTransfer] = useState<TransferInfo | null>(null);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<TransferInfo>("/billing/transfer-info")
+      .then(setTransfer)
+      .catch(() => setTransfer(null));
+  }, []);
+
   const user = me?.user;
-  const price = sub?.subscriptionPrice ?? 4990;
+  const price = sub?.subscriptionPrice ?? 45000;
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
   const isTrialPeriod = sub?.trialActive && !sub?.membershipActive;
@@ -89,6 +109,28 @@ export default function PagoPage() {
       setFlowError(err?.body?.message || err?.message || "Error al iniciar el pago con Flow.");
     } finally {
       setFlowBusy(false);
+    }
+  };
+
+  // ── Transferencia: registra el pago pendiente y abre WhatsApp con el mensaje
+  const handleTransferWhatsapp = async () => {
+    if (!transfer?.whatsapp) return;
+    setTransferError(null);
+    setTransferBusy(true);
+    try {
+      await apiFetch("/billing/payment/transfer", {
+        method: "POST",
+        body: JSON.stringify({ channel: "whatsapp" }),
+      });
+      const who = user?.username ? `@${user.username}` : user?.email || "";
+      const text =
+        `Hola UZEED, envío el comprobante de transferencia de $${transfer.priceClp.toLocaleString("es-CL")} ` +
+        `por la membresía mensual de ${who}${user?.email ? ` (${user.email})` : ""}.`;
+      window.location.href = `https://wa.me/${transfer.whatsapp}?text=${encodeURIComponent(text)}`;
+    } catch (err: any) {
+      setTransferError(err?.body?.message || err?.message || "No se pudo registrar la transferencia.");
+    } finally {
+      setTransferBusy(false);
     }
   };
 
@@ -213,6 +255,20 @@ export default function PagoPage() {
               <CreditCard className="h-4 w-4" />
               Pago único
             </button>
+            {transfer?.available && (
+              <button
+                type="button"
+                onClick={() => setTab("transfer")}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
+                  tab === "transfer"
+                    ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25"
+                    : "text-white/40 hover:text-white/60"
+                }`}
+              >
+                <Landmark className="h-4 w-4" />
+                Transferencia
+              </button>
+            )}
           </div>
 
           {/* ── PAC tab ── */}
@@ -259,6 +315,43 @@ export default function PagoPage() {
                   <><CreditCard className="h-4 w-4" /> Registrar tarjeta y activar PAC — ${price.toLocaleString("es-CL")}/mes</>
                 )}
               </button>
+            </div>
+          )}
+
+          {/* ── Transferencia: comprobante por WhatsApp ── */}
+          {tab === "transfer" && transfer?.available && transfer.transferData && (
+            <div className="rounded-3xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold mb-1">Transferencia bancaria</h2>
+                <p className="text-xs text-white/50">
+                  Transfiere ${transfer.priceClp.toLocaleString("es-CL")} a la cuenta de UZEED y envíanos el comprobante por
+                  WhatsApp. Activamos tu membresía por 30 días apenas lo revisemos.
+                </p>
+              </div>
+
+              <BankData data={transfer.transferData} code={user?.username ? `@${user.username}` : "Membresía UZEED"} />
+
+              {transferError && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-300">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {transferError}
+                </div>
+              )}
+
+              <button
+                onClick={handleTransferWhatsapp}
+                disabled={transferBusy}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3.5 text-sm font-semibold text-black transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferBusy ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Abriendo WhatsApp...</>
+                ) : (
+                  <><MessageCircle className="h-4 w-4" /> Ya transferí: enviar comprobante por WhatsApp</>
+                )}
+              </button>
+              <p className="text-[11px] text-white/35">
+                Adjunta la foto o captura del comprobante en el chat que se abre.
+              </p>
             </div>
           )}
 

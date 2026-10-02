@@ -99,7 +99,7 @@ export default function VerifiedBand({
         style={{ width: c.box, height: c.box }}
       >
         <div
-          className="absolute flex items-center justify-center gap-1 bg-sky-500 text-white shadow-[0_2px_8px_rgba(2,132,199,0.45)]"
+          className="absolute flex items-center justify-center gap-1 bg-sky-400 text-[#04121c] shadow-[0_2px_8px_rgba(56,189,248,0.4)]"
           style={{
             width: c.width,
             /* El centro de la cinta va sobre la diagonal, a `offset` de la

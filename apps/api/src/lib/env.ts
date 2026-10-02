@@ -20,7 +20,7 @@ export const env = {
   KHIPU_WEBHOOK_SECRET: process.env.KHIPU_WEBHOOK_SECRET ?? process.env.KHIPU_SECRET ?? "",
 
   MEMBERSHIP_DAYS: parseInt(process.env.MEMBERSHIP_DAYS ?? "30", 10),
-  MEMBERSHIP_PRICE_CLP: parseInt(process.env.MEMBERSHIP_PRICE_CLP ?? "4990", 10),
+  MEMBERSHIP_PRICE_CLP: parseInt(process.env.MEMBERSHIP_PRICE_CLP ?? "45000", 10),
 
   SMTP_HOST: process.env.SMTP_HOST ?? "",
   SMTP_PORT: parseInt(process.env.SMTP_PORT ?? "587", 10),

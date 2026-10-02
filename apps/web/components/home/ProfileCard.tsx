@@ -19,6 +19,7 @@ import { useRef, useState, type MouseEvent, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { resolveMediaUrl } from "../../lib/api";
 import { hasVerifiedBadge } from "../../lib/systemBadges";
+import VerifiedTick from "../VerifiedTick";
 import useFavorites from "../../hooks/useFavorites";
 
 export type HomeLevel = "DIAMOND" | "GOLD" | "SILVER";
@@ -127,22 +128,7 @@ function buildSlides(p: HomeProfile, stories: CardStoryMedia[]): Slide[] {
 }
 
 function VerifiedCheck() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" role="img" aria-label="Verificada">
-      <path
-        fill="#38bdf8"
-        d="M12 1.5l2.6 1.9 3.2-.2 1 3.1 2.7 1.8-1 3.1 1 3.1-2.7 1.8-1 3.1-3.2-.2L12 22.5l-2.6-1.9-3.2.2-1-3.1-2.7-1.8 1-3.1-1-3.1 2.7-1.8 1-3.1 3.2.2z"
-      />
-      <path
-        d="m8 12.2 2.7 2.7L16.2 9.4"
-        fill="none"
-        stroke="#04121c"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <VerifiedTick className="h-3.5 w-3.5" />;
 }
 
 const TAG_CLASS =
