@@ -177,7 +177,6 @@ const NAV_ITEMS = [
   { href: "/admin/cobros", label: "Cobros", icon: CircleDollarSign },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
-  { href: "/admin/acreditaciones", label: "Acreditaciones", icon: ShieldCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
   { href: "/admin/chats", label: "Chats", icon: MessageSquare },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },

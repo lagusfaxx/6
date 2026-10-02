@@ -34,6 +34,7 @@ import {
   normalizeDisplayName,
 } from "../profile/nameChange";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import { EXAMS_ENABLED } from "../profile/professionalDocuments";
 
 export const adminRouter = Router();
 
@@ -471,7 +472,8 @@ adminRouter.put(
     const nextTags = [...baseTags];
     if (premium === true) nextTags.push("premium");
     if (verified === true) nextTags.push("verificada");
-    if (exams === true) nextTags.push("profesional con examenes");
+    // Exámenes desactivados: la insignia ya no se asigna (las que existían se quitan).
+    if (exams === true && EXAMS_ENABLED) nextTags.push("profesional con examenes");
 
     const updated = await prisma.user.update({
       where: { id },
@@ -525,7 +527,6 @@ adminRouter.put(
 
     const {
       isActive,
-      tier,
       role,
       membershipExpiresAt,
       baseRate,
@@ -659,7 +660,7 @@ adminRouter.put(
         });
       }
     }
-    if (tier !== undefined) data.tier = tier;
+    // El tier no se asigna a mano: sale de la tarifa (ver db.ts).
     if (role !== undefined) data.role = role;
     if (membershipExpiresAt !== undefined) {
       data.membershipExpiresAt = membershipExpiresAt
@@ -1692,7 +1693,7 @@ adminRouter.get(
           city: true, phone: true, bio: true, birthdate: true, gender: true,
           latitude: true, longitude: true, primaryCategory: true,
           serviceCategory: true, profileTags: true, serviceTags: true,
-          isActive: true, isVerified: true, tier: true,
+          isActive: true, isVerified: true, tier: true, baseRate: true,
           profileMedia: { select: { id: true, url: true, type: true }, orderBy: { createdAt: "asc" } },
           createdAt: true,
         },
@@ -1707,13 +1708,20 @@ adminRouter.get(
   }),
 );
 
+/** Tarifa de un perfil rápido (CLP, entera y positiva) o null. */
+function parseQuickRate(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n > 0 && n <= 10_000_000 ? n : null;
+}
+
 adminRouter.post(
   "/quick-professionals",
   asyncHandler(async (req, res) => {
     const {
       displayName, phone, city, address, bio, gender, birthdate,
       latitude, longitude, primaryCategory, serviceCategory,
-      profileTags, serviceTags, tier,
+      profileTags, serviceTags, baseRate,
     } = req.body ?? {};
 
     if (!displayName || !city) {
@@ -1752,7 +1760,8 @@ adminRouter.post(
         isActive: true,
         isVerified: true,
         adminManaged: true,
-        tier: tier || null,
+        // El tier sale de la tarifa (ver db.ts).
+        baseRate: parseQuickRate(baseRate) ?? null,
         profileTags: Array.isArray(profileTags) ? profileTags.map(String) : [],
         serviceTags: Array.isArray(serviceTags) ? serviceTags.map(String) : [],
       },
@@ -1772,7 +1781,7 @@ adminRouter.put(
     const {
       displayName, phone, city, address, bio, gender, birthdate,
       latitude, longitude, primaryCategory, serviceCategory,
-      profileTags, serviceTags, tier,
+      profileTags, serviceTags, baseRate,
     } = req.body ?? {};
 
     const data: any = {};
@@ -1789,7 +1798,7 @@ adminRouter.put(
     if (serviceCategory !== undefined) data.serviceCategory = serviceCategory ? String(serviceCategory) : null;
     if (profileTags !== undefined) data.profileTags = Array.isArray(profileTags) ? profileTags.map(String) : [];
     if (serviceTags !== undefined) data.serviceTags = Array.isArray(serviceTags) ? serviceTags.map(String) : [];
-    if (tier !== undefined) data.tier = tier || null;
+    if (baseRate !== undefined) data.baseRate = parseQuickRate(baseRate) ?? null;
 
     const professional = await prisma.user.update({
       where: { id },

@@ -7,6 +7,7 @@ import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 import { isFullAdmin } from "../../../lib/adminAccess";
 import PromoAdmin from "./PromoAdmin";
+import TransfersAdmin from "./TransfersAdmin";
 
 type Settings = {
   enabled: boolean;
@@ -17,6 +18,7 @@ type Settings = {
   graceEndsAt: string | null;
   enforced: boolean;
   flowPlanId: string | null;
+  receiptWhatsapp: string;
 };
 
 type Impact = { total: number; paying: number; inTrial: number; withoutPlan: number; pac: number };
@@ -42,7 +44,7 @@ export default function AdminCobrosPage() {
   const [data, setData] = useState<Resp | null>(null);
   const [flowConfigured, setFlowConfigured] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState({ graceDays: "", trialDays: "" });
+  const [form, setForm] = useState({ graceDays: "", trialDays: "", receiptWhatsapp: "" });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirming, setConfirming] = useState<null | "on" | "off">(null);
@@ -53,6 +55,7 @@ export default function AdminCobrosPage() {
     setForm({
       graceDays: String(r.settings.graceDays),
       trialDays: String(r.settings.trialDays),
+      receiptWhatsapp: r.settings.receiptWhatsapp || "",
     });
   };
 
@@ -84,11 +87,12 @@ export default function AdminCobrosPage() {
 
   const saveTarifa = () => {
     if (!data) return;
-    const patch: Record<string, number> = {};
+    const patch: Record<string, number | string> = {};
     const grace = Number(form.graceDays);
     const trial = Number(form.trialDays);
     if (grace !== data.settings.graceDays) patch.graceDays = grace;
     if (trial !== data.settings.trialDays) patch.trialDays = trial;
+    if (form.receiptWhatsapp !== (data.settings.receiptWhatsapp || "")) patch.receiptWhatsapp = form.receiptWhatsapp;
     if (!Object.keys(patch).length) {
       setNotice({ ok: true, text: "No hay cambios que guardar." });
       return;
@@ -113,7 +117,8 @@ export default function AdminCobrosPage() {
   const dirty =
     s &&
     (Number(form.graceDays) !== s.graceDays ||
-      Number(form.trialDays) !== s.trialDays);
+      Number(form.trialDays) !== s.trialDays ||
+      form.receiptWhatsapp !== (s.receiptWhatsapp || ""));
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 text-white">
@@ -286,6 +291,13 @@ export default function AdminCobrosPage() {
                 value={form.trialDays}
                 onChange={(v) => setForm((f) => ({ ...f, trialDays: v }))}
               />
+              <Field
+                label="WhatsApp para comprobantes"
+                hint="Con código de país, ej. 56912345678. Vacío = sin pago por transferencia en /pago (usa los datos bancarios del marketplace)."
+                prefix="+"
+                value={form.receiptWhatsapp}
+                onChange={(v) => setForm((f) => ({ ...f, receiptWhatsapp: v }))}
+              />
             </div>
             <p className="mt-3 text-xs text-white/40">
               Cambiar precios afecta a los pagos nuevos. Quien ya tiene pago automático en Flow sigue con el precio con el
@@ -303,6 +315,8 @@ export default function AdminCobrosPage() {
               </button>
             </div>
           </section>
+
+          <TransfersAdmin />
 
           <PromoAdmin billingEnabled={s.enabled} onSaved={reload} />
 

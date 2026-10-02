@@ -6,6 +6,7 @@ import { requireAuth } from "../auth/middleware";
 import { createSubscription, createChargeIntent, getSubscription } from "./client";
 import { verifyKhipuSignature } from "./webhook";
 import { asyncHandler } from "../lib/asyncHandler";
+import { membershipRenewalBase } from "../lib/billingSettings";
 
 export const khipuRouter = Router();
 
@@ -164,7 +165,7 @@ khipuRouter.post("/webhooks/khipu/charge", asyncHandler(async (req, res) => {
   await prisma.$transaction(async (tx) => {
     await tx.payment.update({ where: { id: payment.id }, data: { status: "PAID", paidAt: new Date() } });
     const user = await tx.user.findUnique({ where: { id: payment.userId }, select: { membershipExpiresAt: true } });
-    const base = user?.membershipExpiresAt && user.membershipExpiresAt.getTime() > Date.now() ? user.membershipExpiresAt : new Date();
+    const base = membershipRenewalBase(user?.membershipExpiresAt);
     const newExp = addDays(base, config.membershipDays);
     await tx.user.update({ where: { id: payment.userId }, data: { membershipExpiresAt: newExp } });
   });

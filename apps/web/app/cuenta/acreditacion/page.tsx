@@ -17,6 +17,7 @@ import {
 
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { EXAMS_ENABLED } from "../../../lib/systemBadges";
 
 type DocStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -84,6 +85,17 @@ function StatusBadge({ status }: { status: DocStatus }) {
 }
 
 export default function AcreditacionPage() {
+  if (!EXAMS_ENABLED) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-10 text-center text-sm text-white/60">
+        La acreditación de exámenes no está disponible.
+      </div>
+    );
+  }
+  return <AcreditacionContent />;
+}
+
+function AcreditacionContent() {
   const router = useRouter();
   const { me, loading } = useMe();
   const user = me?.user ?? null;

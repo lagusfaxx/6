@@ -13,7 +13,7 @@ import UserLevelBadge from "../../components/UserLevelBadge";
 const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../../components/ProfilePreviewModal"), { ssr: false });
 const Stories = dynamic(() => import("../../components/Stories"), { ssr: false });
-import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
+import { EXAMS_ENABLED, filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../../components/StatusBadgeIcon";
 import BackButton from "../../components/BackButton";
 import {
@@ -192,6 +192,7 @@ function matchesProfessionalCategory(profile: ProfileResult, category: string) {
 }
 
 function hasExamsBadge(profile: ProfileResult) {
+  if (!EXAMS_ENABLED) return false;
   const tags = profile.profileTags || [];
   return tags.some((tag) => {
     const normalized = String(tag || "").trim().toLowerCase();

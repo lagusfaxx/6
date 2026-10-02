@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getBillingSettingsSync } from "../lib/billingSettings";
+import { tierFromRate } from "../lib/professionalLevel";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
@@ -145,7 +146,6 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   const goldDays = isGold ? await getGoldPlanDays() : 0;
   const shopTrialEndsAt = isGold ? null : addDays(now, getBillingSettingsSync().trialDays);
   const membershipExpiresAt = isGold ? addDays(now, goldDays) : null;
-  const tierExpiresAt = isGold ? addDays(now, goldDays) : null;
 
   const passwordSetToken = crypto.randomBytes(32).toString("hex");
   const passwordSetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
@@ -179,8 +179,9 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
         termsAcceptedAt: now,
         shopTrialEndsAt,
         subscriptionPrice: 2500,
-        tier: input.tier,
-        tierExpiresAt,
+        // El rango sale de la tarifa (ya no se vende); el Gold pagado al
+        // registrarse sólo trae los días de membresía.
+        tier: tierFromRate(input.baseRate),
         membershipExpiresAt,
         isOnline: false,
         isActive: false,

@@ -88,6 +88,9 @@ async function cleanupFile(absPath: string) {
   }
 }
 
+/** Acreditación de exámenes: desactivada (no se suben documentos ni se muestra la insignia). */
+export const EXAMS_ENABLED = false;
+
 // ── Creator-facing endpoints ────────────────────────────────────────────
 professionalDocsRouter.use("/profile/documents", requireAuth);
 
@@ -116,6 +119,12 @@ professionalDocsRouter.get(
 
 professionalDocsRouter.post(
   "/profile/documents",
+  (_req, res, next) => {
+    if (!EXAMS_ENABLED) {
+      return res.status(410).json({ error: "EXAMS_DISABLED", message: "La acreditación de exámenes está desactivada." });
+    }
+    next();
+  },
   upload.single("file"),
   asyncHandler(async (req, res) => {
     const file = req.file as Express.Multer.File | undefined;

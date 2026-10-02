@@ -37,7 +37,7 @@ export const config = {
   flowCallbackUrl: process.env.FLOW_CALLBACK_URL || "",
   flowPlanId: process.env.FLOW_PLAN_ID || "UZEED_PRO_MENSUAL",
   membershipDays: Number(process.env.MEMBERSHIP_DAYS || 30),
-  membershipPriceClp: Number(process.env.MEMBERSHIP_PRICE_CLP || 4990),
+  membershipPriceClp: Number(process.env.MEMBERSHIP_PRICE_CLP || 45000),
   shopMonthlyPriceClp: Number(process.env.SHOP_MONTHLY_PRICE_CLP || 4990),
   freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 90),
   storageDir: process.env.UPLOAD_DIR || process.env.STORAGE_DIR || process.env.UPLOADS_DIR || "./uploads",

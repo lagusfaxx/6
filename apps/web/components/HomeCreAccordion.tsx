@@ -62,7 +62,6 @@ const accordionItems = [
     lines: [
       "Verificada: perfil revisado y aprobado por administración.",
       "Premium: perfiles destacados seleccionados para la sección Premium.",
-      "Exámenes: etiqueta asignada por administración según documentación.",
       "Solo administración puede asignar estas etiquetas.",
     ],
   },

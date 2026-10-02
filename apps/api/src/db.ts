@@ -3,6 +3,7 @@ import { sendPushToUsers } from "./notifications/push";
 import { maybeNotifyByWhatsApp } from "./notifications/whatsapp";
 import { sendToUser } from "./realtime/sse";
 import { invalidateUserCache } from "./auth/userCache";
+import { tierFromRate } from "./lib/professionalLevel";
 
 const dbUrl = process.env.DATABASE_URL || "";
 const poolParams = "connection_limit=30&pool_timeout=10";
@@ -35,6 +36,21 @@ prisma.$use(async (params, next) => {
   // Estadísticas: historial de tier y última edición de la ficha. Se resuelve
   // antes de la escritura para leer el tier anterior.
   let tierBefore: { id: string; tier: string | null }[] | null = null;
+  // El rango (Silver/Gold/Diamond) sale SÓLO de la tarifa: cada vez que se
+  // escribe `baseRate` se recalcula, y un `tier` escrito a mano se ignora.
+  if (params.model === "User" && ["create", "update", "updateMany"].includes(params.action)) {
+    const data = params.args?.data;
+    if (data && typeof data === "object") {
+      const rate = data.baseRate;
+      if ("baseRate" in data && (rate === null || typeof rate === "number")) {
+        data.tier = tierFromRate(rate);
+        data.tierExpiresAt = null;
+      } else if ("tier" in data) {
+        delete data.tier;
+        delete data.tierExpiresAt;
+      }
+    }
+  }
   if (params.model === "User" && (params.action === "update" || params.action === "updateMany")) {
     const data = params.args?.data;
     if (data && typeof data === "object") {

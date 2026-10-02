@@ -28,10 +28,12 @@ type Product = {
   priceClp: number;
   tokens: number;
 };
+type Level = "SILVER" | "GOLD" | "DIAMOND";
 type Me = {
   profileType: string;
   canBuy: boolean;
-  plan: { code: "SILVER" | "GOLD" | "DIAMOND"; manual: boolean; expiresAt: string | null } | null;
+  /** Rango interno: sale de la tarifa, no se compra. */
+  level: Level;
   membershipExpiresAt: string | null;
   boosts: { id: string; code: Code; name: string; startsAt: string; endsAt: string }[];
   walletBalance: number;
@@ -45,31 +47,21 @@ type Catalog = {
 };
 type HistoryItem = { id: string; name: string; status: string; method: string; amount: number; createdAt: string };
 
-const RANK = { SILVER: 1, GOLD: 2, DIAMOND: 3 } as const;
+const MEMBERSHIP_PERKS = ["Perfil visible en directorio, búsqueda y mapa", "Mensajes con clientes", "Estadísticas de visitas"];
 
-/** Lo que da cada plan, en concreto (se ve igual con el cobro apagado). */
-const PLAN_PERKS: Record<"SILVER" | "GOLD" | "DIAMOND", string[]> = {
-  SILVER: ["Perfil visible en directorio, búsqueda y mapa", "Mensajes con clientes", "Estadísticas de visitas"],
-  GOLD: [
-    "Todo lo de Silver",
-    "Sección Gold en el inicio",
-    "Apareces antes que Silver en las búsquedas",
-    "Insignia Gold en tu perfil",
-  ],
-  DIAMOND: [
-    "Todo lo de Gold",
-    "Sección Diamond sobre el mapa del inicio",
-    "Primer lugar entre los planes en las búsquedas",
-    "Insignia Diamond y marco destacado",
-  ],
-};
+/** Rangos internos por tarifa (no se compran). */
+const LEVELS: { code: Level; name: string; range: string }[] = [
+  { code: "SILVER", name: "Silver", range: "Tarifa menor a $50.000" },
+  { code: "GOLD", name: "Gold", range: "Tarifa de $50.000 a $99.999" },
+  { code: "DIAMOND", name: "Diamond", range: "Tarifa de $100.000 o más" },
+];
 
 const BOOST_PERKS: Record<"BUMP" | "SPOTLIGHT", string[]> = {
   BUMP: ["Primer lugar en la búsqueda y los listados de tu comuna", "Por encima de todos los planes mientras dure"],
   SPOTLIGHT: ["Arriba del inicio en “Destacadas”", "Primer lugar en las búsquedas", "Insignia de destacada en tu tarjeta"],
 };
 
-const PLAN_STYLE: Record<"SILVER" | "GOLD" | "DIAMOND", { icon: typeof Sparkles; ring: string; text: string; bg: string }> = {
+const PLAN_STYLE: Record<Level, { icon: typeof Sparkles; ring: string; text: string; bg: string }> = {
   SILVER: { icon: Sparkles, ring: "border-slate-300/20", text: "text-slate-200", bg: "from-slate-400/10" },
   GOLD: { icon: Crown, ring: "border-amber-400/30", text: "text-amber-300", bg: "from-amber-400/15" },
   DIAMOND: { icon: Gem, ring: "border-cyan-300/30", text: "text-cyan-200", bg: "from-cyan-400/15" },
@@ -129,20 +121,6 @@ export default function PlanesClient() {
   const me = data?.me ?? null;
   const selling = Boolean(data?.billingEnabled && me?.canBuy);
 
-  const planAction = (p: Product): { label: string; disabled: boolean; hint?: string } => {
-    const current = me?.plan;
-    const code = p.code as "SILVER" | "GOLD" | "DIAMOND";
-    if (!current) return { label: "Activar", disabled: false };
-    if (current.manual) {
-      return RANK[code] > RANK[current.code]
-        ? { label: "Mejorar", disabled: false }
-        : { label: "Extender visibilidad", disabled: false, hint: "Mantienes tu rango actual" };
-    }
-    if (current.code === code) return { label: "Extender", disabled: false };
-    if (RANK[code] > RANK[current.code]) return { label: "Mejorar", disabled: false, hint: "Tus días actuales se suman" };
-    return { label: "Tienes un plan mayor", disabled: true };
-  };
-
   const pay = async (method: "FLOW" | "TOKENS") => {
     if (!selected) return;
     setPaying(method);
@@ -173,8 +151,8 @@ export default function PlanesClient() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 pb-24 text-white">
       <header className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight">Planes y boosts</h1>
-        <p className="mt-1 text-sm text-white/50">Más visibilidad para tu perfil: planes mensuales y empujones puntuales.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Membresía y boosts</h1>
+        <p className="mt-1 text-sm text-white/50">Más visibilidad para tu perfil con boosts puntuales. Tu rango sale de tu tarifa.</p>
       </header>
 
       {!data ? (
@@ -189,20 +167,20 @@ export default function PlanesClient() {
             <div className="mb-5 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4 text-sm">
               <p className="font-semibold text-emerald-200">Por ahora UZEED es gratis</p>
               <p className="mt-1 text-white/60">
-                Publicar no tiene costo ni vencimiento. Los planes y boosts estarán a la venta cuando empiece el cobro; te
+                Publicar no tiene costo ni vencimiento. Los boosts estarán a la venta cuando empiece el cobro; te
                 avisaremos con tiempo.
               </p>
             </div>
           ) : !session?.user ? (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm">
-              <p className="text-white/65">Inicia sesión con tu perfil profesional para activar un plan o un boost.</p>
+              <p className="text-white/65">Inicia sesión con tu perfil profesional para activar un boost.</p>
               <Link href="/login?next=/planes" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black">
                 Iniciar sesión
               </Link>
             </div>
           ) : me && !me.canBuy ? (
             <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-              Los planes y boosts son para perfiles profesionales.
+              Los boosts son para perfiles profesionales.
             </div>
           ) : null}
 
@@ -217,15 +195,14 @@ export default function PlanesClient() {
             <section className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Tu perfil hoy</p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                {me.plan ? (
-                  <span className={`rounded-full border px-3 py-1 font-semibold ${PLAN_STYLE[me.plan.code].ring} ${PLAN_STYLE[me.plan.code].text}`}>
-                    {me.plan.code === "DIAMOND" ? "Diamond" : me.plan.code === "GOLD" ? "Gold" : "Silver"}
-                    <span className="ml-1 font-normal text-white/50">
-                      {me.plan.manual ? "· asignado por UZEED" : `· hasta el ${fecha(me.plan.expiresAt!)}`}
-                    </span>
+                <span className={`rounded-full border px-3 py-1 font-semibold ${PLAN_STYLE[me.level].ring} ${PLAN_STYLE[me.level].text}`}>
+                  {LEVELS.find((l) => l.code === me.level)?.name}
+                  <span className="ml-1 font-normal text-white/50">· según tu tarifa</span>
+                </span>
+                {me.membershipExpiresAt && new Date(me.membershipExpiresAt).getTime() > Date.now() && (
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-white/60">
+                    Membresía hasta el {fecha(me.membershipExpiresAt)}
                   </span>
-                ) : (
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-white/60">Sin plan</span>
                 )}
                 {me.boosts.map((b) => (
                   <span key={b.id} className="flex items-center gap-1 rounded-full border border-fuchsia-400/30 px-3 py-1 text-fuchsia-200">
@@ -243,69 +220,63 @@ export default function PlanesClient() {
             </section>
           )}
 
-          {/* Planes */}
-          <h2 className="mb-3 text-lg font-semibold">Planes mensuales</h2>
-          <div className="grid gap-3 md:grid-cols-3">
-            {plans.map((p) => {
-              const code = p.code as "SILVER" | "GOLD" | "DIAMOND";
-              const st = PLAN_STYLE[code];
+          {/* Rangos por tarifa (informativo) */}
+          <h2 className="mb-1 text-lg font-semibold">Rangos</h2>
+          <p className="mb-3 text-sm text-white/45">
+            No se compran: tu rango se asigna solo según la tarifa de tu perfil y se actualiza cuando la cambias.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {LEVELS.map((l) => {
+              const st = PLAN_STYLE[l.code];
               const Icon = st.icon;
-              const action = planAction(p);
-              const isCurrent = me?.plan?.code === code;
               return (
-                <article
-                  key={p.id}
-                  className={`relative flex flex-col rounded-2xl border bg-gradient-to-b ${st.bg} to-transparent p-5 ${st.ring} ${
-                    code === "GOLD" ? "md:-translate-y-1" : ""
-                  }`}
-                >
-                  {code === "GOLD" && (
-                    <span className="absolute -top-2.5 left-5 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-black">
-                      Más elegido
-                    </span>
-                  )}
+                <article key={l.code} className={`flex flex-col rounded-2xl border bg-gradient-to-b ${st.bg} to-transparent p-4 ${st.ring}`}>
                   <div className="flex items-center gap-2">
                     <Icon className={`h-5 w-5 ${st.text}`} />
-                    <h3 className={`text-lg font-bold ${st.text}`}>{p.name}</h3>
-                    {isCurrent && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px]">Tu plan</span>}
+                    <h3 className={`font-bold ${st.text}`}>{l.name}</h3>
+                    {me?.level === l.code && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px]">Tu rango</span>}
                   </div>
-                  <p className="mt-3 text-2xl font-bold">
-                    {clp(p.priceClp)} <span className="text-sm font-normal text-white/45">{durationLabel(p)}</span>
-                  </p>
-                  {selling && <p className="text-[11px] text-white/35">o {p.tokens} tokens</p>}
-                  <ul className="mt-4 flex-1 space-y-1.5 text-sm text-white/70">
-                    {PLAN_PERKS[code].map((perk) => (
-                      <li key={perk} className="flex gap-2">
-                        <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${st.text}`} /> {perk}
-                      </li>
-                    ))}
-                  </ul>
-                  {selling && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={action.disabled}
-                        onClick={() => {
-                          setPayError("");
-                          setSelected(p);
-                        }}
-                        className="mt-5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:bg-white/10 disabled:text-white/40"
-                      >
-                        {action.label}
-                      </button>
-                      {action.hint && <p className="mt-1.5 text-center text-[11px] text-white/40">{action.hint}</p>}
-                    </>
-                  )}
+                  <p className="mt-2 text-sm text-white/60">{l.range}</p>
                 </article>
               );
             })}
           </div>
 
+          {/* Membresía: tarifa fija mensual por PAC (se gestiona en /pago) */}
+          {plans.map((p) => (
+            <article key={p.id} className="mt-6 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center">
+              <div className="flex-1">
+                <h2 className="font-semibold">Plan único mensual</h2>
+                <p className="mt-1 text-xl font-bold">
+                  {clp(p.priceClp)} <span className="text-sm font-normal text-white/45">cada 30 días</span>
+                </p>
+                <p className="text-[11px] text-white/40">
+                  Un solo plan para todas: el rango no cambia el precio. Cobro automático (PAC): si el pago pasa tu perfil sigue activo; si no, se oculta hasta que pagues.
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-white/70">
+                  {MEMBERSHIP_PERKS.map((perk) => (
+                    <li key={perk} className="flex gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-white/50" /> {perk}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {selling && (
+                <Link
+                  href="/pago"
+                  className="rounded-xl bg-white px-4 py-2.5 text-center text-sm font-semibold text-black transition hover:bg-white/90"
+                >
+                  {me?.membershipExpiresAt && new Date(me.membershipExpiresAt).getTime() > Date.now() ? "Gestionar pago" : "Activar con PAC"}
+                </Link>
+              )}
+            </article>
+          ))}
+
           {/* Boosts */}
           {boosts.length > 0 && (
             <>
               <h2 className="mb-1 mt-8 text-lg font-semibold">Boosts</h2>
-              <p className="mb-3 text-sm text-white/45">Un empujón puntual, sumado a tu plan. Si compras otro igual, se encadena.</p>
+              <p className="mb-3 text-sm text-white/45">Un empujón puntual por encima de todos los rangos. Si compras otro igual, se encadena.</p>
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {boosts.map((p) => {
                   const code = p.code as "BUMP" | "SPOTLIGHT";
@@ -352,7 +323,7 @@ export default function PlanesClient() {
           {!session?.user && (
             <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
               <p className="font-semibold">¿Aún no publicas en UZEED?</p>
-              <p className="mt-1 text-sm text-white/55">Crea tu perfil y elige tu plan cuando quieras.</p>
+              <p className="mt-1 text-sm text-white/55">Crea tu perfil y activa un boost cuando quieras.</p>
               <Link
                 href="/publicate"
                 className="mt-3 inline-flex rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold"

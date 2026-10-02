@@ -63,6 +63,7 @@ type QuickProfessional = {
   isActive: boolean;
   isVerified: boolean;
   tier: string | null;
+  baseRate: number | null;
   profileMedia: MediaItem[];
   createdAt: string;
 };
@@ -100,7 +101,7 @@ export default function AdminQuickProfessionalsPage() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [primaryCategory, setPrimaryCategory] = useState("Escort");
-  const [tier, setTier] = useState("");
+  const [rate, setRate] = useState("");
   const [profileTags, setProfileTags] = useState<string[]>([]);
   const [serviceTags, setServiceTags] = useState<string[]>([]);
 
@@ -116,7 +117,7 @@ export default function AdminQuickProfessionalsPage() {
     setLatitude(null);
     setLongitude(null);
     setPrimaryCategory("Escort");
-    setTier("");
+    setRate("");
     setProfileTags([]);
     setServiceTags([]);
     setShowForm(false);
@@ -150,7 +151,7 @@ export default function AdminQuickProfessionalsPage() {
     setLatitude(item.latitude);
     setLongitude(item.longitude);
     setPrimaryCategory(item.primaryCategory || item.serviceCategory || "Escort");
-    setTier(item.tier || "");
+    setRate(item.baseRate != null ? String(item.baseRate) : "");
     setProfileTags(item.profileTags || []);
     setServiceTags(item.serviceTags || []);
     setShowForm(true);
@@ -174,7 +175,7 @@ export default function AdminQuickProfessionalsPage() {
       longitude,
       primaryCategory,
       serviceCategory: primaryCategory,
-      tier: tier || null,
+      baseRate: rate ? Number(rate) : null,
       profileTags,
       serviceTags,
     };
@@ -451,19 +452,19 @@ export default function AdminQuickProfessionalsPage() {
               />
             </div>
 
-            {/* Tier */}
+            {/* Tarifa: define el tier (Gold desde $50.000, Diamond desde $100.000) */}
             <div className="grid gap-2">
-              <label className="text-sm text-white/70">Nivel</label>
-              <select
+              <label className="text-sm text-white/70">Tarifa (CLP)</label>
+              <input
                 className="input"
-                value={tier}
-                onChange={(e) => setTier(e.target.value)}
-              >
-                <option value="">Sin nivel</option>
-                <option value="PREMIUM">Premium</option>
-                <option value="GOLD">Gold</option>
-                <option value="SILVER">Silver</option>
-              </select>
+                type="number"
+                min={0}
+                step={1000}
+                placeholder="Ej: 60000"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+              />
+              <p className="text-[11px] text-white/40">El tier sale de la tarifa: Gold desde $50.000, Diamond desde $100.000.</p>
             </div>
 
             {/* Bio / Description */}
@@ -592,7 +593,7 @@ export default function AdminQuickProfessionalsPage() {
                             item.tier === "GOLD" ? "bg-amber-500/20 text-amber-300" :
                             "bg-slate-500/20 text-slate-300"
                           }`}>
-                            {item.tier}
+                            {item.tier === "PREMIUM" ? "DIAMOND" : item.tier}
                           </span>
                         )}
                       </div>

@@ -88,7 +88,7 @@ const homeFaqJsonLd = {
       name: "¿Qué significa que un perfil esté verificado?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Que UZEED comprobó la identidad de la persona y que las fotos publicadas son suyas. Esos perfiles llevan una insignia visible. Los que además subieron exámenes de salud vigentes aparecen en la sección \"Escorts con exámenes\".",
+        text: "Que UZEED comprobó la identidad de la persona y que las fotos publicadas son suyas. Esos perfiles llevan una insignia visible.",
       },
     },
     {
@@ -186,8 +186,7 @@ export default async function HomePage() {
           </summary>
           <p className="mt-1 pl-4 text-white/50">
             Que UZEED comprobó la identidad de la persona y que las fotos publicadas son
-            suyas. Esos perfiles llevan una insignia visible. Los que además subieron
-            exámenes de salud vigentes aparecen en la sección &quot;Escorts con exámenes&quot;.
+            suyas. Esos perfiles llevan una insignia visible.
           </p>
         </details>
         <details className="group mb-3">

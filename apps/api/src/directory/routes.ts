@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { nearestMetroStation, publicMetro } from "../lib/metroStations";
-import { Prisma } from "@prisma/client";
+import { Prisma, type ProfessionalTier } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
@@ -618,7 +618,7 @@ directoryRouter.get(
        separado, para que ninguno dependa de ese corte. */
     const [tieredUsers, recentUsers] = await Promise.all([
       prisma.user.findMany({
-        where: withActivePlan({ ...baseWhere, tier: { not: null } }),
+        where: withActivePlan({ ...baseWhere, tier: { in: ["GOLD", "PREMIUM"] as ProfessionalTier[] } }),
         take: 500,
         orderBy: { createdAt: "desc" },
         select: recentSelect,
