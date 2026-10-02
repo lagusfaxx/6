@@ -179,7 +179,7 @@ function LivePreviewProfessional({ state, user }: Props) {
             <p className="text-[12.5px] leading-relaxed text-white/60">
               <span
                 className={
-                  isVerified ? "font-medium text-emerald-300" : "font-medium text-white/80"
+                  isVerified ? "font-medium text-sky-400" : "font-medium text-white/80"
                 }
               >
                 {isVerified ? "Perfil verificado. " : "Perfil sin verificar. "}

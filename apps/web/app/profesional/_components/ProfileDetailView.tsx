@@ -877,14 +877,14 @@ export default function ProfileDetailView({
               <p
                 className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
                   isVerifiedProfile
-                    ? "border-emerald-400/70 text-emerald-100/75"
+                    ? "border-sky-400/70 text-sky-100/75"
                     : "border-amber-400/60 text-amber-100/70"
                 }`}
               >
                 <span>
                   <span
                     className={`font-semibold ${
-                      isVerifiedProfile ? "text-emerald-300" : "text-amber-300"
+                      isVerifiedProfile ? "text-sky-400" : "text-amber-300"
                     }`}
                   >
                     {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}

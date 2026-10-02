@@ -24,6 +24,9 @@ export type BillingSettings = {
   /** Plan de Flow vigente para el cobro automático (PAC). */
   flowPlanId: string;
   flowPlanPriceClp: number | null;
+  /** WhatsApp de UZEED (sólo dígitos, con código de país) donde se envían
+   *  los comprobantes de transferencia. Vacío = sin transferencia. */
+  receiptWhatsapp: string;
 };
 
 export const PAID_PROFILE_TYPES = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const;
@@ -36,6 +39,7 @@ const KEYS = {
   trialDays: "billing_trial_days",
   flowPlanId: "billing_flow_plan_id",
   flowPlanPriceClp: "billing_flow_plan_price_clp",
+  receiptWhatsapp: "billing_receipt_whatsapp",
 } as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,6 +54,7 @@ function defaults(): BillingSettings {
     trialDays: config.freeTrialDays,
     flowPlanId: config.flowPlanId,
     flowPlanPriceClp: null,
+    receiptWhatsapp: "",
   };
 }
 
@@ -84,6 +89,7 @@ async function readFromDb(): Promise<BillingSettings> {
     trialDays: toInt(get(KEYS.trialDays), d.trialDays),
     flowPlanId: get(KEYS.flowPlanId) || d.flowPlanId,
     flowPlanPriceClp: get(KEYS.flowPlanPriceClp) ? toInt(get(KEYS.flowPlanPriceClp), 0) : null,
+    receiptWhatsapp: (get(KEYS.receiptWhatsapp) || "").replace(/\D/g, ""),
   };
 }
 
@@ -119,7 +125,10 @@ export function getBillingSettingsSync(): BillingSettings {
 }
 
 export type BillingSettingsPatch = Partial<
-  Pick<BillingSettings, "enabled" | "priceClp" | "graceDays" | "trialDays" | "flowPlanId" | "flowPlanPriceClp">
+  Pick<
+    BillingSettings,
+    "enabled" | "priceClp" | "graceDays" | "trialDays" | "flowPlanId" | "flowPlanPriceClp" | "receiptWhatsapp"
+  >
 >;
 
 export async function updateBillingSettings(patch: BillingSettingsPatch): Promise<BillingSettings> {
@@ -139,6 +148,9 @@ export async function updateBillingSettings(patch: BillingSettingsPatch): Promis
   }
   if (patch.graceDays !== undefined) writes.push({ key: KEYS.graceDays, value: String(Math.round(patch.graceDays)) });
   if (patch.trialDays !== undefined) writes.push({ key: KEYS.trialDays, value: String(Math.round(patch.trialDays)) });
+  if (patch.receiptWhatsapp !== undefined) {
+    writes.push({ key: KEYS.receiptWhatsapp, value: patch.receiptWhatsapp.replace(/\D/g, "") });
+  }
   if (patch.flowPlanId !== undefined) writes.push({ key: KEYS.flowPlanId, value: patch.flowPlanId });
   if (patch.flowPlanPriceClp !== undefined && patch.flowPlanPriceClp !== null) {
     writes.push({ key: KEYS.flowPlanPriceClp, value: String(patch.flowPlanPriceClp) });

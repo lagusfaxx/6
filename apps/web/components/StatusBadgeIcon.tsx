@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Crown, ShieldCheck, Star } from "lucide-react";
+import { useState, useCallback, useRef, useEffect, type AriaAttributes, type ComponentType } from "react";
+import { Crown, Star } from "lucide-react";
+import VerifiedTick from "./VerifiedTick";
 
 type BadgeType = "premium" | "verificada" | "quality";
 
@@ -12,7 +13,7 @@ const CONFIG: Record<
     /** Texto de la píldora cuando se muestra con etiqueta. */
     pillLabel: string;
     tooltip: string;
-    icon: typeof Crown;
+    icon: ComponentType<{ className?: string; "aria-hidden"?: AriaAttributes["aria-hidden"] }>;
     color: string;
     glow: string;
     idle: string;
@@ -34,11 +35,12 @@ const CONFIG: Record<
     label: "Verificada",
     pillLabel: "Verificada por UZEED",
     tooltip: "Perfil verificado por UZEED",
-    icon: ShieldCheck,
-    color: "text-emerald-300",
-    glow: "shadow-emerald-400/40",
+    // Mismo sello celeste que las tarjetas del inicio.
+    icon: VerifiedTick,
+    color: "text-sky-400",
+    glow: "shadow-sky-400/40",
     idle: "uzeed-badge-shimmer-emerald",
-    pillClass: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
+    pillClass: "border-sky-400/40 bg-sky-500/15 text-sky-200",
   },
   quality: {
     label: "Calidad",
