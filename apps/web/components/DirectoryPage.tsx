@@ -70,6 +70,10 @@ export const PROFILE_TAGS_CATALOG = [
   "rubia", "morena", "pelirroja", "trigueña",
   "sumisa", "dominante", "caliente", "cariñosa", "natural",
   "tatuada", "piercing",
+  // Nacionalidad y otros: cada landing /escorts/{tag} se llena cuando las
+  // profesionales los marcan en su ficha (Semrush oct 2026).
+  "chilena", "colombiana", "venezolana", "argentina", "peruana",
+  "asiática", "negra", "embarazada",
 ] as const;
 
 export const SERVICE_TAGS_CATALOG = [
@@ -306,6 +310,7 @@ export default function DirectoryPage({
   const [maduras, setMaduras] = useState(filter?.maduras || searchParams.get("maduras") === "true");
   /* Fijo de la landing (/escorts/a-domicilio): no hay chip para quitarlo. */
   const outcalls = Boolean(filter?.outcalls);
+  const maxRate = filter?.maxRate;
   const [availableNow, setAvailableNow] = useState(searchParams.get("availableNow") === "true");
   /* El orden se toma de la URL. Antes solo se miraba availableNow, así que un
      enlace como /escorts?sort=new caía en "featured" sin avisar: el filtro
@@ -387,13 +392,14 @@ export default function DirectoryPage({
       if (maduras) params.set("maduras", "true");
       if (availableNow) params.set("availableNow", "true");
       if (outcalls) params.set("outcalls", "true");
+      if (maxRate) params.set("maxRate", String(maxRate));
       if (genderFilter) params.set("gender", genderFilter);
       if (urlQuery.trim()) params.set("q", urlQuery.trim().slice(0, 80));
       const ids = analyticsIds();
       if (ids.sid) params.set("sid", ids.sid);
       if (ids.vid) params.set("vid", ids.vid);
       return params;
-  }, [entityType, categorySlug, alsoCategorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, outcalls, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
+  }, [entityType, categorySlug, alsoCategorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, outcalls, maxRate, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
 
   const fetchResults = useCallback(async () => {
     const myFetch = ++fetchRef.current;

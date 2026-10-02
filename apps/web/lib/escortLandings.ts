@@ -231,6 +231,8 @@ export const ESCORT_LANDINGS: EscortLanding[] = [
       "publicar anuncio acompañante chile",
       "anuncios escorts gratis chile",
       "publicar perfil masajista erotica chile",
+      "publicar escort gratis",
+      "publicar escort",
     ],
     eyebrow: "Publicar anuncio",
     h1: "Publicar tu anuncio de escort gratis en Chile",

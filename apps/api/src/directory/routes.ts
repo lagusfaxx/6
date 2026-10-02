@@ -1185,6 +1185,8 @@ directoryRouter.get(
      maduras      : 'true' → age >= 40 (auto-computed, never manual tag)
      availableNow : 'true' → online in last 5 min
      tier         : 'DIAMOND' | 'GOLD' | 'SILVER'
+     maxRate      : tarifa base máxima en CLP (/escorts/baratas). Sólo entran
+                    perfiles con tarifa publicada (> 0).
      gender       : 'MALE' | 'FEMALE' | 'OTHER'
      lat / lng / radiusKm
      city         : comuna del chip — no filtra, prioriza en el orden
@@ -1213,6 +1215,8 @@ directoryRouter.get(
        tag "domicilio" que nadie tiene y la landing salía vacía. */
     const outcalls = req.query.outcalls === "true";
     const tierFilter = (req.query.tier as string) || "";
+    const maxRateRaw = Number(req.query.maxRate);
+    const maxRate = Number.isFinite(maxRateRaw) && maxRateRaw > 0 ? Math.floor(maxRateRaw) : null;
     const genderFilter = (req.query.gender as string) || "";
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
@@ -1312,6 +1316,7 @@ directoryRouter.get(
           : null;
     if (tierFilter) where.tier = tierFilter;
     if (outcalls) where.acceptsOutcalls = true;
+    if (maxRate != null) where.baseRate = { gt: 0, lte: maxRate };
 
     /* category filter: match primaryCategory OR serviceCategory
        Skip for ESTABLISHMENT/SHOP — profileType alone is enough */
@@ -1380,6 +1385,7 @@ directoryRouter.get(
       OR: where.OR,
     };
     if (tierFilter) fallbackWhere.tier = tierFilter;
+    if (maxRate != null) fallbackWhere.baseRate = { gt: 0, lte: maxRate };
     // Remove profileTags/serviceTags/primaryCategory filters for fallback
     if (categoryVariantsList.length) {
       fallbackWhere.OR = allCategoryVariants.map((v) => ({
@@ -1671,6 +1677,7 @@ directoryRouter.get(
       ...(tierFilter ? { tier: tierFilter } : {}),
       ...(genderFilter && genderFilter !== "FEMALE" ? { gender: genderFilter } : {}),
       ...(maduras ? { maduras: true } : {}),
+      ...(maxRate != null ? { maxRate } : {}),
       ...(availableNow ? { availableNow: true } : {}),
     };
     if (offset === 0 && (q || Object.keys(explicitFilters).length)) {
