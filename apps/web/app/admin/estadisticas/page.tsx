@@ -127,7 +127,7 @@ const NAV_ITEMS = [
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Retiros", icon: ArrowUpFromLine },
   { href: "/admin/banners", label: "Banners", icon: BookImage },
-  { href: "/admin/pricing", label: "Precios", icon: Tag },
+  { href: "/admin/cobros", label: "Cobros", icon: Tag },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },

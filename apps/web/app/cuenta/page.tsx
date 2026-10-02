@@ -432,7 +432,7 @@ export default function AccountPage() {
                   </p>
                   {!isTrialPeriod && subscriptionStatus.flowSubscriptionStatus !== "active" && (
                     <p className="mt-1 text-xs text-white/45">
-                      ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP/mes
+                      ${(subscriptionStatus.subscriptionPrice || 45000).toLocaleString("es-CL")} CLP/mes
                     </p>
                   )}
                 </div>

@@ -31,7 +31,7 @@ export default function PagoPage() {
   const [flowError, setFlowError] = useState<string | null>(null);
 
   const user = me?.user;
-  const price = sub?.subscriptionPrice ?? 4990;
+  const price = sub?.subscriptionPrice ?? 45000;
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
   const isTrialPeriod = sub?.trialActive && !sub?.membershipActive;

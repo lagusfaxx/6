@@ -57,7 +57,7 @@ plansRouter.post("/plans/create", requireAdmin, asyncHandler(async (req, res) =>
  *
  * Uses config defaults from .env:
  *   planId        = FLOW_PLAN_ID  (default: UZEED_PRO_MENSUAL)
- *   amount        = MEMBERSHIP_PRICE_CLP (default: 4990)
+ *   amount        = MEMBERSHIP_PRICE_CLP (default: 45000)
  *   interval      = 3 (monthly)
  *   trial         = FREE_TRIAL_DAYS (default: 7)
  *   urlCallback   = API_URL/webhooks/flow/subscription

@@ -35,3 +35,12 @@ WHERE "kind" = 'PLAN' AND "code" IN ('GOLD', 'DIAMOND');
 UPDATE "PromoProduct"
 SET "duration" = 30, "name" = 'Membresía', "updatedAt" = CURRENT_TIMESTAMP
 WHERE "kind" = 'PLAN' AND "code" = 'SILVER';
+
+-- Un solo plan mensual para todos los rangos: $45.000.
+UPDATE "PromoProduct"
+SET "priceClp" = 45000, "updatedAt" = CURRENT_TIMESTAMP
+WHERE "kind" = 'PLAN' AND "code" = 'SILVER';
+
+INSERT INTO "PlatformConfig" ("key", "value", "updatedAt")
+VALUES ('billing_price_clp', '45000', CURRENT_TIMESTAMP)
+ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = CURRENT_TIMESTAMP;
