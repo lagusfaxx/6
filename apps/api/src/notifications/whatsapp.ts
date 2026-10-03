@@ -164,6 +164,8 @@ type NotifRule = {
   /** Solo avisar si la usuaria NO está activa en la app ahora mismo. */
   onlyIfOffline: boolean;
   info: (payload: Record<string, any>) => string;
+  /** Tipos que avisan del mismo evento comparten cooldown (un solo aviso). */
+  group?: string;
 };
 
 const RULES: Record<string, NotifRule> = {
@@ -175,6 +177,8 @@ const RULES: Record<string, NotifRule> = {
   SERVICE_REQUEST_NEW: {
     cooldownMin: 5,
     onlyIfOffline: false,
+    // Cada solicitud crea SERVICE_PUBLISHED y SERVICE_REQUEST_NEW a la vez.
+    group: "SERVICE_REQUEST",
     info: () => "tienes una nueva solicitud de encuentro",
   },
   VIDEOCALL_BOOKED: {
@@ -195,6 +199,7 @@ const RULES: Record<string, NotifRule> = {
   SERVICE_PUBLISHED: {
     cooldownMin: 5,
     onlyIfOffline: false,
+    group: "SERVICE_REQUEST",
     info: () => "tienes una nueva solicitud de servicio",
   },
 };
@@ -216,6 +221,18 @@ function underCooldown(key: string, cooldownMin: number): boolean {
   if (cooldownMin <= 0) return false;
   const last = lastSentAt.get(key);
   return Boolean(last && Date.now() - last < cooldownMin * 60 * 1000);
+}
+
+/**
+ * Reserva el cupo del cooldown antes de enviar. Se marca de inmediato (sin
+ * await de por medio) para que varios mensajes seguidos del cliente, que
+ * llegan casi al mismo tiempo, no generen un aviso cada uno.
+ */
+function tryReserve(key: string, cooldownMin: number): boolean {
+  if (cooldownMin <= 0) return true;
+  if (underCooldown(key, cooldownMin)) return false;
+  markSent(key);
+  return true;
 }
 
 function markSent(key: string) {
@@ -287,16 +304,13 @@ async function notifyBySms(
   prisma: PrismaClient,
   userId: string,
   type: string,
-  key: string,
   to: string,
   info: string,
-): Promise<void> {
+): Promise<boolean> {
   const result = await sendSms(to, smsNotificationText(info));
   await logDelivery(prisma, { userId, channel: "SMS", type, result });
-  if (result.ok) {
-    markSent(key);
-    console.log(`[sms] notified user=${userId} type=${type} msg=${result.messageId}`);
-  }
+  if (result.ok) console.log(`[sms] notified user=${userId} type=${type} msg=${result.messageId}`);
+  return result.ok;
 }
 
 /**
@@ -315,20 +329,24 @@ export async function maybeNotifyByWhatsApp(
   type: string | undefined,
   payload: Record<string, any>,
 ): Promise<void> {
+  const smsOn = isSmsConfigured();
+  // SMS_MODE=primary: los avisos van solo por SMS aunque haya WhatsApp.
+  const provider = smsOn && process.env.SMS_MODE === "primary" ? null : getWhatsAppProvider();
+  if ((!provider && !smsOn) || !type) return;
+  const rule = RULES[type];
+  if (!rule) return;
+
+  const peerId = typeof payload?.fromId === "string" ? payload.fromId : null;
+  const relay = provider === "cloud" && type === "MESSAGE_RECEIVED" && Boolean(peerId);
+
+  const key = `${userId}:${rule.group ?? type}`;
+  // El reenvío por WhatsApp con la ventana de 24 h abierta no tiene cooldown,
+  // pero eso recién se sabe después de consultar la base.
+  const reserved = tryReserve(key, rule.cooldownMin);
+  if (!reserved && !relay) return;
+  let delivered = false;
+
   try {
-    const smsOn = isSmsConfigured();
-    // SMS_MODE=primary: los avisos van solo por SMS aunque haya WhatsApp.
-    const provider = smsOn && process.env.SMS_MODE === "primary" ? null : getWhatsAppProvider();
-    if ((!provider && !smsOn) || !type) return;
-    const rule = RULES[type];
-    if (!rule) return;
-
-    const peerId = typeof payload?.fromId === "string" ? payload.fromId : null;
-    const relay = provider === "cloud" && type === "MESSAGE_RECEIVED" && Boolean(peerId);
-
-    const key = `${userId}:${type}`;
-    if (!relay && underCooldown(key, rule.cooldownMin)) return;
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -345,15 +363,16 @@ export async function maybeNotifyByWhatsApp(
     if (!NOTIFIABLE_PROFILE_TYPES.has(String(user.profileType))) return;
     if (!user.phone) return;
     if (rule.onlyIfOffline && isActiveInApp(user.isOnline, user.lastSeen)) return;
+    const to = normalizePhoneForWhatsApp(user.phone);
+    if (!to) return;
 
     const name = user.displayName || user.username || "";
+    const info = rule.info(payload);
 
     if (relay) {
-      const to = normalizePhoneForWhatsApp(user.phone);
-      if (!to) return;
       const contact = await prisma.whatsAppContact.findUnique({ where: { waId: to } });
       const windowOpen = Boolean(contact && Date.now() - contact.lastInboundAt.getTime() < SERVICE_WINDOW_MS);
-      if (!windowOpen && underCooldown(key, rule.cooldownMin)) return;
+      if (!windowOpen && !reserved) return;
 
       const sender = await prisma.user.findUnique({
         where: { id: peerId! },
@@ -371,36 +390,35 @@ export async function maybeNotifyByWhatsApp(
           ]);
       await logDelivery(prisma, { userId, channel: "WHATSAPP", type, result });
       if (result.ok) {
-        if (!windowOpen) markSent(key);
+        delivered = true;
         await saveRelay(prisma, result.messageId, userId, peerId, to);
         console.log(`[whatsapp] relayed user=${userId} from=${peerId} msg=${result.messageId}`);
-      } else if (smsOn && !underCooldown(key, rule.cooldownMin)) {
-        await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
+      } else if (smsOn && reserved) {
+        delivered = await notifyBySms(prisma, userId, type, to, info);
       }
       return;
     }
 
     if (!provider) {
-      const to = normalizePhoneForWhatsApp(user.phone);
-      if (to) await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
+      delivered = await notifyBySms(prisma, userId, type, to, info);
       return;
     }
 
-    const result = await sendWhatsAppNotification(user.phone, name, rule.info(payload));
+    const result = await sendWhatsAppNotification(user.phone, name, info);
     await logDelivery(prisma, { userId, channel: "WHATSAPP", type, result });
-    if (!result.ok && smsOn) {
-      const to = normalizePhoneForWhatsApp(user.phone);
-      if (to) await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
-      return;
-    }
     if (result.ok) {
-      markSent(key);
+      delivered = true;
       // Responder a un aviso que no es de un chat no debe caer en el último chat.
-      const to = normalizePhoneForWhatsApp(user.phone);
-      if (provider === "cloud" && to) await saveRelay(prisma, result.messageId, userId, null, to);
+      if (provider === "cloud") await saveRelay(prisma, result.messageId, userId, null, to);
       console.log(`[whatsapp] notified user=${userId} type=${type} msg=${result.messageId}`);
+    } else if (smsOn) {
+      delivered = await notifyBySms(prisma, userId, type, to, info);
     }
   } catch (err: any) {
     console.error("[whatsapp] maybeNotify error:", err?.message || err);
+  } finally {
+    // Si no salió ningún aviso, el cupo queda libre para el próximo evento
+    // (ej. estaba conectada y luego se desconecta).
+    if (reserved && !delivered) lastSentAt.delete(key);
   }
 }
