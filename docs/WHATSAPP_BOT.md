@@ -237,3 +237,11 @@ aviso de mensajes solo si no está conectada, y los mismos cooldowns.
    ```
 
 4. Prueba en `/admin/whatsapp` → **Probar SMS**.
+
+### Estadísticas
+
+Cada aviso enviado o intentado (SMS o WhatsApp, incluidas las pruebas) queda
+en la tabla `NotificationDelivery` (canal, tipo, ok/error, usuaria y fecha;
+sin teléfono ni texto). `/admin/whatsapp` muestra los SMS enviados en 24 h,
+7 y 30 días, el saldo de LabsMobile, los envíos por tipo y los últimos 30.
+Endpoint: `GET /notifications/whatsapp/stats` (admin).

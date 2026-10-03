@@ -263,9 +263,36 @@ export function smsNotificationText(info: string): string {
   return `UZEED: ${sanitizeParam(info, 100)}. Revisa tu cuenta en ${CHAT_URL.replace(/^https?:\/\//, "")}`;
 }
 
+/** Deja registro del envío para las estadísticas del panel. Nunca lanza. */
+export async function logDelivery(
+  prisma: PrismaClient,
+  entry: { userId?: string | null; channel: "SMS" | "WHATSAPP"; type: string; result: SendResult },
+): Promise<void> {
+  await prisma.notificationDelivery
+    .create({
+      data: {
+        userId: entry.userId ?? null,
+        channel: entry.channel,
+        type: entry.type,
+        ok: entry.result.ok,
+        error: entry.result.ok ? null : String(entry.result.error || "ERROR").slice(0, 300),
+        providerId: entry.result.messageId ?? null,
+      },
+    })
+    .catch((err: any) => console.error("[notify] delivery log failed:", err?.message || err));
+}
+
 /** Respaldo por SMS cuando WhatsApp no está disponible o falla. */
-async function notifyBySms(userId: string, type: string, key: string, to: string, info: string): Promise<void> {
+async function notifyBySms(
+  prisma: PrismaClient,
+  userId: string,
+  type: string,
+  key: string,
+  to: string,
+  info: string,
+): Promise<void> {
   const result = await sendSms(to, smsNotificationText(info));
+  await logDelivery(prisma, { userId, channel: "SMS", type, result });
   if (result.ok) {
     markSent(key);
     console.log(`[sms] notified user=${userId} type=${type} msg=${result.messageId}`);
@@ -342,26 +369,28 @@ export async function maybeNotifyByWhatsApp(
             senderName,
             sanitizeParam(text, 300),
           ]);
+      await logDelivery(prisma, { userId, channel: "WHATSAPP", type, result });
       if (result.ok) {
         if (!windowOpen) markSent(key);
         await saveRelay(prisma, result.messageId, userId, peerId, to);
         console.log(`[whatsapp] relayed user=${userId} from=${peerId} msg=${result.messageId}`);
       } else if (smsOn && !underCooldown(key, rule.cooldownMin)) {
-        await notifyBySms(userId, type, key, to, rule.info(payload));
+        await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
       }
       return;
     }
 
     if (!provider) {
       const to = normalizePhoneForWhatsApp(user.phone);
-      if (to) await notifyBySms(userId, type, key, to, rule.info(payload));
+      if (to) await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
       return;
     }
 
     const result = await sendWhatsAppNotification(user.phone, name, rule.info(payload));
+    await logDelivery(prisma, { userId, channel: "WHATSAPP", type, result });
     if (!result.ok && smsOn) {
       const to = normalizePhoneForWhatsApp(user.phone);
-      if (to) await notifyBySms(userId, type, key, to, rule.info(payload));
+      if (to) await notifyBySms(prisma, userId, type, key, to, rule.info(payload));
       return;
     }
     if (result.ok) {

@@ -6,11 +6,12 @@ import { removePushSubscription, savePushSubscription, sendPushToUsers } from ".
 import {
   getWhatsAppProvider,
   isWhatsAppConfigured,
+  logDelivery,
   normalizePhoneForWhatsApp,
   sendWhatsAppNotification,
   smsNotificationText,
 } from "./whatsapp";
-import { isSmsConfigured, sendSms } from "./sms";
+import { getSmsBalance, isSmsConfigured, sendSms } from "./sms";
 import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
 import { verifyEmailPrefsToken } from "../lib/emailPrefsToken";
 
@@ -56,6 +57,51 @@ notificationsRouter.post("/notifications/whatsapp/logout", requireAdmin, asyncHa
   return res.json({ ok: true, status: getBaileysStatus() });
 }));
 
+/* Estadísticas de avisos enviados por SMS y WhatsApp (panel /admin/whatsapp). */
+notificationsRouter.get("/notifications/whatsapp/stats", requireAdmin, asyncHandler(async (_req, res) => {
+  const now = Date.now();
+  const since = (days: number) => new Date(now - days * 24 * 60 * 60 * 1000);
+  const count = (channel: string, days: number, ok?: boolean) =>
+    prisma.notificationDelivery.count({
+      where: { channel, createdAt: { gte: since(days) }, ...(ok === undefined ? {} : { ok }) },
+    });
+
+  const [sms1, sms7, sms30, smsFail30, wa1, wa7, wa30, waFail30, byType, recent, balance] = await Promise.all([
+    count("SMS", 1, true),
+    count("SMS", 7, true),
+    count("SMS", 30, true),
+    count("SMS", 30, false),
+    count("WHATSAPP", 1, true),
+    count("WHATSAPP", 7, true),
+    count("WHATSAPP", 30, true),
+    count("WHATSAPP", 30, false),
+    prisma.notificationDelivery.groupBy({
+      by: ["channel", "type"],
+      where: { ok: true, createdAt: { gte: since(30) } },
+      _count: { _all: true },
+    }),
+    prisma.notificationDelivery.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, userId: true, channel: true, type: true, ok: true, error: true, createdAt: true },
+    }),
+    getSmsBalance(),
+  ]);
+
+  const userIds = [...new Set(recent.map((r) => r.userId).filter((id): id is string => Boolean(id)))];
+  const users = userIds.length
+    ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, displayName: true, username: true } })
+    : [];
+  const names = new Map(users.map((u) => [u.id, u.displayName || u.username]));
+
+  return res.json({
+    sms: { last24h: sms1, last7d: sms7, last30d: sms30, failed30d: smsFail30, balance },
+    whatsapp: { last24h: wa1, last7d: wa7, last30d: wa30, failed30d: waFail30 },
+    byType: byType.map((r) => ({ channel: r.channel, type: r.type, count: r._count._all })),
+    recent: recent.map((r) => ({ ...r, userName: r.userId ? names.get(r.userId) ?? null : null })),
+  });
+}));
+
 notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {
   const viaSms = req.body?.channel === "sms";
   if (viaSms ? !isSmsConfigured() : !isWhatsAppConfigured()) {
@@ -76,9 +122,11 @@ notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHand
     const to = normalizePhoneForWhatsApp(phone);
     if (!to) return res.status(400).json({ ok: false, error: "INVALID_PHONE" });
     const result = await sendSms(to, smsNotificationText(info));
+    await logDelivery(prisma, { userId: req.session.userId, channel: "SMS", type: "TEST", result });
     return res.status(result.ok ? 200 : 502).json(result);
   }
   const result = await sendWhatsAppNotification(phone, "Prueba", info);
+  await logDelivery(prisma, { userId: req.session.userId, channel: "WHATSAPP", type: "TEST", result });
   return res.status(result.ok ? 200 : 502).json(result);
 }));
 

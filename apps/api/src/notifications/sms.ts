@@ -67,3 +67,20 @@ export async function sendSms(to: string, text: string): Promise<SendResult> {
     return { ok: false, error: err?.message || "NETWORK_ERROR" };
   }
 }
+
+/** Saldo de la cuenta LabsMobile en créditos (null si no se pudo consultar). */
+export async function getSmsBalance(): Promise<number | null> {
+  const user = process.env.LABSMOBILE_USER;
+  const token = process.env.LABSMOBILE_TOKEN;
+  if (!user || !token) return null;
+  try {
+    const res = await fetch("https://api.labsmobile.com/json/balance", {
+      headers: { Authorization: `Basic ${Buffer.from(`${user}:${token}`).toString("base64")}` },
+    });
+    const json: any = await res.json().catch(() => ({}));
+    const credits = Number(json?.credits);
+    return res.ok && Number.isFinite(credits) ? credits : null;
+  } catch {
+    return null;
+  }
+}
