@@ -928,6 +928,22 @@ model WhatsAppRelay {
   @@index([waId, createdAt])
 }
 
+/// Registro de cada aviso enviado (o intentado) por SMS o WhatsApp, para
+/// las estadísticas del panel /admin/whatsapp. No guarda el teléfono ni el texto.
+model NotificationDelivery {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  channel    String
+  type       String
+  ok         Boolean
+  error      String?
+  providerId String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([channel, createdAt])
+}
+
 /// Última vez que el número escribió al bot. Durante las 24 h siguientes Meta
 /// permite enviarle texto libre (gratis) en vez de plantillas.
 model WhatsAppContact {
