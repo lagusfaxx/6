@@ -32,6 +32,42 @@ type WaStatus = {
   sms?: { configured: boolean; mode: "primary" | "fallback" | null };
 };
 
+type ChannelStats = { last24h: number; last7d: number; last30d: number; failed30d: number };
+type WaStats = {
+  sms: ChannelStats & { balance: number | null };
+  whatsapp: ChannelStats;
+  byType: { channel: string; type: string; count: number }[];
+  recent: {
+    id: string;
+    userName: string | null;
+    channel: "SMS" | "WHATSAPP";
+    type: string;
+    ok: boolean;
+    error: string | null;
+    createdAt: string;
+  }[];
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  MESSAGE_RECEIVED: "Mensaje nuevo",
+  SERVICE_REQUEST_NEW: "Solicitud",
+  VIDEOCALL_BOOKED: "Videollamada",
+  BOOKING_UPDATE: "Reserva",
+  MARKET_NEW_ORDER: "Venta marketplace",
+  SERVICE_PUBLISHED: "Solicitud de servicio",
+  TEST: "Prueba",
+};
+
+function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString("es-CL", {
+    timeZone: "America/Santiago",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function humanError(error?: string): string {
   if (!error) return "error desconocido";
   if (error === "NUMERO_SIN_WHATSAPP") return "ese número no tiene WhatsApp (revisa que esté bien escrito)";
@@ -64,8 +100,16 @@ export default function AdminWhatsAppPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [stats, setStats] = useState<WaStats | null>(null);
+
+  const loadStats = useCallback(async () => {
+    const s = await apiFetch<WaStats>("/notifications/whatsapp/stats").catch(() => null);
+    setStats(s ?? null);
+  }, []);
+
   const loadStatus = useCallback(async () => {
     setRefreshing(true);
+    loadStats();
     try {
       const s = await apiFetch<WaStatus>("/notifications/whatsapp/status");
       setStatus(s);
@@ -80,7 +124,7 @@ export default function AdminWhatsAppPage() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadStats]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -117,6 +161,7 @@ export default function AdminWhatsAppPage() {
       setTestResult({ ok: false, error: err?.message || "Error al enviar", channel });
     } finally {
       setTestSending(false);
+      loadStats();
     }
   };
 
@@ -284,6 +329,110 @@ export default function AdminWhatsAppPage() {
           </p>
         )}
       </section>
+
+      {/* ── Estadísticas ── */}
+      {stats && (
+        <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Avisos enviados</p>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { label: "SMS hoy (24 h)", value: stats.sms.last24h },
+              { label: "SMS 7 días", value: stats.sms.last7d },
+              { label: "SMS 30 días", value: stats.sms.last30d },
+              {
+                label: "Saldo LabsMobile",
+                value: stats.sms.balance === null ? "—" : stats.sms.balance.toLocaleString("es-CL"),
+                hint: "créditos",
+              },
+            ].map((t) => (
+              <div key={t.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-[11px] text-white/45">{t.label}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-white">{t.value}</p>
+                {"hint" in t && t.hint ? <p className="text-[10px] text-white/30">{t.hint}</p> : null}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/45">
+            <span>
+              WhatsApp 30 días: <strong className="tabular-nums text-white/75">{stats.whatsapp.last30d}</strong>
+            </span>
+            {stats.sms.failed30d > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <XCircle className="h-3.5 w-3.5 text-rose-300" />
+                SMS fallidos 30 días: <strong className="tabular-nums text-white/75">{stats.sms.failed30d}</strong>
+              </span>
+            )}
+            {stats.whatsapp.failed30d > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <XCircle className="h-3.5 w-3.5 text-amber-300" />
+                WhatsApp fallidos 30 días: <strong className="tabular-nums text-white/75">{stats.whatsapp.failed30d}</strong>
+                <span className="text-white/30">(salen por SMS de respaldo)</span>
+              </span>
+            )}
+          </div>
+
+          {stats.byType.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-[11px] text-white/40">Por tipo (enviados, 30 días)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {stats.byType.map((r) => (
+                  <span
+                    key={`${r.channel}-${r.type}`}
+                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60"
+                  >
+                    {r.channel === "SMS" ? "SMS" : "WhatsApp"} · {TYPE_LABELS[r.type] || r.type}:{" "}
+                    <strong className="tabular-nums text-white/85">{r.count}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11px] text-white/40">Últimos envíos</p>
+            {stats.recent.length === 0 ? (
+              <p className="text-xs text-white/35">Todavía no se ha enviado ningún aviso.</p>
+            ) : (
+              <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10">
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-[#1a1024] text-[10px] uppercase tracking-wider text-white/35">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Fecha</th>
+                      <th className="px-3 py-2 font-semibold">Canal</th>
+                      <th className="px-3 py-2 font-semibold">Tipo</th>
+                      <th className="px-3 py-2 font-semibold">Profesional</th>
+                      <th className="px-3 py-2 font-semibold">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recent.map((r) => (
+                      <tr key={r.id} className="border-t border-white/5 text-white/70">
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-white/50">{formatWhen(r.createdAt)}</td>
+                        <td className="px-3 py-2">{r.channel === "SMS" ? "SMS" : "WhatsApp"}</td>
+                        <td className="px-3 py-2">{TYPE_LABELS[r.type] || r.type}</td>
+                        <td className="max-w-[10rem] truncate px-3 py-2">{r.userName || "—"}</td>
+                        <td className="px-3 py-2">
+                          {r.ok ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-300">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Enviado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-rose-300" title={r.error || ""}>
+                              <XCircle className="h-3.5 w-3.5" /> Falló
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Desvincular ── */}
       {status?.provider === "baileys" && (b?.status === "connected" || b?.connectedAs) && (
