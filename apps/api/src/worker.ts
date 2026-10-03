@@ -3,7 +3,6 @@ import { runStatsAlerts } from "./mcp/stats/alerts";
 import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
-import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
 import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
@@ -13,6 +12,8 @@ import {
   sendVideocallConfigReminder,
   sendReferralCampaignEmail,
   sendUnreadMessagesEmail,
+  sendBillingNoticeEmail,
+  sendMembershipExpiryEmail,
 } from "./lib/notificationEmail";
 import { buildUnsubscribeUrl } from "./lib/emailPrefsToken";
 import { sendInAppAndPush } from "./lib/sendReminder";
@@ -83,7 +84,6 @@ async function safeSend(
 /* Uses type key with month+year so renewals get a fresh reminder */
 
 async function tickMembershipExpiry() {
-  if (!smtpEnabled()) return;
   // Con el cobro apagado no hay nada que renovar.
   if (!(await getBillingSettings()).enabled) return;
 
@@ -106,12 +106,10 @@ async function tickMembershipExpiry() {
     const expiryKey = `membership_expiry_${u.membershipExpiresAt!.toISOString().slice(0, 7)}`;
     if (await wasReminderSent(u.id, expiryKey)) continue;
 
-    await markReminderSent(u.id, expiryKey);
-    try {
-      await sendExpiryEmail(u.email, u.membershipExpiresAt!);
-      console.log(`[worker] membership expiry sent to ${u.email}`);
-    } catch (err) {
-      console.error(`[worker] membership expiry failed for ${u.email}`, err);
+    // Sólo se marca si el correo salió: si Resend falla, se reintenta.
+    if (u.email && (await sendMembershipExpiryEmail(u.email, u.membershipExpiresAt!))) {
+      await markReminderSent(u.id, expiryKey);
+      console.log(`[worker] membership expiry sent to ${u.id}`);
     }
   }
 }
@@ -466,7 +464,26 @@ async function tickSyncPacSubscriptions() {
    Uno al encender (cuánta gracia tienen) y otro cuando faltan menos de 48 h.
    Las claves llevan la fecha de encendido: si se apaga y se vuelve a encender,
    se avisa de nuevo. */
+/* Los avisos de cobro esperan 10 minutos desde que arranca el worker (tras
+   un despliegue): da margen para revisar que todo quedó bien antes de que
+   salgan los correos. A los 10 minutos corre una pasada propia. */
+const BILLING_NOTICES_DELAY_MS = 10 * 60 * 1000;
+const workerStartedAt = Date.now();
+let billingNoticesRunning = false;
+
 async function tickBillingNotices() {
+  if (Date.now() - workerStartedAt < BILLING_NOTICES_DELAY_MS) return;
+  // La pasada de los 10 minutos puede cruzarse con la horaria.
+  if (billingNoticesRunning) return;
+  billingNoticesRunning = true;
+  try {
+    await runBillingNotices();
+  } finally {
+    billingNoticesRunning = false;
+  }
+}
+
+async function runBillingNotices() {
   const s = await getBillingSettings();
   const grace = graceEndsAt(s);
   if (!s.enabled || !s.enabledAt || !grace) return;
@@ -499,24 +516,32 @@ async function tickBillingNotices() {
     ? `Tu perfil deja de mostrarse el ${graceText} si no activas tu plan (${price}/mes).`
     : `Desde ahora publicar cuesta ${price} al mes. Tu perfil sigue visible hasta el ${graceText}: activa tu plan antes para no dejar de aparecer.`;
 
+  // El aviso en la app y el correo se registran por separado: si el correo
+  // falla (o no había proveedor), se reintenta en la próxima pasada sin
+  // repetir la notificación.
+  const emailKey = `${key}_email`;
+  const payUrl = `${config.appUrl.replace(/\/$/, "")}/pago`;
   let sent = 0;
+  let mailed = 0;
   for (const u of users) {
-    if (await wasReminderSent(u.id, key)) continue;
-    await markReminderSent(u.id, key);
     try {
-      await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_STARTED", title, body, url: "/pago", tag: key });
-      if (u.email) {
-        await sendBillingNoticeEmail(u.email, {
-          subject: title,
-          text: `${body}\n\nActívalo aquí: ${config.appUrl.replace(/\/$/, "")}/pago`,
-        });
+      if (!(await wasReminderSent(u.id, key))) {
+        await markReminderSent(u.id, key);
+        await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_STARTED", title, body, url: "/pago", tag: key });
+        sent++;
       }
-      sent++;
+      if (u.email && !(await wasReminderSent(u.id, emailKey))) {
+        const ok = await sendBillingNoticeEmail(u.email, { title, body, cta: "Activar mi plan", url: payUrl });
+        if (ok) {
+          await markReminderSent(u.id, emailKey);
+          mailed++;
+        }
+      }
     } catch (err) {
       console.error(`[worker] billing notice failed for ${u.id}`, err);
     }
   }
-  if (sent) console.log(`[worker] billing notices (${key}) sent: ${sent}`);
+  if (sent || mailed) console.log(`[worker] billing notices (${key}) app: ${sent}, email: ${mailed}`);
 }
 
 /* ─── Prueba gratis por terminar (cobro encendido) ───
@@ -565,12 +590,14 @@ export async function tickTrialEnding() {
     const when = end.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
     const title = lastDay ? "Tu prueba gratis termina hoy" : "Tu prueba gratis termina pronto";
     const body = `Tu perfil deja de mostrarse el ${when} si no activas tu plan (desde ${price} al mes).`;
-    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: "/planes", tag: key }).catch(() => undefined);
+    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: "/pago", tag: key }).catch(() => undefined);
     if (u.email) {
       await sendBillingNoticeEmail(u.email, {
-        subject: title,
-        text: `${body}\n\nActívalo aquí: ${config.appUrl.replace(/\/$/, "")}/planes`,
-      }).catch(() => undefined);
+        title,
+        body,
+        cta: "Activar mi plan",
+        url: `${config.appUrl.replace(/\/$/, "")}/pago`,
+      }).catch(() => false);
     }
   }
 }
@@ -850,6 +877,11 @@ export function startWorker() {
   setTimeout(() => {
     tick().catch((e) => console.error("[worker] initial tick error", e));
   }, 10_000);
+
+  // Avisos de cobro: 10 minutos después de arrancar (ver tickBillingNotices).
+  setTimeout(() => {
+    tickBillingNotices().catch((e) => console.error("[worker] billing notices error", e));
+  }, BILLING_NOTICES_DELAY_MS + 1_000);
 }
 
 /* ─── Avisos por correo de mensajes sin leer ─── */

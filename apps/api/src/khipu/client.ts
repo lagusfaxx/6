@@ -151,9 +151,10 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
 
   const baseUrl = config.flowBaseUrl.replace(/\/$/, "");
 
-  // Debug: log the exact payload sent to Flow (exclude signature)
-  const { s, ...debugParams } = signed;
-  console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: new URLSearchParams(debugParams).toString() });
+  // Debug: lo que se envía a Flow, sin la firma ni la apiKey (los logs no
+  // deben guardar credenciales).
+  const { s, apiKey: _apiKey, ...debugParams } = signed;
+  console.log("[flow] request", { path, method, params: debugParams });
 
   let res: Response;
   const controller = new AbortController();

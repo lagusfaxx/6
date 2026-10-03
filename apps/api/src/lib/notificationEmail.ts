@@ -71,18 +71,25 @@ function statusBadge(status: string, color: string): string {
   </td></tr>`;
 }
 
-async function send(to: string, subject: string, html: string) {
-  if (!config.resendApiKey) return;
+/** Envía por Resend. Devuelve true sólo si Resend aceptó el correo. */
+async function send(to: string, subject: string, html: string): Promise<boolean> {
+  if (!config.resendApiKey) return false;
   try {
     const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: "UZEED <no-reply@uzeed.cl>",
       to,
       subject,
       html,
     });
+    if (error) {
+      console.error("[notificationEmail] rejected", { to, subject, error });
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[notificationEmail] failed", { to, subject, err });
+    return false;
   }
 }
 
@@ -511,20 +518,32 @@ export async function sendQualityReviewEmail(
   await send(email, `Evaluacion de calidad de tu perfil — UZEED`, html);
 }
 
-/* ─── Gold plan renewal reminder ─── */
+/* ─── Cobro de membresías: inicio, último aviso, fin de prueba ─── */
 
-export async function sendPlanRenewalEmail(email: string, displayName: string | null, planLabel: string, expiresAt: Date) {
-  const name = esc(displayName || "profesional");
+export async function sendBillingNoticeEmail(
+  email: string,
+  data: { title: string; body: string; cta: string; url: string },
+): Promise<boolean> {
+  const html = wrapEmail(
+    esc(data.title),
+    [paragraph(esc(data.body)), ctaButton(esc(data.cta), data.url)].join(""),
+  );
+  return send(email, data.title, html);
+}
+
+/* ─── Membresía por vencer (3 días antes) ─── */
+
+export async function sendMembershipExpiryEmail(email: string, expiresAt: Date): Promise<boolean> {
   const when = expiresAt.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
   const html = wrapEmail(
-    `Tu plan ${planLabel} vence pronto`,
+    "Tu membresía vence pronto",
     [
-      paragraph(`Hola ${name}, tu plan <strong>${esc(planLabel)}</strong> en UZEED vence el ${esc(when)}.`),
-      paragraph("Si no lo renuevas, pierdes tu insignia y tu lugar destacado en el inicio y en las búsquedas."),
-      ctaButton("Renovar mi plan", `${config.appUrl.replace(/\/$/, "")}/planes`),
+      paragraph(`Tu membresía en UZEED vence el ${esc(when)}. Si no la renuevas, tu perfil deja de mostrarse en el sitio.`),
+      paragraph("Si tienes pago automático (PAC) activo, no tienes que hacer nada."),
+      ctaButton("Renovar membresía", `${config.appUrl.replace(/\/$/, "")}/pago`),
     ].join(""),
   );
-  await send(email, `Tu plan ${planLabel} vence pronto`, html);
+  return send(email, "Tu membresía UZEED vence pronto", html);
 }
 
 /* ─── Weekly Highlights email ─── */
