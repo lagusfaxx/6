@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
-import { TAG_LANDINGS } from "../lib/escortSearchLandings";
+import { TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
 import { COMUNAS } from "../lib/comunas";
 import { fetchMotelDirectory, motelHref, motelsForComuna } from "../lib/motels";
@@ -168,6 +168,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // are 301-redirected in next.config.mjs and must NOT appear here.
   add("/escorts", "daily", 0.9);
   add("/masajistas", "daily", 0.9);
+  add("/hombres", "daily", 0.9);
   add("/moteles", "daily", 0.9);
   add("/establecimientos", "daily", 0.85);
   add("/profesionales", "daily", 0.85);
@@ -180,8 +181,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   // Landings con copy propio (keywords de Semrush): a domicilio, hombres,
   // trans, maduras… Van con más prioridad que las de plantilla.
+  // /escorts/hombres redirige a /hombres (sección propia): va con su URL final.
   for (const landing of TAG_LANDINGS) {
-    add(`/escorts/${landing.slug}`, "daily", 0.85);
+    add(tagLandingHref(landing.slug), "daily", 0.85);
   }
 
   // ── Landing pages por ciudad (geo-targeting SEO) ──

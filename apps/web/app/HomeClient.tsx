@@ -639,7 +639,7 @@ export default function HomeClient() {
               Ellas
             </Link>
             <Link
-              href="/escorts?gender=MALE"
+              href="/hombres"
               className="flex-1 rounded-full px-4 py-2 text-center text-[13px] font-semibold text-white/55 transition hover:bg-sky-500/15 hover:text-sky-200"
             >
               Ellos

@@ -110,6 +110,11 @@ type Props = {
    */
   defaultGender?: GenderValue;
   /**
+   * Género fijo de una página propia (/hombres): no se muestra el selector de
+   * género y la URL no lo cambia. La sección es de ese género, no un filtro.
+   */
+  lockedGender?: GenderValue;
+  /**
    * Categoría que se muestra debajo de la principal, con su propio título.
    * En /escorts van las masajistas: casi nadie entra a /masajistas y esos
    * perfiles no tenían visitas.
@@ -293,6 +298,7 @@ export default function DirectoryPage({
   city,
   withMap = true,
   defaultGender,
+  lockedGender,
   alsoCategorySlug,
   alsoCategoryTitle,
   alsoCategoryHref,
@@ -325,7 +331,7 @@ export default function DirectoryPage({
      dice nada, se entra con el género por defecto de la sección. No se guarda
      entre visitas a propósito: cada entrada arranca igual. */
   const [genderFilter, setGenderFilter] = useState(
-    searchParams.get("gender") || defaultGender || "",
+    lockedGender || searchParams.get("gender") || defaultGender || "",
   );
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(searchParams.get("q") || "");
@@ -536,7 +542,7 @@ export default function DirectoryPage({
 
   /* El género por defecto no cuenta como filtro puesto: si contara, el botón
      de filtros aparecería siempre con un "1" que nadie eligió. */
-  const genderIsCustom = genderFilter !== (defaultGender ?? "");
+  const genderIsCustom = !lockedGender && genderFilter !== (defaultGender ?? "");
   const activeFilterCount = profileTagsFilter.length + serviceTagsFilter.length +
     (maduras ? 1 : 0) + (availableNow ? 1 : 0) + (genderIsCustom ? 1 : 0);
   const clearFilters = () => {
@@ -544,7 +550,7 @@ export default function DirectoryPage({
     setServiceTagsFilter([]);
     setMaduras(false);
     setAvailableNow(false);
-    setGenderFilter(defaultGender ?? "");
+    setGenderFilter(lockedGender ?? defaultGender ?? "");
   };
 
   return (
@@ -649,6 +655,7 @@ export default function DirectoryPage({
           {/* En el teléfono ocupa su propia línea: compartiéndola con los chips
               los tres botones se apretaban hasta quedar montados unos sobre
               otros y con el texto cortado. */}
+          {!lockedGender && (
           <div
             role="group"
             aria-label="Género"
@@ -673,6 +680,7 @@ export default function DirectoryPage({
               );
             })}
           </div>
+          )}
           <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:shrink-0 sm:overflow-visible sm:px-0">
             <button
               type="button"

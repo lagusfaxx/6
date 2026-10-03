@@ -94,6 +94,15 @@ const nextConfig = {
         ],
       },
       {
+        source: '/hombres',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
         source: '/masajistas',
         headers: [
           {
@@ -183,6 +192,8 @@ const nextConfig = {
       { source: "/servicios", destination: "/services", permanent: true },
       // "a domicilio" es la keyword (8,1k búsquedas); la landing curada vive ahí.
       { source: "/escorts/domicilio", destination: "/escorts/a-domicilio", permanent: true },
+      // Los hombres tienen sección propia con todos los perfiles masculinos.
+      { source: "/escorts/hombres", destination: "/hombres", permanent: true },
       { source: "/chats", destination: "/chat", permanent: true },
       { source: "/chats/:userId", destination: "/chat/:userId", permanent: true },
       { source: "/perfil/:username", destination: "/profile/:username", permanent: true },

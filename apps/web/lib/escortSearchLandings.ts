@@ -184,7 +184,7 @@ export const TAG_LANDINGS: TagLanding[] = [
       },
     ],
     related: [
-      { href: "/escorts/hombres", label: "Escorts hombres" },
+      { href: "/hombres", label: "Escorts hombres" },
       { href: "/escorts/santiago", label: "Escorts en Santiago" },
       { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
     ],
@@ -371,6 +371,18 @@ const TAG_BY_SLUG = new Map(TAG_LANDINGS.map((t) => [t.slug, t]));
 
 export function getTagLanding(slug: string): TagLanding | undefined {
   return TAG_BY_SLUG.get(slug.toLowerCase());
+}
+
+/**
+ * Landings que se mudaron a una sección propia. /escorts/hombres redirige
+ * (301) a /hombres: ahí está el listado de todos los hombres, de cualquier
+ * categoría, y no una vista filtrada de /escorts.
+ */
+const OWN_SECTION: Record<string, string> = { hombres: "/hombres" };
+
+/** Ruta pública de una landing: la de su sección propia si la tiene. */
+export function tagLandingHref(slug: string): string {
+  return OWN_SECTION[slug] ?? `/escorts/${slug}`;
 }
 
 /**
