@@ -211,3 +211,29 @@ profesional sin sesión abierta) y verificar que llega el WhatsApp.
 - Si más adelante se quiere botón de "no recibir avisos" por profesional,
   basta agregar un flag en el perfil y chequearlo en `maybeNotifyByWhatsApp`
   (`apps/api/src/notifications/whatsapp.ts`).
+
+---
+
+## SMS de respaldo (LabsMobile)
+
+Si WhatsApp no está configurado o un envío falla (por ejemplo, plantillas
+aún en revisión), el aviso sale por SMS. El SMS es corto y neutro, sin el
+texto del chat: `UZEED: tienes mensajes nuevos de clientes esperandote.
+Revisa tu cuenta en uzeed.cl/chats`. Se pasa a GSM-7 (sin tildes ni emojis)
+para que quepa en un solo SMS de 160 caracteres. Usa las mismas reglas que
+WhatsApp: solo profesionales/establecimientos/tiendas con teléfono, el
+aviso de mensajes solo si no está conectada, y los mismos cooldowns.
+
+1. Cuenta en https://www.labsmobile.com → recarga de saldo.
+2. En el panel: *API* → genera el **API token**.
+3. Variables del API:
+
+   ```env
+   LABSMOBILE_USER=tu-usuario-o-email
+   LABSMOBILE_TOKEN=xxxxxxxx
+   # Opcionales:
+   SMS_MODE=primary        # solo SMS aunque WhatsApp esté configurado (default: respaldo)
+   LABSMOBILE_SENDER=...   # remitente; en Chile normalmente no aplica (sale un número)
+   ```
+
+4. Prueba en `/admin/whatsapp` → **Probar SMS**.

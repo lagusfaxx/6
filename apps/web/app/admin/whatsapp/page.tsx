@@ -29,6 +29,7 @@ type WaStatus = {
     lastError: string | null;
     sessionDir?: string;
   };
+  sms?: { configured: boolean; mode: "primary" | "fallback" | null };
 };
 
 function humanError(error?: string): string {
@@ -59,7 +60,7 @@ export default function AdminWhatsAppPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testSending, setTestSending] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; channel?: "sms" } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -103,17 +104,17 @@ export default function AdminWhatsAppPage() {
     };
   }, [status?.baileys?.status, isAdmin, loadStatus]);
 
-  const sendTest = async () => {
+  const sendTest = async (channel?: "sms") => {
     setTestSending(true);
     setTestResult(null);
     try {
       const r = await apiFetch<{ ok: boolean; error?: string }>("/notifications/whatsapp/test", {
         method: "POST",
-        body: JSON.stringify(testPhone.trim() ? { phone: testPhone.trim() } : {}),
+        body: JSON.stringify({ ...(testPhone.trim() ? { phone: testPhone.trim() } : {}), ...(channel ? { channel } : {}) }),
       });
-      setTestResult(r ?? { ok: false, error: "SIN_RESPUESTA" });
+      setTestResult({ ...(r ?? { ok: false, error: "SIN_RESPUESTA" }), channel });
     } catch (err: any) {
-      setTestResult({ ok: false, error: err?.message || "Error al enviar" });
+      setTestResult({ ok: false, error: err?.message || "Error al enviar", channel });
     } finally {
       setTestSending(false);
     }
@@ -146,7 +147,11 @@ export default function AdminWhatsAppPage() {
   }
 
   const b = status?.baileys;
-  const st = STATUS_LABELS[b?.status || "off"] || STATUS_LABELS.off;
+  // Con la Cloud API no hay conexión que mantener: el estado de Baileys no aplica.
+  const st =
+    status?.provider === "cloud"
+      ? { label: "Activo", color: STATUS_LABELS.connected.color }
+      : STATUS_LABELS[b?.status || "off"] || STATUS_LABELS.off;
 
   return (
     <div className="mx-auto max-w-2xl pb-16">
@@ -169,11 +174,17 @@ export default function AdminWhatsAppPage() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Estado</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${st.color}`}>
-                {b?.status === "connected" ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                {b?.status === "connected" || status?.provider === "cloud" ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
                 {st.label}
               </span>
               <span className="text-xs text-white/40">
                 Proveedor: <strong className="text-white/70">{status?.provider === "baileys" ? "Baileys (gratis)" : status?.provider === "cloud" ? "Meta Cloud API" : "no configurado"}</strong>
+              </span>
+              <span className="text-xs text-white/40">
+                SMS:{" "}
+                <strong className="text-white/70">
+                  {status?.sms?.configured ? (status.sms.mode === "primary" ? "principal" : "respaldo") : "no configurado"}
+                </strong>
               </span>
               {b?.connectedAs && (
                 <span className="text-xs text-white/40">
@@ -243,18 +254,33 @@ export default function AdminWhatsAppPage() {
           </label>
           <button
             type="button"
-            onClick={sendTest}
+            onClick={() => sendTest()}
             disabled={testSending || !status?.configured || (status?.provider === "baileys" && b?.status !== "connected")}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {testSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Enviar prueba
           </button>
+          {status?.sms?.configured && (
+            <button
+              type="button"
+              onClick={() => sendTest("sms")}
+              disabled={testSending}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Probar SMS
+            </button>
+          )}
         </div>
         {testResult && (
           <p className={`mt-3 flex items-center gap-1.5 text-xs ${testResult.ok ? "text-emerald-300" : "text-rose-300"}`}>
             {testResult.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-            {testResult.ok ? "Enviado — revisa el WhatsApp de ese número." : `No se pudo enviar: ${humanError(testResult.error)}`}
+            {testResult.ok
+              ? testResult.channel === "sms"
+                ? "SMS enviado — revisa los mensajes de ese número."
+                : "Enviado — revisa el WhatsApp de ese número."
+              : `No se pudo enviar: ${humanError(testResult.error)}`}
           </p>
         )}
       </section>

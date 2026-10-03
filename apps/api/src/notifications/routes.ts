@@ -3,7 +3,14 @@ import { prisma } from "../db";
 import { requireAdmin, requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { removePushSubscription, savePushSubscription, sendPushToUsers } from "./push";
-import { getWhatsAppProvider, isWhatsAppConfigured, sendWhatsAppNotification } from "./whatsapp";
+import {
+  getWhatsAppProvider,
+  isWhatsAppConfigured,
+  normalizePhoneForWhatsApp,
+  sendWhatsAppNotification,
+  smsNotificationText,
+} from "./whatsapp";
+import { isSmsConfigured, sendSms } from "./sms";
 import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
 import { verifyEmailPrefsToken } from "../lib/emailPrefsToken";
 
@@ -17,6 +24,10 @@ notificationsRouter.get("/notifications/whatsapp/status", requireAdmin, asyncHan
     provider: getWhatsAppProvider(),
     baileys: getBaileysStatus(),
     cloudTemplate: process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion",
+    sms: {
+      configured: isSmsConfigured(),
+      mode: isSmsConfigured() ? (process.env.SMS_MODE === "primary" ? "primary" : "fallback") : null,
+    },
   });
 }));
 
@@ -46,8 +57,9 @@ notificationsRouter.post("/notifications/whatsapp/logout", requireAdmin, asyncHa
 }));
 
 notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {
-  if (!isWhatsAppConfigured()) {
-    return res.status(503).json({ ok: false, error: "WHATSAPP_NOT_CONFIGURED" });
+  const viaSms = req.body?.channel === "sms";
+  if (viaSms ? !isSmsConfigured() : !isWhatsAppConfigured()) {
+    return res.status(503).json({ ok: false, error: viaSms ? "SMS_NOT_CONFIGURED" : "WHATSAPP_NOT_CONFIGURED" });
   }
   let phone = String(req.body?.phone || "").trim();
   if (!phone) {
@@ -59,11 +71,14 @@ notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHand
   }
   if (!phone) return res.status(400).json({ ok: false, error: "PHONE_REQUIRED" });
 
-  const result = await sendWhatsAppNotification(
-    phone,
-    "Prueba",
-    "el bot de avisos de UZEED está funcionando correctamente",
-  );
+  const info = "el bot de avisos de UZEED está funcionando correctamente";
+  if (viaSms) {
+    const to = normalizePhoneForWhatsApp(phone);
+    if (!to) return res.status(400).json({ ok: false, error: "INVALID_PHONE" });
+    const result = await sendSms(to, smsNotificationText(info));
+    return res.status(result.ok ? 200 : 502).json(result);
+  }
+  const result = await sendWhatsAppNotification(phone, "Prueba", info);
   return res.status(result.ok ? 200 : 502).json(result);
 }));
 

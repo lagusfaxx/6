@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { isBaileysEnabled, sendBaileysText } from "./whatsappBaileys";
+import { isSmsConfigured, sendSms } from "./sms";
 
 /**
  * Bot de avisos por WhatsApp con dos proveedores:
@@ -257,9 +258,24 @@ async function saveRelay(
   }
 }
 
+/** Texto del SMS: corto y neutro, sin el contenido del chat. */
+export function smsNotificationText(info: string): string {
+  return `UZEED: ${sanitizeParam(info, 100)}. Revisa tu cuenta en ${CHAT_URL.replace(/^https?:\/\//, "")}`;
+}
+
+/** Respaldo por SMS cuando WhatsApp no está disponible o falla. */
+async function notifyBySms(userId: string, type: string, key: string, to: string, info: string): Promise<void> {
+  const result = await sendSms(to, smsNotificationText(info));
+  if (result.ok) {
+    markSent(key);
+    console.log(`[sms] notified user=${userId} type=${type} msg=${result.messageId}`);
+  }
+}
+
 /**
  * Punto de entrada llamado desde el middleware de Notification.create.
- * Decide si corresponde avisar por WhatsApp y envía. Nunca lanza.
+ * Decide si corresponde avisar por WhatsApp (o por SMS de respaldo, ver
+ * sms.ts) y envía. Nunca lanza.
  *
  * Con la Cloud API, los mensajes de clientes se reenvían con su texto y la
  * profesional puede responder desde WhatsApp (ver whatsappWebhook.ts). Si
@@ -273,8 +289,10 @@ export async function maybeNotifyByWhatsApp(
   payload: Record<string, any>,
 ): Promise<void> {
   try {
-    const provider = getWhatsAppProvider();
-    if (!provider || !type) return;
+    const smsOn = isSmsConfigured();
+    // SMS_MODE=primary: los avisos van solo por SMS aunque haya WhatsApp.
+    const provider = smsOn && process.env.SMS_MODE === "primary" ? null : getWhatsAppProvider();
+    if ((!provider && !smsOn) || !type) return;
     const rule = RULES[type];
     if (!rule) return;
 
@@ -328,11 +346,24 @@ export async function maybeNotifyByWhatsApp(
         if (!windowOpen) markSent(key);
         await saveRelay(prisma, result.messageId, userId, peerId, to);
         console.log(`[whatsapp] relayed user=${userId} from=${peerId} msg=${result.messageId}`);
+      } else if (smsOn && !underCooldown(key, rule.cooldownMin)) {
+        await notifyBySms(userId, type, key, to, rule.info(payload));
       }
       return;
     }
 
+    if (!provider) {
+      const to = normalizePhoneForWhatsApp(user.phone);
+      if (to) await notifyBySms(userId, type, key, to, rule.info(payload));
+      return;
+    }
+
     const result = await sendWhatsAppNotification(user.phone, name, rule.info(payload));
+    if (!result.ok && smsOn) {
+      const to = normalizePhoneForWhatsApp(user.phone);
+      if (to) await notifyBySms(userId, type, key, to, rule.info(payload));
+      return;
+    }
     if (result.ok) {
       markSent(key);
       // Responder a un aviso que no es de un chat no debe caer en el último chat.
