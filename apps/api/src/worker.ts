@@ -464,7 +464,26 @@ async function tickSyncPacSubscriptions() {
    Uno al encender (cuánta gracia tienen) y otro cuando faltan menos de 48 h.
    Las claves llevan la fecha de encendido: si se apaga y se vuelve a encender,
    se avisa de nuevo. */
+/* Los avisos de cobro esperan 10 minutos desde que arranca el worker (tras
+   un despliegue): da margen para revisar que todo quedó bien antes de que
+   salgan los correos. A los 10 minutos corre una pasada propia. */
+const BILLING_NOTICES_DELAY_MS = 10 * 60 * 1000;
+const workerStartedAt = Date.now();
+let billingNoticesRunning = false;
+
 async function tickBillingNotices() {
+  if (Date.now() - workerStartedAt < BILLING_NOTICES_DELAY_MS) return;
+  // La pasada de los 10 minutos puede cruzarse con la horaria.
+  if (billingNoticesRunning) return;
+  billingNoticesRunning = true;
+  try {
+    await runBillingNotices();
+  } finally {
+    billingNoticesRunning = false;
+  }
+}
+
+async function runBillingNotices() {
   const s = await getBillingSettings();
   const grace = graceEndsAt(s);
   if (!s.enabled || !s.enabledAt || !grace) return;
@@ -858,6 +877,11 @@ export function startWorker() {
   setTimeout(() => {
     tick().catch((e) => console.error("[worker] initial tick error", e));
   }, 10_000);
+
+  // Avisos de cobro: 10 minutos después de arrancar (ver tickBillingNotices).
+  setTimeout(() => {
+    tickBillingNotices().catch((e) => console.error("[worker] billing notices error", e));
+  }, BILLING_NOTICES_DELAY_MS + 1_000);
 }
 
 /* ─── Avisos por correo de mensajes sin leer ─── */
