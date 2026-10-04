@@ -84,6 +84,8 @@ const ADMIN_ONLY_SECTIONS = [
   "/admin/claude",
   // Encender el cobro y fijar la tarifa: dinero de verdad.
   "/admin/cobros",
+  // Embudo de ventas: estrategia de precio y listas con teléfonos.
+  "/admin/embudo",
 ];
 
 /** ¿Se le muestra esta sección del panel a esta cuenta? */

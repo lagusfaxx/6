@@ -180,6 +180,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  *  - /plans: los planes de cobro de Khipu (dinero de verdad, no una solicitud).
  *  - /admin/mcp: accesos de Claude al panel y su bitácora.
  *  - /admin/billing/settings: encender el cobro y fijar la tarifa.
+ *  - /admin/funnel: embudo de ventas, estrategia de precio y listas con teléfonos.
  *
  * Además de esta lista, borrar perfiles queda fuera (ver más abajo) y todas
  * las acciones destructivas que ya pasan por `requireFresh2FA` siguen siendo
@@ -193,6 +194,7 @@ const MODERATOR_BLOCKED_PREFIXES = [
   "/admin/mcp",
   "/admin/billing/settings",
   "/admin/promo",
+  "/admin/funnel",
 ];
 
 /**

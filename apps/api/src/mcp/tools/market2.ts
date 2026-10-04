@@ -7,6 +7,7 @@ import { config } from "../../config";
 import { normalizeCity } from "../../lib/chileGeo";
 import { guarded, type McpContext } from "../audit";
 import { TZ, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
+import { buildFunnelLeads, buildSalesFunnel, LEAD_SEGMENTS, type LeadSegment } from "../../admin/funnel";
 import { describeFiltros, filtrosShape, pickFiltros, profileSql, withSegment, type Filtros } from "../stats/core";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
@@ -161,6 +162,27 @@ export function registerMarketTools(server: McpServer, ctx: McpContext) {
         conversionGratisAPago: { registrosEvaluados: v.registros, pagaronDentroDeVentana: v.pagaron, pct: v.registros ? Math.round((v.pagaron / v.registros) * 1000) / 10 : null, ventanaDias: window, criterio: "Sólo registros con al menos N días de antigüedad, para que la ventana sea justa." },
         grafico: "barras por tier; línea de MRR con serie_temporal ingresos_clp",
       });
+    }),
+  );
+
+  server.registerTool(
+    "embudo_ventas",
+    {
+      title: "Embudo de ventas de anunciantes",
+      description:
+        "Embudo de registros orgánicos: registro → ficha publicada → fotos → ficha completa → verificada → recibe contactos → intenta pagar → paga → renueva, con dónde se queda cada una y por origen de registro. Además: foto actual de pago (pagando, en prueba, prueba vencida sin pagar, ex pagadoras, pagos sin cerrar), checkout por método, cohortes mensuales, valor entregado (contactos por perfil al mes, costo por contacto, membresía como % de la tarifa), MRR, churn, LTV y precios ya cobrados con su conversión. Con `segmento` devuelve en cambio la lista de perfiles de ese segmento (con teléfono, lo que les falta y su interés) para contactarlas.",
+      inputSchema: {
+        dias: z.number().int().min(7).max(365).optional().describe("Ventana de registros del embudo (por defecto 90)."),
+        tipo: z.enum(["PROFESSIONAL", "ESTABLISHMENT", "SHOP", "ALL"]).optional().describe("Tipo de anunciante (por defecto PROFESSIONAL)."),
+        segmento: z.enum(Object.keys(LEAD_SEGMENTS) as [LeadSegment, ...LeadSegment[]]).optional().describe("Lista de perfiles a contactar en vez del informe."),
+        limite: z.number().int().min(1).max(500).optional().describe("Filas de la lista de segmento (por defecto 50)."),
+      },
+      annotations: READ,
+    },
+    guarded("embudo_ventas", ctx, async (args: { dias?: number; tipo?: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" | "ALL"; segmento?: LeadSegment; limite?: number }) => {
+      const opts = { days: args.dias ?? 90, profileType: args.tipo ?? "PROFESSIONAL" };
+      if (args.segmento) return jsonResult(await buildFunnelLeads(args.segmento, { ...opts, limit: args.limite ?? 50 }));
+      return jsonResult({ ...(await buildSalesFunnel(opts)), grafico: "embudo de etapas; barras de foto de pago; tabla de cohortes" });
     }),
   );
 

@@ -51,6 +51,7 @@ import {
   Heart,
   Phone,
   Signature,
+  Filter,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -165,6 +166,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
   { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
+  { href: "/admin/embudo", label: "Embudo de ventas", icon: Filter },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/phone-changes", label: "Cambios de número", icon: Phone },
   { href: "/admin/name-changes", label: "Cambios de nombre", icon: Signature },
@@ -632,6 +634,7 @@ export default function AdminIndex() {
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Acceso rapido</h2>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
                 {adminOnly && <QuickAction href="/admin/cobros" icon={CircleDollarSign} label="Cobros" desc="Interruptor, planes y boosts" accent="emerald" />}
+                {adminOnly && <QuickAction href="/admin/embudo" icon={Filter} label="Embudo de ventas" desc="Quién no termina o no paga" accent="fuchsia" />}
                 {<QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />}
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
                 {<QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />}
