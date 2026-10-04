@@ -12,6 +12,13 @@ import {
   smsNotificationText,
 } from "./whatsapp";
 import { getSmsBalance, isSmsConfigured, sendSms } from "./sms";
+import {
+  findReminderTargets,
+  isQuietHours,
+  isReminderRunning,
+  reminderText,
+  startUnreadReminder,
+} from "./unreadReminder";
 import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
 import { verifyEmailPrefsToken } from "../lib/emailPrefsToken";
 
@@ -55,6 +62,44 @@ notificationsRouter.get("/notifications/whatsapp/qr", requireAdmin, asyncHandler
 notificationsRouter.post("/notifications/whatsapp/logout", requireAdmin, asyncHandler(async (_req, res) => {
   await logoutBaileys();
   return res.json({ ok: true, status: getBaileysStatus() });
+}));
+
+/* Recordatorio por SMS a profesionales con mensajes sin leer. Dos pasos:
+   GET devuelve la vista previa; POST envía con `confirm` = cantidad vista,
+   así no se manda a un grupo distinto del que el admin aprobó. */
+function reminderDays(raw: unknown): number {
+  const n = Number(raw);
+  return [7, 30, 90].includes(n) ? n : 30;
+}
+
+notificationsRouter.get("/notifications/sms/unread-reminder", requireAdmin, asyncHandler(async (req, res) => {
+  const days = reminderDays(req.query.days);
+  const { targets, skippedRecent, skippedNoPhone } = await findReminderTargets(prisma as any, days);
+  return res.json({
+    days,
+    count: targets.length,
+    unreadMessages: targets.reduce((sum, t) => sum + t.unread, 0),
+    skippedRecent,
+    skippedNoPhone,
+    example: reminderText(targets[0]?.unread ?? 3),
+    smsConfigured: isSmsConfigured(),
+    quietHours: isQuietHours(),
+    running: isReminderRunning(),
+  });
+}));
+
+notificationsRouter.post("/notifications/sms/unread-reminder", requireAdmin, asyncHandler(async (req, res) => {
+  if (!isSmsConfigured()) return res.status(503).json({ ok: false, error: "SMS_NOT_CONFIGURED" });
+  if (isQuietHours()) return res.status(409).json({ ok: false, error: "HORARIO_NOCTURNO" });
+  if (isReminderRunning()) return res.status(409).json({ ok: false, error: "YA_EN_CURSO" });
+  const days = reminderDays(req.body?.days);
+  const { targets } = await findReminderTargets(prisma as any, days);
+  if (Number(req.body?.confirm) !== targets.length) {
+    return res.status(409).json({ ok: false, error: "CAMBIO_LA_CANTIDAD", count: targets.length });
+  }
+  if (!targets.length) return res.json({ ok: true, started: false, count: 0 });
+  const started = startUnreadReminder(prisma as any, targets);
+  return res.status(started ? 202 : 409).json({ ok: started, started, count: targets.length });
 }));
 
 /* Estadísticas de avisos enviados por SMS y WhatsApp (panel /admin/whatsapp). */
