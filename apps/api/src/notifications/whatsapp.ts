@@ -161,7 +161,7 @@ export async function sendWhatsAppNotification(
 
 type NotifRule = {
   cooldownMin: number;
-  /** Solo avisar si la usuaria NO está activa en la app ahora mismo. */
+  /** Si está activa en la app, no avisar ahora y volver a revisar en unos minutos. */
   onlyIfOffline: boolean;
   info: (payload: Record<string, any>) => string;
   /** Tipos que avisan del mismo evento comparten cooldown (un solo aviso). */
@@ -313,6 +313,38 @@ async function notifyBySms(
   return result.ok;
 }
 
+/* Si estaba conectada cuando llegó el mensaje, se vuelve a revisar unos
+   minutos después: puede haber cerrado la app justo antes, o tenerla abierta
+   sin mirar el chat. Una revisión pendiente por profesional y tipo; los
+   timers viven en memoria (tras un reinicio, el peor caso es no reintentar). */
+const RECHECK_DELAY_MS = 3 * 60 * 1000;
+const MAX_RECHECKS = 2;
+const pendingRechecks = new Set<string>();
+
+function scheduleRecheck(
+  prisma: PrismaClient,
+  userId: string,
+  type: string,
+  payload: Record<string, any>,
+  recheck: number,
+): void {
+  if (recheck >= MAX_RECHECKS) return;
+  const key = `${userId}:${type}`;
+  if (pendingRechecks.has(key)) return;
+  pendingRechecks.add(key);
+  setTimeout(() => {
+    pendingRechecks.delete(key);
+    maybeNotifyByWhatsApp(prisma, userId, type, payload, recheck + 1).catch(() => {});
+  }, RECHECK_DELAY_MS).unref?.();
+}
+
+async function isMessageRead(prisma: PrismaClient, payload: Record<string, any>): Promise<boolean> {
+  const id = typeof payload?.messageId === "string" ? payload.messageId : null;
+  if (!id) return false;
+  const message = await prisma.message.findUnique({ where: { id }, select: { readAt: true } }).catch(() => null);
+  return Boolean(message?.readAt);
+}
+
 /**
  * Punto de entrada llamado desde el middleware de Notification.create.
  * Decide si corresponde avisar por WhatsApp (o por SMS de respaldo, ver
@@ -328,6 +360,7 @@ export async function maybeNotifyByWhatsApp(
   userId: string,
   type: string | undefined,
   payload: Record<string, any>,
+  recheck = 0,
 ): Promise<void> {
   const smsOn = isSmsConfigured();
   // SMS_MODE=primary: los avisos van solo por SMS aunque haya WhatsApp.
@@ -362,7 +395,14 @@ export async function maybeNotifyByWhatsApp(
     if (!user || !user.isActive) return;
     if (!NOTIFIABLE_PROFILE_TYPES.has(String(user.profileType))) return;
     if (!user.phone) return;
-    if (rule.onlyIfOffline && isActiveInApp(user.isOnline, user.lastSeen)) return;
+    if (rule.onlyIfOffline) {
+      // En una nueva revisión: si ya leyó el mensaje en la app, no hace falta avisar.
+      if (recheck > 0 && (await isMessageRead(prisma, payload))) return;
+      if (isActiveInApp(user.isOnline, user.lastSeen)) {
+        scheduleRecheck(prisma, userId, type, payload, recheck);
+        return;
+      }
+    }
     const to = normalizePhoneForWhatsApp(user.phone);
     if (!to) return;
 
