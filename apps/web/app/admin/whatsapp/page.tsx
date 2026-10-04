@@ -56,6 +56,19 @@ const TYPE_LABELS: Record<string, string> = {
   MARKET_NEW_ORDER: "Venta marketplace",
   SERVICE_PUBLISHED: "Solicitud de servicio",
   TEST: "Prueba",
+  UNREAD_REMINDER: "Recordatorio sin leer",
+};
+
+type ReminderPreview = {
+  days: number;
+  count: number;
+  unreadMessages: number;
+  skippedRecent: number;
+  skippedNoPhone: number;
+  example: string;
+  smsConfigured: boolean;
+  quietHours: boolean;
+  running: boolean;
 };
 
 function formatWhen(iso: string): string {
@@ -101,6 +114,51 @@ export default function AdminWhatsAppPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [stats, setStats] = useState<WaStats | null>(null);
+  const [reminderDays, setReminderDays] = useState(30);
+  const [reminder, setReminder] = useState<ReminderPreview | null>(null);
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [reminderMsg, setReminderMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const previewReminder = async (days: number) => {
+    setReminderBusy(true);
+    setReminderMsg(null);
+    try {
+      const r = await apiFetch<ReminderPreview>(`/notifications/sms/unread-reminder?days=${days}`);
+      setReminder(r ?? null);
+    } catch (err: any) {
+      setReminderMsg({ ok: false, text: err?.message || "No se pudo calcular" });
+    } finally {
+      setReminderBusy(false);
+    }
+  };
+
+  const sendReminder = async () => {
+    if (!reminder?.count) return;
+    if (!window.confirm(`¿Enviar SMS a ${reminder.count} profesionales con mensajes sin leer? Se descuentan ${reminder.count} SMS del saldo.`)) return;
+    setReminderBusy(true);
+    setReminderMsg(null);
+    try {
+      await apiFetch("/notifications/sms/unread-reminder", {
+        method: "POST",
+        body: JSON.stringify({ days: reminder.days, confirm: reminder.count }),
+      });
+      setReminderMsg({ ok: true, text: `Enviando a ${reminder.count} profesionales. Los resultados aparecen en "Últimos envíos".` });
+      setReminder(null);
+      setTimeout(() => loadStats(), 4000);
+    } catch (err: any) {
+      const e = String(err?.message || "");
+      const text = e.includes("HORARIO_NOCTURNO")
+        ? "No se envía de noche (22:00 a 09:00, hora de Chile). Inténtalo de día."
+        : e.includes("CAMBIO_LA_CANTIDAD")
+          ? "La cantidad cambió desde la vista previa. Vuelve a calcular."
+          : e.includes("YA_EN_CURSO")
+            ? "Ya hay un envío en curso."
+            : e || "No se pudo enviar";
+      setReminderMsg({ ok: false, text });
+    } finally {
+      setReminderBusy(false);
+    }
+  };
 
   const loadStats = useCallback(async () => {
     const s = await apiFetch<WaStats>("/notifications/whatsapp/stats").catch(() => null);
@@ -329,6 +387,74 @@ export default function AdminWhatsAppPage() {
           </p>
         )}
       </section>
+
+      {/* ── Recordatorio de mensajes sin leer ── */}
+      {status?.sms?.configured && (
+        <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Recordar mensajes sin leer</p>
+          <p className="mt-1 text-xs text-white/45">
+            Envía un SMS a cada profesional que tiene mensajes de clientes sin leer. No se repite a quien ya lo recibió en las últimas 12 h ni se envía de noche.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={reminderDays}
+              onChange={(e) => {
+                setReminderDays(Number(e.target.value));
+                setReminder(null);
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none"
+            >
+              <option value={7}>Mensajes de los últimos 7 días</option>
+              <option value={30}>Mensajes de los últimos 30 días</option>
+              <option value={90}>Mensajes de los últimos 90 días</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => previewReminder(reminderDays)}
+              disabled={reminderBusy}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold transition hover:bg-white/10 disabled:opacity-40"
+            >
+              {reminderBusy && !reminder ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Ver a quiénes
+            </button>
+          </div>
+
+          {reminder && (
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/60">
+              <p>
+                <strong className="text-base tabular-nums text-white">{reminder.count}</strong> profesionales ·{" "}
+                <span className="tabular-nums">{reminder.unreadMessages}</span> mensajes sin leer
+              </p>
+              {(reminder.skippedRecent > 0 || reminder.skippedNoPhone > 0) && (
+                <p className="mt-1 text-white/35">
+                  Se omiten {reminder.skippedRecent} que ya lo recibieron en las últimas 12 h y {reminder.skippedNoPhone} con teléfono inválido.
+                </p>
+              )}
+              <p className="mt-2 text-white/40">Ejemplo del SMS:</p>
+              <p className="mt-1 rounded-lg bg-black/20 px-3 py-2 font-mono text-[11px] text-white/75">{reminder.example}</p>
+              {reminder.quietHours && (
+                <p className="mt-2 text-amber-300/90">Ahora es horario nocturno en Chile: el envío se habilita entre las 09:00 y las 22:00.</p>
+              )}
+              <button
+                type="button"
+                onClick={sendReminder}
+                disabled={reminderBusy || reminder.count === 0 || reminder.quietHours || reminder.running}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {reminderBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Enviar SMS a {reminder.count} profesionales
+              </button>
+            </div>
+          )}
+
+          {reminderMsg && (
+            <p className={`mt-3 flex items-center gap-1.5 text-xs ${reminderMsg.ok ? "text-emerald-300" : "text-rose-300"}`}>
+              {reminderMsg.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+              {reminderMsg.text}
+            </p>
+          )}
+        </section>
+      )}
 
       {/* ── Estadísticas ── */}
       {stats && (
