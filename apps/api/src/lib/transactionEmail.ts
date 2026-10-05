@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail } from "./mailer";
 import { config } from "../config";
 
 /**
@@ -67,17 +67,8 @@ export async function sendDepositConfirmationEmail(
       statusBadge("PENDIENTE DE APROBACIÓN", "rgba(245,158,11,0.8)"),
     ].join(""),
   );
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
-      from: "UZEED <no-reply@uzeed.cl>",
-      to: email,
-      subject: "Compra de tokens registrada — UZEED",
-      html,
-    });
-  } catch (err) {
-    console.error("[transactionEmail] deposit confirmation failed", err);
-  }
+  const result = await sendMail({ to: email, subject: "Compra de tokens registrada — UZEED", html });
+  if (!result.ok) console.error("[transactionEmail] deposit confirmation failed", result.reason);
 }
 
 export async function sendDepositApprovedEmail(
@@ -94,17 +85,8 @@ export async function sendDepositApprovedEmail(
       statusBadge("APROBADO", "rgba(16,185,129,0.8)"),
     ].join(""),
   );
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
-      from: "UZEED <no-reply@uzeed.cl>",
-      to: email,
-      subject: "Tokens acreditados en tu billetera — UZEED",
-      html,
-    });
-  } catch (err) {
-    console.error("[transactionEmail] deposit approved email failed", err);
-  }
+  const result = await sendMail({ to: email, subject: "Tokens acreditados en tu billetera — UZEED", html });
+  if (!result.ok) console.error("[transactionEmail] deposit approved email failed", result.reason);
 }
 
 export async function sendWithdrawalConfirmationEmail(
@@ -124,17 +106,8 @@ export async function sendWithdrawalConfirmationEmail(
       statusBadge("EN PROCESO", "rgba(245,158,11,0.8)"),
     ].join(""),
   );
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
-      from: "UZEED <no-reply@uzeed.cl>",
-      to: email,
-      subject: "Solicitud de retiro registrada — UZEED",
-      html,
-    });
-  } catch (err) {
-    console.error("[transactionEmail] withdrawal confirmation failed", err);
-  }
+  const result = await sendMail({ to: email, subject: "Solicitud de retiro registrada — UZEED", html });
+  if (!result.ok) console.error("[transactionEmail] withdrawal confirmation failed", result.reason);
 }
 
 export async function sendWithdrawalApprovedEmail(
@@ -152,15 +125,6 @@ export async function sendWithdrawalApprovedEmail(
       statusBadge("APROBADO", "rgba(16,185,129,0.8)"),
     ].join(""),
   );
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
-      from: "UZEED <no-reply@uzeed.cl>",
-      to: email,
-      subject: "Retiro aprobado — UZEED",
-      html,
-    });
-  } catch (err) {
-    console.error("[transactionEmail] withdrawal approved email failed", err);
-  }
+  const result = await sendMail({ to: email, subject: "Retiro aprobado — UZEED", html });
+  if (!result.ok) console.error("[transactionEmail] withdrawal approved email failed", result.reason);
 }

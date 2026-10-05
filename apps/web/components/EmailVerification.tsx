@@ -1,16 +1,39 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Mail, RefreshCw, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, ArrowLeft, MessageCircle, Smartphone } from "lucide-react";
 import { apiFetch } from "../lib/api";
+
+type CodeChannel = "email" | "whatsapp" | "sms";
+
+type SendCodeResponse = {
+  ok: boolean;
+  channel?: CodeChannel;
+  destination?: string;
+  fallback?: boolean;
+};
+
+const CHANNEL_LABEL: Record<CodeChannel, string> = {
+  email: "email",
+  whatsapp: "WhatsApp",
+  sms: "SMS",
+};
 
 interface EmailVerificationProps {
   email: string;
+  /** Teléfono del formulario: permite recibir el código por WhatsApp o SMS. */
+  phone?: string;
+  /** Nombre para el saludo del mensaje de WhatsApp. */
+  name?: string;
   onVerified: () => void | Promise<void>;
   onBack?: () => void;
 }
 
-export default function EmailVerification({ email, onVerified, onBack }: EmailVerificationProps) {
+export default function EmailVerification({ email, phone, name, onVerified, onBack }: EmailVerificationProps) {
+  const [channel, setChannel] = useState<CodeChannel>("email");
+  const [destination, setDestination] = useState(email);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [phoneChannels, setPhoneChannels] = useState<Array<"whatsapp" | "sms">>([]);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -26,6 +49,11 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
   // Send code on mount
   useEffect(() => {
     sendCode();
+    if (phone) {
+      apiFetch<{ phone?: Array<"whatsapp" | "sms"> }>("/auth/verification/channels")
+        .then((r) => setPhoneChannels(r.phone ?? []))
+        .catch(() => {});
+    }
     return () => {
       if (cooldownRef.current) clearInterval(cooldownRef.current);
       if (expiryRef.current) clearInterval(expiryRef.current);
@@ -62,14 +90,22 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
     }, 1000);
   }, []);
 
-  async function sendCode() {
+  async function sendCode(requested: CodeChannel = "email") {
     setResending(true);
     setError(null);
+    setNotice(null);
     try {
-      await apiFetch("/auth/verification/send-code", {
+      const r = await apiFetch<SendCodeResponse>("/auth/verification/send-code", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, phone, name, channel: requested }),
       });
+      const sentBy = r?.channel ?? requested;
+      setChannel(sentBy);
+      setDestination(r?.destination ?? (sentBy === "email" ? email : phone ?? ""));
+      if (r?.fallback) {
+        setNotice(`No pudimos enviarte el email, así que te mandamos el código por ${CHANNEL_LABEL[sentBy]}.`);
+      }
+      setCode(["", "", "", "", "", ""]);
       startCooldown();
       setExpiresIn(600);
       if (expiryRef.current) clearInterval(expiryRef.current);
@@ -85,6 +121,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
     } catch (err: any) {
       const msg = err?.body?.message || "Error al enviar el código";
       setError(msg);
+      if (Array.isArray(err?.body?.phoneChannels)) setPhoneChannels(err.body.phoneChannels);
     } finally {
       setResending(false);
     }
@@ -169,8 +206,12 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
             <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center">
               {success ? (
                 <CheckCircle2 className="h-10 w-10 text-emerald-400" />
-              ) : (
+              ) : channel === "email" ? (
                 <Mail className="h-10 w-10 text-fuchsia-300" />
+              ) : channel === "whatsapp" ? (
+                <MessageCircle className="h-10 w-10 text-fuchsia-300" />
+              ) : (
+                <Smartphone className="h-10 w-10 text-fuchsia-300" />
               )}
             </div>
           </div>
@@ -179,17 +220,20 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
               ? creatingAccount
                 ? "Creando tu cuenta..."
                 : "Verificado"
-              : "Verifica tu email"}
+              : channel === "email"
+                ? "Verifica tu email"
+                : "Verifica tu cuenta"}
           </h1>
           <p className="mt-2 text-sm text-white/50 text-center max-w-xs">
             {success ? (
               creatingAccount
-                ? "Email verificado. Estamos creando tu cuenta..."
+                ? "Código verificado. Estamos creando tu cuenta..."
                 : "Tu cuenta ha sido creada correctamente."
             ) : (
               <>
-                Enviamos un código de 6 dígitos a{" "}
-                <span className="text-fuchsia-300 font-medium">{email}</span>
+                Enviamos un código de 6 dígitos{" "}
+                {channel === "email" ? "a" : `por ${CHANNEL_LABEL[channel]} al`}{" "}
+                <span className="text-fuchsia-300 font-medium">{destination}</span>
               </>
             )}
           </p>
@@ -231,6 +275,12 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
                 </span>
               </div>
 
+              {notice && (
+                <div className="mt-4 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100 text-center">
+                  {notice}
+                </div>
+              )}
+
               {/* Error */}
               {error && (
                 <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center">
@@ -248,7 +298,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
               {/* Resend */}
               <div className="mt-6 flex flex-col items-center gap-3">
                 <button
-                  onClick={sendCode}
+                  onClick={() => sendCode(channel)}
                   disabled={cooldown > 0 || resending}
                   className="flex items-center gap-2 text-sm text-fuchsia-300/70 hover:text-fuchsia-300 disabled:text-white/30 disabled:cursor-not-allowed transition"
                 >
@@ -259,6 +309,31 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
                       ? "Enviando..."
                       : "Reenviar código"}
                 </button>
+
+                {/* Otros canales: cambiar de canal no espera el cooldown. */}
+                {phone && (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {(["email", ...phoneChannels] as CodeChannel[])
+                      .filter((c) => c !== channel)
+                      .map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => sendCode(c)}
+                          disabled={resending}
+                          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50 transition"
+                        >
+                          {c === "whatsapp" ? (
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          ) : c === "sms" ? (
+                            <Smartphone className="h-3.5 w-3.5" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5" />
+                          )}
+                          Recibir por {CHANNEL_LABEL[c]}
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
 

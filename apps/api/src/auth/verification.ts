@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { Resend } from "resend";
 import argon2 from "argon2";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { config } from "../config";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
+import { sendMail, smtpConfigured } from "../lib/mailer";
+import { normalizePhoneForWhatsApp } from "../notifications/whatsapp";
+import { phoneCodeChannels, sendCodeToPhone, type PhoneChannel } from "./phoneCode";
 
 export const verificationRouter = Router();
 
@@ -46,28 +48,39 @@ interface PendingCode {
   lastSentAt: number;
   email: string;
   attempts: number;
+  /** Canal que pidió la persona (para el cooldown de reenvío). */
+  channel?: CodeChannel;
+  /** Teléfono (formato wa) al que se envió, si fue por WhatsApp/SMS. */
+  phone?: string;
 }
+
+type CodeChannel = "email" | PhoneChannel;
 
 const pendingCodes = new Map<string, PendingCode>();
 
 // Emails that have successfully completed /verify-code. Used by /register
 // (and related flows) to enforce backend email verification.
-const verifiedEmails = new Map<string, number>(); // email -> expiresAt
+// If the code went by WhatsApp/SMS, `phone` holds the verified number and
+// /register must use that same number.
+const verifiedEmails = new Map<string, { expiresAt: number; phone?: string }>();
 
 /**
  * Returns true if the given email currently has a valid verified status and
  * atomically consumes it (single-use). Used by /register to ensure the email
  * was actually verified via /verify-code instead of being trusted from the client.
+ * When the code was sent by WhatsApp/SMS, the phone submitted at /register
+ * must match the phone that received it.
  */
-export function consumeVerifiedEmail(email: string): boolean {
+export function consumeVerifiedEmail(email: string, phone?: string | null): boolean {
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized) return false;
-  const expiresAt = verifiedEmails.get(normalized);
-  if (!expiresAt) return false;
-  if (Date.now() > expiresAt) {
+  const marker = verifiedEmails.get(normalized);
+  if (!marker) return false;
+  if (Date.now() > marker.expiresAt) {
     verifiedEmails.delete(normalized);
     return false;
   }
+  if (marker.phone && normalizePhoneForWhatsApp(phone) !== marker.phone) return false;
   verifiedEmails.delete(normalized);
   return true;
 }
@@ -78,8 +91,8 @@ setInterval(() => {
   for (const [key, entry] of pendingCodes) {
     if (entry.expiresAt < now) pendingCodes.delete(key);
   }
-  for (const [key, expiresAt] of verifiedEmails) {
-    if (expiresAt < now) verifiedEmails.delete(key);
+  for (const [key, marker] of verifiedEmails) {
+    if (marker.expiresAt < now) verifiedEmails.delete(key);
   }
 }, 5 * 60 * 1000);
 
@@ -154,10 +167,14 @@ verificationRouter.post(
   "/send-code",
   sendCodeLimiter,
   asyncHandler(async (req, res) => {
-    const { email } = req.body;
+    const { email, phone } = req.body;
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "EMAIL_REQUIRED" });
     }
+    const requested: CodeChannel =
+      req.body.channel === "whatsapp" || req.body.channel === "sms" ? req.body.channel : "email";
+    const rawPhone = typeof phone === "string" ? phone : "";
+    const displayName = typeof req.body.name === "string" ? req.body.name.trim().slice(0, 60) : "";
 
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -182,7 +199,13 @@ verificationRouter.post(
 
     const existing = pendingCodes.get(normalizedEmail);
 
-    if (existing && Date.now() - existing.lastSentAt < RESEND_COOLDOWN_MS) {
+    // Cambiar de canal (ej. "no me llegó el email, mándalo por WhatsApp") no
+    // espera el cooldown; reenviar por el mismo canal sí.
+    if (
+      existing &&
+      (existing.channel ?? "email") === requested &&
+      Date.now() - existing.lastSentAt < RESEND_COOLDOWN_MS
+    ) {
       const waitSeconds = Math.ceil(
         (RESEND_COOLDOWN_MS - (Date.now() - existing.lastSentAt)) / 1000
       );
@@ -194,39 +217,104 @@ verificationRouter.post(
     }
 
     const code = generateCode();
-    pendingCodes.set(normalizedEmail, {
+    const entry: PendingCode = {
       code,
       expiresAt: Date.now() + CODE_TTL_MS,
       lastSentAt: Date.now(),
       email: normalizedEmail,
       attempts: 0,
-    });
+      channel: requested,
+    };
 
-    if (config.resendApiKey) {
-      try {
-        const resend = new Resend(config.resendApiKey);
-        await resend.emails.send({
-          from: "UZEED <no-reply@uzeed.cl>",
-          to: normalizedEmail,
-          subject: "Código de verificación — UZEED",
-          html: buildEmailHtml(code),
+    const sendByPhone = async () => {
+      if (!rawPhone) return null;
+      const sent = await sendCodeToPhone(
+        rawPhone,
+        code,
+        requested === "sms" ? "sms" : "whatsapp",
+        displayName,
+      );
+      if (!sent.ok) {
+        console.error("[verification] phone code failed", { email: normalizedEmail, reason: sent.error });
+        return sent;
+      }
+      entry.phone = sent.to;
+      pendingCodes.set(normalizedEmail, entry);
+      return sent;
+    };
+
+    if (requested !== "email") {
+      const sent = await sendByPhone();
+      if (!sent || !sent.ok) {
+        const error = sent?.error ?? "PHONE_REQUIRED";
+        const message =
+          error === "PHONE_DAILY_LIMIT"
+            ? "Alcanzaste el máximo de códigos por hoy para este número."
+            : error === "INVALID_PHONE" || error === "PHONE_REQUIRED"
+              ? "El número de teléfono no es válido."
+              : "No pudimos enviar el código a tu teléfono. Intenta por email.";
+        return res.status(error === "PHONE_DAILY_LIMIT" ? 429 : 503).json({ error, message });
+      }
+      return res.json({
+        ok: true,
+        channel: sent.channel,
+        destination: sent.destination,
+        expiresInSeconds: CODE_TTL_MS / 1000,
+      });
+    }
+
+    pendingCodes.set(normalizedEmail, entry);
+
+    if (config.resendApiKey || smtpConfigured()) {
+      const sent = await sendMail({
+        to: normalizedEmail,
+        subject: "Código de verificación — UZEED",
+        html: buildEmailHtml(code),
+        text: `Tu código de verificación UZEED es: ${code}. Vence en 10 minutos.`,
+        priority: "critical",
+      });
+      if (!sent.ok) {
+        console.error("[verification] send code failed", { email: normalizedEmail, reason: sent.reason });
+        // El email no salió: si hay teléfono, el mismo código va por WhatsApp/SMS.
+        const byPhone = await sendByPhone();
+        if (byPhone?.ok) {
+          return res.json({
+            ok: true,
+            channel: byPhone.channel,
+            destination: byPhone.destination,
+            fallback: true,
+            expiresInSeconds: CODE_TTL_MS / 1000,
+          });
+        }
+        // Libera el cooldown para que pueda reintentar apenas se recupere el envío.
+        pendingCodes.delete(normalizedEmail);
+        return res.status(503).json({
+          error: "EMAIL_SEND_FAILED",
+          message: "No pudimos enviar el correo en este momento. Intenta nuevamente en unos minutos.",
+          phoneChannels: phoneCodeChannels(),
         });
-      } catch (err) {
-        console.error("[verification] resend failed", err);
-        return res
-          .status(500)
-          .json({ error: "EMAIL_SEND_FAILED", message: "No se pudo enviar el correo." });
       }
     } else {
       console.warn("[verification] RESEND_API_KEY not set — cannot send verification email");
     }
 
-    return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
+    return res.json({
+      ok: true,
+      channel: "email",
+      destination: normalizedEmail,
+      expiresInSeconds: CODE_TTL_MS / 1000,
+    });
   })
 );
 
+/** Canales disponibles para recibir el código de registro. */
+verificationRouter.get("/channels", (_req, res) => {
+  res.json({ email: true, phone: phoneCodeChannels() });
+});
+
 verificationRouter.post(
-  "/verify-code",
+  "/verify-code"
+,
   verifyCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email, code } = req.body;
@@ -267,7 +355,10 @@ verificationRouter.post(
     pendingCodes.delete(normalizedEmail);
     // Mark this email as verified so the subsequent /register call can
     // enforce that email verification actually happened on the backend.
-    verifiedEmails.set(normalizedEmail, Date.now() + VERIFIED_EMAIL_TTL_MS);
+    verifiedEmails.set(normalizedEmail, {
+      expiresAt: Date.now() + VERIFIED_EMAIL_TTL_MS,
+      phone: entry.phone,
+    });
     return res.json({ ok: true, verified: true });
   })
 );
@@ -432,20 +523,19 @@ verificationRouter.post(
     });
 
     // Only send the email if the user actually exists
-    if (user && config.resendApiKey) {
-      try {
-        const resend = new Resend(config.resendApiKey);
-        await resend.emails.send({
-          from: "UZEED <no-reply@uzeed.cl>",
-          to: normalizedEmail,
-          subject: "Restablecer contraseña — UZEED",
-          html: buildResetEmailHtml(code),
-        });
-      } catch (err) {
-        console.error("[verification] reset code send failed", err);
+    if (user && (config.resendApiKey || smtpConfigured())) {
+      const sent = await sendMail({
+        to: normalizedEmail,
+        subject: "Restablecer contraseña — UZEED",
+        html: buildResetEmailHtml(code),
+        text: `Tu código para restablecer la contraseña de UZEED es: ${code}. Vence en 10 minutos.`,
+        priority: "critical",
+      });
+      if (!sent.ok) {
         // Don't reveal email send failure to prevent enumeration
+        console.error("[verification] reset code send failed", { email: normalizedEmail, reason: sent.reason });
       }
-    } else if (user && !config.resendApiKey) {
+    } else if (user) {
       console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
     }
 
@@ -646,18 +736,19 @@ export async function sendSetPasswordEmail(email: string, token: string) {
   const appUrl = config.appUrl.replace(/\/$/, "");
   const link = `${appUrl}/crear-contrasena?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
-  if (!config.resendApiKey) {
+  if (!config.resendApiKey && !smtpConfigured()) {
     console.log("[verification] set-password email (no API key):", link);
     return;
   }
 
-  const resend = new Resend(config.resendApiKey);
-  await resend.emails.send({
-    from: "UZEED <no-reply@uzeed.cl>",
+  const sent = await sendMail({
     to: email,
     subject: "Crea tu contraseña — UZEED",
     html: buildSetPasswordEmailHtml(link),
+    text: `Crea tu contraseña de UZEED aquí: ${link}`,
+    priority: "critical",
   });
+  if (!sent.ok) throw new Error(`set-password email failed: ${sent.reason}`);
 }
 
 /**
