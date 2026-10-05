@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail, type MailPriority } from "./mailer";
 import { config } from "../config";
 
 /* ─── HTML escape to prevent XSS in email templates ─── */
@@ -71,18 +71,11 @@ function statusBadge(status: string, color: string): string {
   </td></tr>`;
 }
 
-async function send(to: string, subject: string, html: string) {
+async function send(to: string, subject: string, html: string, priority: MailPriority = "normal") {
   if (!config.resendApiKey) return;
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({
-      from: "UZEED <no-reply@uzeed.cl>",
-      to,
-      subject,
-      html,
-    });
-  } catch (err) {
-    console.error("[notificationEmail] failed", { to, subject, err });
+  const result = await sendMail({ to, subject, html, priority });
+  if (!result.ok && priority !== "bulk") {
+    console.error("[notificationEmail] failed", { to, subject, reason: result.reason });
   }
 }
 
@@ -137,7 +130,7 @@ export async function sendUnreadMessagesEmail(
       ? `${data.senders[0].name} te escribió — UZEED`
       : `Tienes ${data.totalMessages} mensajes sin leer — UZEED`;
 
-  await send(email, subject, html);
+  await send(email, subject, html, "bulk");
 }
 
 /* ─── Reminder: profile has no photos after 5 hours ─── */
@@ -152,7 +145,7 @@ export async function sendNoPhotoReminder(email: string, displayName: string | n
       ctaButton("Subir fotos ahora", `${config.appUrl}/dashboard/services`),
     ].join(""),
   );
-  await send(email, "¡Tu perfil necesita fotos! — UZEED", html);
+  await send(email, "¡Tu perfil necesita fotos! — UZEED", html, "bulk");
 }
 
 /* ─── Reminder: inactive profile (48h without login or photos) ─── */
@@ -167,7 +160,7 @@ export async function sendInactiveProfileReminder(email: string, displayName: st
       ctaButton("Volver a UZEED", `${config.appUrl}`),
     ].join(""),
   );
-  await send(email, "Tu perfil está perdiendo visibilidad — UZEED", html);
+  await send(email, "Tu perfil está perdiendo visibilidad — UZEED", html, "bulk");
 }
 
 /* ─── Correos del panel de estadísticas (informe semanal y alertas) ─── */
@@ -220,7 +213,7 @@ export async function sendVideocallConfigReminder(email: string, displayName: st
       ctaButton("Configurar videollamadas", `${config.appUrl}/videocall`),
     ].join(""),
   );
-  await send(email, "Configura tus videollamadas — UZEED", html);
+  await send(email, "Configura tus videollamadas — UZEED", html, "bulk");
 }
 
 /* ─── Confirmation: videocall booking ─── */
@@ -409,7 +402,7 @@ export async function sendReferralCampaignEmail(
       ),
     ].join(""),
   );
-  await send(email, `Gana hasta $650.000 con tu codigo ${code} — UZEED`, html);
+  await send(email, `Gana hasta $650.000 con tu codigo ${code} — UZEED`, html, "bulk");
 }
 
 /* ─── Campaign: Umate creator-subscription invitation ─── */
@@ -463,7 +456,7 @@ export async function sendUmatePromotionalEmail(
     ].join(""),
   );
 
-  await send(email, "Activa Umate y recibe Gold gratis por 30 dias — UZEED", html);
+  await send(email, "Activa Umate y recibe Gold gratis por 30 dias — UZEED", html, "bulk");
 }
 
 export async function sendQualityReviewEmail(
@@ -587,7 +580,7 @@ export async function sendWeeklyHighlightsEmail(
   html: string,
   subject: string,
 ) {
-  await send(to, subject, html);
+  await send(to, subject, html, "bulk");
 }
 
 /* ─── Generic email campaign ─── */
@@ -630,7 +623,7 @@ export async function sendCampaignEmail(
   subject: string,
   html: string,
 ) {
-  await send(to, subject, html);
+  await send(to, subject, html, "bulk");
 }
 
 /* ─── Registro rechazado en la verificación ─── */

@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail } from "./mailer";
 import { config } from "../config";
 
 /**
@@ -73,12 +73,8 @@ function appUrl(path: string): string {
 
 async function send(to: string | null | undefined, subject: string, html: string) {
   if (!config.resendApiKey || !to) return;
-  try {
-    const resend = new Resend(config.resendApiKey);
-    await resend.emails.send({ from: "UZEED <no-reply@uzeed.cl>", to, subject, html });
-  } catch (err) {
-    console.error("[marketEmail] failed", { to, subject, err });
-  }
+  const result = await sendMail({ to, subject, html });
+  if (!result.ok) console.error("[marketEmail] failed", { to, subject, reason: result.reason });
 }
 
 const DELIVERY_LABEL: Record<string, string> = {

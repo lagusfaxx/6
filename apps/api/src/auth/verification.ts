@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { Resend } from "resend";
 import argon2 from "argon2";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { config } from "../config";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
+import { sendMail, smtpConfigured } from "../lib/mailer";
 
 export const verificationRouter = Router();
 
@@ -202,20 +202,22 @@ verificationRouter.post(
       attempts: 0,
     });
 
-    if (config.resendApiKey) {
-      try {
-        const resend = new Resend(config.resendApiKey);
-        await resend.emails.send({
-          from: "UZEED <no-reply@uzeed.cl>",
-          to: normalizedEmail,
-          subject: "Código de verificación — UZEED",
-          html: buildEmailHtml(code),
+    if (config.resendApiKey || smtpConfigured()) {
+      const sent = await sendMail({
+        to: normalizedEmail,
+        subject: "Código de verificación — UZEED",
+        html: buildEmailHtml(code),
+        text: `Tu código de verificación UZEED es: ${code}. Vence en 10 minutos.`,
+        priority: "critical",
+      });
+      if (!sent.ok) {
+        console.error("[verification] send code failed", { email: normalizedEmail, reason: sent.reason });
+        // Libera el cooldown para que pueda reintentar apenas se recupere el envío.
+        pendingCodes.delete(normalizedEmail);
+        return res.status(503).json({
+          error: "EMAIL_SEND_FAILED",
+          message: "No pudimos enviar el correo en este momento. Intenta nuevamente en unos minutos.",
         });
-      } catch (err) {
-        console.error("[verification] resend failed", err);
-        return res
-          .status(500)
-          .json({ error: "EMAIL_SEND_FAILED", message: "No se pudo enviar el correo." });
       }
     } else {
       console.warn("[verification] RESEND_API_KEY not set — cannot send verification email");
@@ -432,20 +434,19 @@ verificationRouter.post(
     });
 
     // Only send the email if the user actually exists
-    if (user && config.resendApiKey) {
-      try {
-        const resend = new Resend(config.resendApiKey);
-        await resend.emails.send({
-          from: "UZEED <no-reply@uzeed.cl>",
-          to: normalizedEmail,
-          subject: "Restablecer contraseña — UZEED",
-          html: buildResetEmailHtml(code),
-        });
-      } catch (err) {
-        console.error("[verification] reset code send failed", err);
+    if (user && (config.resendApiKey || smtpConfigured())) {
+      const sent = await sendMail({
+        to: normalizedEmail,
+        subject: "Restablecer contraseña — UZEED",
+        html: buildResetEmailHtml(code),
+        text: `Tu código para restablecer la contraseña de UZEED es: ${code}. Vence en 10 minutos.`,
+        priority: "critical",
+      });
+      if (!sent.ok) {
         // Don't reveal email send failure to prevent enumeration
+        console.error("[verification] reset code send failed", { email: normalizedEmail, reason: sent.reason });
       }
-    } else if (user && !config.resendApiKey) {
+    } else if (user) {
       console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
     }
 
@@ -646,18 +647,19 @@ export async function sendSetPasswordEmail(email: string, token: string) {
   const appUrl = config.appUrl.replace(/\/$/, "");
   const link = `${appUrl}/crear-contrasena?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
-  if (!config.resendApiKey) {
+  if (!config.resendApiKey && !smtpConfigured()) {
     console.log("[verification] set-password email (no API key):", link);
     return;
   }
 
-  const resend = new Resend(config.resendApiKey);
-  await resend.emails.send({
-    from: "UZEED <no-reply@uzeed.cl>",
+  const sent = await sendMail({
     to: email,
     subject: "Crea tu contraseña — UZEED",
     html: buildSetPasswordEmailHtml(link),
+    text: `Crea tu contraseña de UZEED aquí: ${link}`,
+    priority: "critical",
   });
+  if (!sent.ok) throw new Error(`set-password email failed: ${sent.reason}`);
 }
 
 /**
