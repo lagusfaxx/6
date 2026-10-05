@@ -63,7 +63,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
      volver va dentro de esa barra, en el flujo. Flotando se apoyaba encima del
      título — en Explorar se comía la "E" — y en el escritorio caía sobre el
      borde izquierdo del contenido. */
-  const SECTION_ROUTES = ["/services", "/escorts", "/masajistas", "/moteles", "/sexshop"];
+  const SECTION_ROUTES = ["/services", "/escorts", "/hombres", "/masajistas", "/moteles", "/sexshop"];
   const hasOwnBackButton =
     SECTION_ROUTES.includes(pathname) ||
     /* /escorts/<etiqueta> es el mismo directorio con un filtro; el resto de

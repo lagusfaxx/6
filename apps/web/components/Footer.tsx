@@ -7,6 +7,7 @@ const footerLinks = {
   "Explorar": [
     { label: "Escorts Premium", href: "/escorts" },
     { label: "Masajistas Eróticas", href: "/masajistas" },
+    { label: "Escorts Hombres", href: "/hombres" },
     { label: "Escorts Trans Chile", href: "/escorts?profileTags=trans" },
     { label: "Moteles", href: "/moteles" },
     { label: "Sex Shop Online", href: "/sexshop" },

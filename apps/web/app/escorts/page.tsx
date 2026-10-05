@@ -5,7 +5,7 @@ import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 import { cleanProfileHref } from "../../lib/profileUrl";
 import { CITY_LANDINGS } from "../../lib/cities";
-import { TAG_LANDINGS } from "../../lib/escortSearchLandings";
+import { TAG_LANDINGS, tagLandingHref } from "../../lib/escortSearchLandings";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -82,7 +82,7 @@ export default async function EscortsPage() {
         <h2 className="text-lg font-bold text-white/70 mb-3">Buscar por tipo y zona</h2>
         <ul className="flex flex-wrap gap-2">
           {[
-            ...TAG_LANDINGS.map((l) => ({ href: `/escorts/${l.slug}`, label: l.name })),
+            ...TAG_LANDINGS.map((l) => ({ href: tagLandingHref(l.slug), label: l.name })),
             // Todas las ciudades: Las Condes, Ñuñoa o Maipú tenían un solo
             // enlace interno (Semrush "Pages with only one internal link").
             ...CITY_LANDINGS.map((c) => ({ href: `/escorts/${c.slug}`, label: `Escorts en ${c.name}` })),

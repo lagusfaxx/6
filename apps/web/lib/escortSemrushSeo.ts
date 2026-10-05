@@ -251,7 +251,7 @@ export const SEMRUSH_TAG_LANDINGS: TagLanding[] = [
     related: [
       { href: "/escorts/providencia", label: "Escorts en Providencia" },
       { href: "/escorts/santiago-centro", label: "Escorts en Santiago Centro" },
-      { href: "/escorts/hombres", label: "Escorts hombres" },
+      { href: "/hombres", label: "Escorts hombres" },
       { href: "/escorts/vip", label: "Escorts VIP" },
     ],
   },
@@ -611,7 +611,7 @@ export const SEMRUSH_TAG_LANDINGS: TagLanding[] = [
     related: [
       { href: "/escorts/santiago", label: "Escorts en Santiago" },
       { href: "/escorts/anal", label: "Escorts con anal" },
-      { href: "/escorts/hombres", label: "Escorts hombres" },
+      { href: "/hombres", label: "Escorts hombres" },
     ],
   },
   {
