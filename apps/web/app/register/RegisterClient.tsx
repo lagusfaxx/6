@@ -479,6 +479,7 @@ export default function RegisterClient() {
     return (
       <EmailVerification
         email={registeredEmail}
+        phone={pendingFormData?.phone}
         onVerified={createAccountAfterVerification}
         onBack={() => setStep("form")}
       />

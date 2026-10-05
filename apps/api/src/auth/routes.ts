@@ -145,7 +145,7 @@ authRouter.post(
     // stores a short-lived verified marker which we consume here exactly
     // once. Without it, anyone could POST /register directly bypassing the
     // email verification UI.
-    if (!consumeVerifiedEmail(email)) {
+    if (!consumeVerifiedEmail(email, phone)) {
       return res.status(403).json({
         error: "EMAIL_NOT_VERIFIED",
         message:
