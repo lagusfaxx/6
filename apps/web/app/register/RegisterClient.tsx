@@ -480,6 +480,7 @@ export default function RegisterClient() {
       <EmailVerification
         email={registeredEmail}
         phone={pendingFormData?.phone}
+        name={pendingFormData?.displayName}
         onVerified={createAccountAfterVerification}
         onBack={() => setStep("form")}
       />

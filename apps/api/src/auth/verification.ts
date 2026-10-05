@@ -174,6 +174,7 @@ verificationRouter.post(
     const requested: CodeChannel =
       req.body.channel === "whatsapp" || req.body.channel === "sms" ? req.body.channel : "email";
     const rawPhone = typeof phone === "string" ? phone : "";
+    const displayName = typeof req.body.name === "string" ? req.body.name.trim().slice(0, 60) : "";
 
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -227,7 +228,12 @@ verificationRouter.post(
 
     const sendByPhone = async () => {
       if (!rawPhone) return null;
-      const sent = await sendCodeToPhone(rawPhone, code, requested === "sms" ? "sms" : "whatsapp");
+      const sent = await sendCodeToPhone(
+        rawPhone,
+        code,
+        requested === "sms" ? "sms" : "whatsapp",
+        displayName,
+      );
       if (!sent.ok) {
         console.error("[verification] phone code failed", { email: normalizedEmail, reason: sent.error });
         return sent;

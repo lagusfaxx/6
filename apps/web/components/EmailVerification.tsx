@@ -23,11 +23,13 @@ interface EmailVerificationProps {
   email: string;
   /** Teléfono del formulario: permite recibir el código por WhatsApp o SMS. */
   phone?: string;
+  /** Nombre para el saludo del mensaje de WhatsApp. */
+  name?: string;
   onVerified: () => void | Promise<void>;
   onBack?: () => void;
 }
 
-export default function EmailVerification({ email, phone, onVerified, onBack }: EmailVerificationProps) {
+export default function EmailVerification({ email, phone, name, onVerified, onBack }: EmailVerificationProps) {
   const [channel, setChannel] = useState<CodeChannel>("email");
   const [destination, setDestination] = useState(email);
   const [notice, setNotice] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export default function EmailVerification({ email, phone, onVerified, onBack }: 
     try {
       const r = await apiFetch<SendCodeResponse>("/auth/verification/send-code", {
         method: "POST",
-        body: JSON.stringify({ email, phone, channel: requested }),
+        body: JSON.stringify({ email, phone, name, channel: requested }),
       });
       const sentBy = r?.channel ?? requested;
       setChannel(sentBy);

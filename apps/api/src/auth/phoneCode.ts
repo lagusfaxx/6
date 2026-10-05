@@ -1,16 +1,15 @@
 import { prisma } from "../db";
-import { isBaileysEnabled, sendBaileysText } from "../notifications/whatsappBaileys";
-import { getWhatsAppProvider, logDelivery, normalizePhoneForWhatsApp } from "../notifications/whatsapp";
+import { logDelivery, normalizePhoneForWhatsApp, sendWhatsAppTemplate } from "../notifications/whatsapp";
 import { isSmsConfigured, sendSms } from "../notifications/sms";
 
 /**
  * Envío del código de verificación por WhatsApp o SMS (respaldo del email).
  *
- * - WhatsApp con Baileys: texto libre.
- * - WhatsApp con la Cloud API de Meta: requiere una plantilla de categoría
- *   "Autenticación" aprobada, cuyo nombre va en WHATSAPP_OTP_TEMPLATE_NAME.
- *   Sin ella, la Cloud API no puede mandar el código y se usa SMS.
- * - SMS: LabsMobile (LABSMOBILE_USER + LABSMOBILE_TOKEN).
+ * - WhatsApp: solo la Cloud API de Meta (WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID).
+ *   Si existe una plantilla de categoría "Autenticación" aprobada
+ *   (WHATSAPP_OTP_TEMPLATE_NAME) se usa esa; si no, el código va en la
+ *   plantilla de avisos ya aprobada (WHATSAPP_TEMPLATE_NAME, uzeed_notificacion).
+ * - SMS: LabsMobile (LABSMOBILE_USER + LABSMOBILE_TOKEN), respaldo si Meta falla.
  */
 
 export type PhoneChannel = "whatsapp" | "sms";
@@ -30,9 +29,7 @@ setInterval(() => {
 }, 60 * 60 * 1000).unref?.();
 
 export function whatsappCodeAvailable(): boolean {
-  const provider = getWhatsAppProvider();
-  if (provider === "baileys") return true;
-  return provider === "cloud" && Boolean(OTP_TEMPLATE);
+  return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 }
 
 export function smsCodeAvailable(): boolean {
@@ -59,12 +56,14 @@ function codeText(code: string): string {
 
 type SendResult = { ok: boolean; status?: number; error?: string; messageId?: string };
 
-async function sendWhatsAppCode(to: string, code: string): Promise<SendResult> {
-  if (isBaileysEnabled()) {
-    return sendBaileysText(to, `🔐 ${codeText(code)}`);
-  }
-  if (!OTP_TEMPLATE || !process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
-    return { ok: false, error: "WHATSAPP_OTP_NOT_CONFIGURED" };
+async function sendWhatsAppCode(to: string, code: string, name: string): Promise<SendResult> {
+  if (!whatsappCodeAvailable()) return { ok: false, error: "WHATSAPP_NOT_CONFIGURED" };
+  if (!OTP_TEMPLATE) {
+    // Plantilla de avisos: "Hola {{1}} 👋 Tienes novedades en UZEED: {{2}}."
+    return sendWhatsAppTemplate(to, [
+      name || "👋",
+      `tu código de verificación es ${code} (vence en 10 minutos, no lo compartas)`,
+    ]);
   }
   try {
     const res = await fetch(
@@ -116,6 +115,7 @@ export async function sendCodeToPhone(
   rawPhone: string,
   code: string,
   prefer: PhoneChannel = "whatsapp",
+  name = "",
 ): Promise<PhoneCodeResult> {
   const to = normalizePhoneForWhatsApp(rawPhone);
   if (!to) return { ok: false, error: "INVALID_PHONE" };
@@ -133,7 +133,7 @@ export async function sendCodeToPhone(
   else counter.count += 1;
 
   for (const channel of channels) {
-    const result = channel === "whatsapp" ? await sendWhatsAppCode(to, code) : await sendSms(to, codeText(code));
+    const result = channel === "whatsapp" ? await sendWhatsAppCode(to, code, name) : await sendSms(to, codeText(code));
     await logDelivery(prisma, {
       userId: null,
       channel: channel === "whatsapp" ? "WHATSAPP" : "SMS",
