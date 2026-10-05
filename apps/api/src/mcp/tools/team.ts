@@ -30,6 +30,8 @@ const BANDEJA_TIPOS = [
   "withdrawal_requested",
   "profile_verification_requested",
   "phone_change_requested",
+  "name_change_requested",
+  "location_change_requested",
   "face_verification_submitted",
   "stats_alert",
   "mcp_authorized",

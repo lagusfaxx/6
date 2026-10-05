@@ -10,6 +10,8 @@ export type AdminEventType =
   | "content_reported"
   | "deletion_requested"
   | "phone_change_requested"
+  | "name_change_requested"
+  | "location_change_requested"
   | "face_verification_submitted"
   | "mcp_authorized"
   | "stats_alert";
@@ -55,6 +57,16 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Cambio de número solicitado",
     body: "Una profesional pidió cambiar su número de WhatsApp.",
     url: "/admin/phone-changes",
+  },
+  name_change_requested: {
+    title: "Cambio de nombre solicitado",
+    body: "Una profesional pidió cambiar su nombre público.",
+    url: "/admin/name-changes",
+  },
+  location_change_requested: {
+    title: "Cambio de ubicación solicitado",
+    body: "Una profesional pidió cambiar la ubicación de su perfil.",
+    url: "/admin/location-changes",
   },
   stats_alert: {
     title: "Alerta de estadísticas",

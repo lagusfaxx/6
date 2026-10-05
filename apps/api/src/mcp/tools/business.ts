@@ -256,6 +256,7 @@ export function registerBusinessTools(server: McpServer, ctx: McpContext) {
         docs,
         phones,
         names,
+        locations,
         deposits,
         withdrawals,
         transfers,
@@ -308,6 +309,16 @@ export function registerBusinessTools(server: McpServer, ctx: McpContext) {
             orderBy: asc,
             take,
             select: { id: true, currentName: true, requestedName: true, reason: true, createdAt: true, user: USER_MINI },
+          }),
+        ),
+        q(
+          prisma.locationChangeRequest.count({ where: { status: "PENDING" } }),
+          prisma.locationChangeRequest.findMany({
+            where: { status: "PENDING" },
+            orderBy: asc,
+            take,
+            // Sólo la comuna: la dirección y las coordenadas no salen por MCP.
+            select: { id: true, currentCity: true, requestedCity: true, reason: true, createdAt: true, user: USER_MINI },
           }),
         ),
         q(
@@ -391,6 +402,7 @@ export function registerBusinessTools(server: McpServer, ctx: McpContext) {
         documentosProfesionales: queue(docs),
         cambiosTelefono: queue(phones),
         cambiosNombre: queue(names),
+        cambiosUbicacion: queue(locations),
         depositosTokens: queue(deposits),
         retirosTokens: queue(withdrawals),
         pagosPorTransferencia: queue(transfers),

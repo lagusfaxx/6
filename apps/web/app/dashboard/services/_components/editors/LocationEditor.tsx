@@ -5,6 +5,7 @@ import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import MapboxMap from "../../../../../components/MapboxMap";
 import MapboxAddressAutocomplete from "../../../../../components/MapboxAddressAutocomplete";
+import LocationChangeField, { useLocationChange } from "./LocationChangeField";
 
 type Props = {
   profileType: string;
@@ -25,6 +26,45 @@ export default function LocationEditor({
     profileType === "PROFESSIONAL" ||
     profileType === "ESTABLISHMENT" ||
     profileType === "SHOP";
+  /* Una profesional con ubicación ya fijada no la edita aquí: la pide por
+     solicitud y la aprueba el equipo. */
+  const locationChange = useLocationChange();
+  const locked = profileType === "PROFESSIONAL" && Boolean(locationChange.state?.locked);
+
+  if (locked && locationChange.state) {
+    const current = locationChange.state;
+    const hasPoint =
+      current.latitude != null &&
+      current.longitude != null &&
+      Number.isFinite(current.latitude) &&
+      Number.isFinite(current.longitude);
+    return (
+      <EditorCard
+        title="Ubicación"
+        subtitle="Dónde te ubica el cliente en el mapa."
+        delay={0}
+      >
+        <div className="grid gap-4">
+          <LocationChangeField state={current} reload={locationChange.reload} />
+          {hasPoint && (
+            <MapboxMap
+              markers={[
+                {
+                  id: "profile-location",
+                  name: state.displayName || user?.username || "Perfil",
+                  lat: Number(current.latitude),
+                  lng: Number(current.longitude),
+                  subtitle: current.city || current.address || null,
+                },
+              ]}
+              height={180}
+              className="rounded-xl"
+            />
+          )}
+        </div>
+      </EditorCard>
+    );
+  }
 
   return (
     <EditorCard

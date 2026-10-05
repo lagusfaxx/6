@@ -265,6 +265,13 @@ export default function DashboardServicesClient() {
           acceptsIncalls: Boolean(meRes?.user?.acceptsIncalls),
           acceptsOutcalls: Boolean(meRes?.user?.acceptsOutcalls),
           profileLocationVerified: Boolean(loadedLatitude && loadedLongitude),
+          /* Una dirección guardada con coordenadas ya está verificada: sin
+             esto el autocompletado la volvía a geocodificar al cargar, movía
+             el punto y el guardado chocaba con el bloqueo de ubicación. */
+          lastProfileGeocoded:
+            loadedLatitude && loadedLongitude
+              ? String(meRes?.user?.address ?? "").trim()
+              : "",
           coverPositionX: typeof meRes?.user?.coverPositionX === "number" ? meRes.user.coverPositionX : 50,
           coverPositionY: typeof meRes?.user?.coverPositionY === "number" ? meRes.user.coverPositionY : 50,
           items:

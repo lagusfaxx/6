@@ -106,6 +106,7 @@ enum NotificationType {
   MARKET_ORDER_CANCELLED
   PHONE_CHANGE_REVIEWED
   NAME_CHANGE_REVIEWED
+  LOCATION_CHANGE_REVIEWED
   FACE_VERIFICATION_REVIEWED
   /// Aviso que manda el equipo (panel o Claude) a un usuario o segmento.
   ADMIN_MESSAGE
@@ -177,6 +178,13 @@ enum PhoneChangeRequestStatus {
 }
 
 enum NameChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LocationChangeRequestStatus {
   PENDING
   APPROVED
   REJECTED
@@ -608,6 +616,8 @@ model User {
   phoneChangesReviewed      PhoneChangeRequest[]   @relation("PhoneChangeReviewer")
   nameChangeRequests        NameChangeRequest[]    @relation("NameChangeRequests")
   nameChangesReviewed       NameChangeRequest[]    @relation("NameChangeReviewer")
+  locationChangeRequests    LocationChangeRequest[] @relation("LocationChangeRequests")
+  locationChangesReviewed   LocationChangeRequest[] @relation("LocationChangeReviewer")
   faceVerifications         FaceVerification[]     @relation("FaceVerifications")
   faceVerificationsCreated  FaceVerification[]     @relation("FaceVerificationCreator")
   faceVerificationsReviewed FaceVerification[]     @relation("FaceVerificationReviewer")
@@ -1896,6 +1906,37 @@ model NameChangeRequest {
 
   user     User  @relation("NameChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
   reviewer User? @relation("NameChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, createdAt])
+}
+
+/// Cambio de ubicación de un perfil profesional. La comuna es lo que sale en
+/// la ficha y en los listados por zona: cambiarla por cuenta propia (a otra
+/// ciudad o a otro país) ensucia los resultados, así que una vez fijada se
+/// cambia con revisión del admin, igual que el teléfono y el nombre.
+model LocationChangeRequest {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  userId             String                      @db.Uuid
+  /// Ubicación que tenía al pedir el cambio, para auditar y revertir.
+  currentAddress     String?
+  currentCity        String?
+  currentLatitude    Float?
+  currentLongitude   Float?
+  requestedAddress   String
+  requestedCity      String?
+  requestedLatitude  Float
+  requestedLongitude Float
+  reason             String?
+  status             LocationChangeRequestStatus @default(PENDING)
+  reviewedById       String?                     @db.Uuid
+  reviewedAt         DateTime?
+  adminNote          String?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  user     User  @relation("LocationChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("LocationChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status, createdAt])

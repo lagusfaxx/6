@@ -21,6 +21,7 @@ import {
   normalizeDisplayName,
   sameName,
 } from "./nameChange";
+import { hasLockedLocation, locationChanged } from "./locationChange";
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage, ImageOptimizationError } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
@@ -642,7 +643,10 @@ async function updateProfile(req: any, res: any) {
     hairColor: true,
     skinTone: true,
     baseRate: true,
+    address: true,
     city: true,
+    latitude: true,
+    longitude: true,
     bio: true,
     serviceTags: true,
     profileCompletedAt: true,
@@ -815,6 +819,21 @@ async function updateProfile(req: any, res: any) {
       });
     }
     displayNameUpdate = nextName;
+  }
+
+  /* La ubicación sigue la misma regla: la comuna es lo que sale en la ficha y
+     en los listados por zona, así que una vez fijada sólo cambia con revisión
+     del equipo. El panel reenvía la dirección en cada guardado; sólo se
+     rechaza si de verdad cambia. */
+  if (
+    hasLockedLocation(me) &&
+    locationChanged({ address, city, latitude, longitude }, me)
+  ) {
+    return res.status(403).json({
+      error: "LOCATION_LOCKED",
+      message:
+        "Tu ubicación solo puede cambiarse con aprobación del equipo. Envía una solicitud desde la sección Ubicación.",
+    });
   }
 
   /* Abierto ahora / publicado: sólo para locales y tiendas. */

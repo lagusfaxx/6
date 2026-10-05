@@ -103,10 +103,10 @@ function profilePathSql(alias: string, idCol: Prisma.Sql, usernameCol: Prisma.Sq
   return Prisma.sql`(${Prisma.raw(`"${alias}"`)}."path" LIKE '/profesional/%' AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
 }
 
-/** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono, reportes y notas internas. */
+/** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono/ubicación, reportes y notas internas. */
 async function profile360(id: string) {
   const since30 = new Date(Date.now() - 30 * MS_DAY);
-  const [tendencia, exposicion, tierHistory, phoneChanges, nameChanges, reportes, notas] = await Promise.all([
+  const [tendencia, exposicion, tierHistory, phoneChanges, nameChanges, locationChanges, reportes, notas] = await Promise.all([
     prisma.$queryRaw<{ dia: string; vistas: number; contactos: number }[]>`
       WITH days AS (SELECT generate_series(date_trunc('day', (now() AT TIME ZONE ${TZ}) - interval '29 days'), date_trunc('day', now() AT TIME ZONE ${TZ}), '1 day'::interval) AS d),
       v AS (SELECT date_trunc('day', ${localTs('pv."createdAt"')}) AS d, COUNT(*)::int AS n FROM "PageView" pv
@@ -121,6 +121,8 @@ async function profile360(id: string) {
     prisma.profileTierHistory.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 20, select: { fromTier: true, toTier: true, createdAt: true } }),
     prisma.phoneChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { status: true, createdAt: true, reviewedAt: true } }),
     prisma.nameChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { currentName: true, requestedName: true, status: true, createdAt: true, reviewedAt: true } }),
+    // Sólo la comuna: la dirección y las coordenadas no salen por MCP.
+    prisma.locationChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { currentCity: true, requestedCity: true, status: true, createdAt: true, reviewedAt: true } }),
     prisma.$queryRaw<{ n: number; ultimo: Date | null }[]>`
       SELECT COUNT(*)::int AS n, MAX("createdAt") AS ultimo FROM "Notification" WHERE "type" = 'ADMIN_EVENT' AND "data"->>'type' = 'content_reported' AND "data"->>'targetId' = ${id}`,
     prisma.adminUserNote.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { text: true, source: true, createdAt: true } }),
@@ -146,6 +148,7 @@ async function profile360(id: string) {
       historialTier: tierHistory,
       cambiosTelefono: phoneChanges,
       cambiosNombre: nameChanges,
+      cambiosUbicacion: locationChanges,
       reportes: { total: reportes[0]?.n ?? 0, ultimo: reportes[0]?.ultimo ?? null },
       notasInternas: notas.map((n) => ({ texto: n.text, via: n.source, fecha: n.createdAt })),
     },
@@ -309,6 +312,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
         pendingDocs,
         pendingPhone,
         pendingName,
+        pendingLocation,
         faceVerification,
       ] = await Promise.all([
         prisma.message.count({ where: { fromId: id } }),
@@ -330,6 +334,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
         prisma.professionalDocument.count({ where: { userId: id, status: "PENDING" } }),
         prisma.phoneChangeRequest.count({ where: { userId: id, status: "PENDING" } }),
         prisma.nameChangeRequest.count({ where: { userId: id, status: "PENDING" } }),
+        prisma.locationChangeRequest.count({ where: { userId: id, status: "PENDING" } }),
         prisma.faceVerification.findFirst({
           where: { userId: id },
           orderBy: { createdAt: "desc" },
@@ -365,6 +370,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
           documentos: pendingDocs,
           cambioTelefono: pendingPhone,
           cambioNombre: pendingName,
+          cambioUbicacion: pendingLocation,
           verificacionFacial: faceVerification,
         },
         pagosRecientes: payments,
