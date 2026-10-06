@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import {
@@ -297,6 +298,11 @@ export default function ProfileDetailView({
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  /* La barra de contacto se monta en <body>: dentro del contenedor con
+     overflow-x-hidden, iOS la arrastraba con el scroll y quedaba flotando a
+     media pantalla. */
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
   const [lightbox, setLightbox] = useState<GalleryItem | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const thumbVideoRefs = useRef(new Map<string, HTMLVideoElement>());
@@ -844,7 +850,7 @@ export default function ProfileDetailView({
   const ratingCount = surveySummary?.count ?? professional.reviewCount ?? 0;
 
   return (
-    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
+    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-clip pb-40 md:pb-10">
       {/* Ficha.
           Sin tarjetas dentro de tarjetas: la foto es la única superficie y
           todo lo demás se ordena con tipografía y líneas de 1px. Los recuadros
@@ -1604,6 +1610,7 @@ export default function ProfileDetailView({
       </AnimatePresence>
 
       {/* Mobile bottom bar */}
+      {portalReady && createPortal(
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0c0614]/95 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl md:hidden">
         {/* Guardar y compartir viven sobre la foto: acá abajo repetidos
             quedaban debajo de la cinta de verificación y encima competían con
@@ -1653,7 +1660,9 @@ export default function ProfileDetailView({
             </>
           )}
         </div>
-      </div>
+      </div>,
+      document.body,
+      )}
 
       {/* Survey Rating Modal */}
       <AnimatePresence>
