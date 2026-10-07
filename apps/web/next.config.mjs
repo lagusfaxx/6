@@ -45,6 +45,41 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Por defecto (HTML y todo lo demás): sin caché + cabeceras de seguridad.
+        // Va PRIMERO a propósito: en Next, si varias reglas ponen la misma
+        // cabecera, gana la última. Antes estaba al final y su no-store pisaba
+        // el caché de /_next/static, imágenes y /brand (Cloudflare BYPASS).
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            // HSTS: el navegador pasa directo a https (Semrush "No HSTS
+            // support"). Sin includeSubDomains para no forzar subdominios.
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(self)',
+          },
+        ],
+      },
+      {
         // Static JS/CSS assets — immutable with long cache
         source: '/_next/static/:path*',
         headers: [
@@ -121,41 +156,9 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — no cache for dynamic/auth content
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            // HSTS: el navegador pasa directo a https (Semrush "No HSTS
-            // support"). Sin includeSubDomains para no forzar subdominios.
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(self), microphone=(self), geolocation=(self)',
-          },
-        ],
-      },
-      {
         // Favicon must stay cacheable — the global no-store rule above would
         // otherwise apply and Google prefers a stable, cacheable favicon.
-        // This rule is defined last so its Cache-Control wins for /favicon.ico.
+        // Va después de la regla por defecto, así su Cache-Control gana.
         source: '/favicon.ico',
         headers: [
           {
