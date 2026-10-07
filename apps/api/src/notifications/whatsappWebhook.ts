@@ -115,6 +115,17 @@ async function handleIncoming(message: any): Promise<void> {
   const body = message.text.body.trim().slice(0, 5000);
   if (!body) return;
 
+  // Aviso de prueba del admin (/admin/whatsapp → "Probar chat completo"):
+  // se confirma la respuesta sin crear ningún mensaje real.
+  if (relay.peerId === relay.userId) {
+    await sendCloudText(
+      from,
+      `✅ Prueba correcta: recibimos tu respuesta "${body.slice(0, 200)}". En un chat real le habría llegado al cliente en UZEED.`,
+    );
+    await sendCloudReaction(from, wamid, "✅");
+    return;
+  }
+
   const me = relay.userId;
   const other = relay.peerId;
   const user = await prisma.user.findUnique({

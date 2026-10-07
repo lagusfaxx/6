@@ -299,6 +299,27 @@ export async function logDelivery(
     .catch((err: any) => console.error("[notify] delivery log failed:", err?.message || err));
 }
 
+/**
+ * Prueba de punta a punta para el admin: le llega a su WhatsApp el mismo aviso
+ * que recibe una profesional cuando un cliente le escribe. El aviso queda
+ * guardado con peerId = userId, y el webhook reconoce eso como prueba: al
+ * responderlo no se crea ningún mensaje real, solo confirma que llegó.
+ */
+export async function sendTestChat(prisma: PrismaClient, adminId: string, phone: string): Promise<SendResult> {
+  if (getWhatsAppProvider() !== "cloud") return { ok: false, error: "SOLO_CLOUD_API" };
+  const to = normalizePhoneForWhatsApp(phone);
+  if (!to) return { ok: false, error: "INVALID_PHONE" };
+  const contact = await prisma.whatsAppContact.findUnique({ where: { waId: to } });
+  const windowOpen = Boolean(contact && Date.now() - contact.lastInboundAt.getTime() < SERVICE_WINDOW_MS);
+  const text = "Hola, ¿tienes disponibilidad hoy? (mensaje de prueba)";
+  const result = windowOpen
+    ? await sendCloudText(to, `💬 *Cliente de prueba*: ${text}\n\n↩️ Responde aquí para contestarle.`)
+    : await sendCloudTemplate(to, MESSAGE_TEMPLATE_NAME, ["Admin", "Cliente de prueba", text]);
+  await logDelivery(prisma, { userId: adminId, channel: "WHATSAPP", type: "TEST_CHAT", result });
+  if (result.ok) await saveRelay(prisma, result.messageId, adminId, adminId, to);
+  return result;
+}
+
 /** Respaldo por SMS cuando WhatsApp no está disponible o falla. */
 async function notifyBySms(
   prisma: PrismaClient,
