@@ -20,6 +20,7 @@ import {
   MessageCircle,
   RefreshCw,
   TrendingDown,
+  UserPlus,
   Users,
   XCircle,
 } from "lucide-react";
@@ -50,6 +51,16 @@ type FunnelResponse = {
     trialConversionPct: number | null;
     medianDaysToFirstPayment: number | null;
     bySource: { source: string; registros: number; publicadas: number; verificadas: number; pagaron: number; pctPublicadas: number | null; pctPagaron: number | null }[];
+  };
+  signup: {
+    trackingSince: string | null;
+    visitors: { registerPage: number; landingPages: number };
+    started: number;
+    completed: number;
+    completionPct: number | null;
+    steps: { key: string; label: string; count: number; pctOfStarted: number | null; pctOfPrevious: number | null; abandonedHere: number }[];
+    byFlow: { flow: string; empezaron: number; terminaron: number; pct: number | null }[];
+    errors: { step: string; stepLabel: string; error: string; personas: number; veces: number; terminaron: number }[];
   };
   paymentStatus: {
     total: number;
@@ -209,6 +220,7 @@ const TYPE_OPTIONS = [
 ];
 const DAY_OPTIONS = [30, 90, 180, 365];
 const TABS = [
+  { key: "registro", label: "Registro", icon: UserPlus },
   { key: "embudo", label: "Embudo", icon: Filter },
   { key: "pagos", label: "Quién paga", icon: CircleDollarSign },
   { key: "precio", label: "Valor y precio", icon: Calculator },
@@ -349,7 +361,7 @@ export default function AdminSalesFunnel() {
   const user = me?.user ?? null;
   const allowed = isFullAdmin(user);
 
-  const [tab, setTab] = useState<TabKey>("embudo");
+  const [tab, setTab] = useState<TabKey>("registro");
   const [profileType, setProfileType] = useState("PROFESSIONAL");
   const [days, setDays] = useState(90);
   const [data, setData] = useState<FunnelResponse | null>(null);
@@ -456,6 +468,7 @@ export default function AdminSalesFunnel() {
       {data && (
         <div className={`space-y-5 ${loadingData ? "opacity-60" : ""}`}>
           <BillingBanner billing={data.billing} />
+          {tab === "registro" && <SignupTab data={data} />}
           {tab === "embudo" && <FunnelTab data={data} />}
           {tab === "pagos" && <PaymentsTab data={data} onSegment={openSegment} />}
           {tab === "precio" && <PricingTab key={data.generatedAt} data={data} />}
@@ -489,6 +502,94 @@ function BillingBanner({ billing }: { billing: FunnelResponse["billing"] }) {
           : `Cobro encendido en periodo de gracia hasta el ${fmtDate(billing.graceEndsAt)}.`}{" "}
       <span className="text-white/40">Prueba gratis: {billing.trialDays} días.</span>
     </div>
+  );
+}
+
+/* ── Pestaña: Registro (antes de que exista la cuenta) ── */
+
+function SignupTab({ data }: { data: FunnelResponse }) {
+  const su = data.signup;
+  const steps = su.steps;
+  const leak = steps.reduce<(typeof steps)[number] | null>((w, s) => (s.abandonedHere > (w?.abandonedHere ?? 0) ? s : w), null);
+
+  if (!su.trackingSince) {
+    return (
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-6 text-sm text-white/60">
+        Todavía no hay datos de registro. El seguimiento de cada paso del formulario empieza a contar desde que se publica esta versión: vuelve en unos días.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Visitaron páginas para anunciarse" value={num(su.visitors.landingPages)} sub="Publícate, trabajar de escort, etc." />
+        <Kpi label="Abrieron /register" value={num(su.visitors.registerPage)} sub="Visitantes únicos, todos los tipos" />
+        <Kpi label="Empezaron el formulario" value={num(su.started)} sub="Eligieron tipo de cuenta" tone="fuchsia" />
+        <Kpi label="Terminaron (cuenta creada)" value={pctTxt(su.completionPct)} sub={`${num(su.completed)} de ${num(su.started)}`} tone="emerald" />
+      </div>
+
+      {leak && leak.abandonedHere > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3">
+          <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+          <p className="text-sm text-red-100/80">
+            Donde más desisten: <strong>“{leak.label}”</strong>. {num(leak.abandonedHere)} personas llegaron ahí y no siguieron. Mira abajo qué error les apareció.
+          </p>
+        </div>
+      )}
+
+      <Card title="Hasta dónde llegaron" subtitle="Cada barra cuenta a quienes llegaron a ese punto; “desistieron aquí” son las que llegaron y no avanzaron más">
+        <div className="space-y-2.5">
+          {steps.map((s, i) => (
+            <div key={s.key} className="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-3 sm:grid-cols-[15rem_1fr_10rem]">
+              <p className="truncate text-[13px] font-medium text-white/85" title={s.label}>{s.label}</p>
+              <div className="relative">
+                <Bar value={s.count} max={su.started} label={`${s.label}: ${num(s.count)} (${pctTxt(s.pctOfStarted)})`} />
+                <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-semibold tabular-nums text-white">
+                  {num(s.count)} · {pctTxt(s.pctOfStarted)}
+                </span>
+              </div>
+              <div className="col-span-2 text-[11px] text-white/45 sm:col-span-1 sm:text-right">
+                {i > 0 && <span className="text-white/70">{pctTxt(s.pctOfPrevious)}</span>}
+                {i > 0 && " del anterior"}
+                {s.abandonedHere > 0 && <span className="text-red-300/80"> · {num(s.abandonedHere)} desistieron aquí</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
+        <Card title="Qué los frenó" subtitle="Errores que vieron al intentar avanzar, y cuántos terminaron igual">
+          {su.errors.length === 0 ? (
+            <p className="py-4 text-center text-xs text-white/30">Sin errores registrados en el periodo.</p>
+          ) : (
+            <Table
+              head={["Dónde", "Mensaje que vieron", "Personas", "Veces", "Terminaron igual"]}
+              alignRightFrom={2}
+              rows={su.errors.map((e) => [
+                <span key="s" className="whitespace-nowrap">{e.stepLabel}</span>,
+                <span key="e" className="text-white/60">{e.error}</span>,
+                num(e.personas),
+                num(e.veces),
+                `${num(e.terminaron)} (${pctTxt(e.personas ? Math.round((e.terminaron / e.personas) * 1000) / 10 : null)})`,
+              ])}
+            />
+          )}
+        </Card>
+        <Card title="Correo vs. Google" subtitle="Cómo se registran y cuál termina más">
+          <Table
+            head={["Camino", "Empezaron", "Terminaron", "%"]}
+            rows={su.byFlow.map((f) => [f.flow === "google" ? "Google" : "Correo", num(f.empezaron), num(f.terminaron), pctTxt(f.pct)])}
+          />
+        </Card>
+      </div>
+
+      <p className="text-[11px] text-white/35">
+        Datos desde el {fmtDate(su.trackingSince)}. Una persona = un navegador. No se guarda el correo ni el teléfono de quien no terminó (todavía no aceptó los términos), así que
+        estas personas no aparecen en las listas de Marketing: sirve para arreglar el formulario, no para contactarlas.
+      </p>
+    </>
   );
 }
 

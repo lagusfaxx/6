@@ -103,7 +103,7 @@ equipo, `/admin` y perfiles de prueba se excluyen siempre.
 | `clientes` | Registrados vs anónimos, recurrencia y frecuencia; fichas por sesión y contactos por cliente; favoritos; cohortes semanales de retención (semana 1, 2, 4 y 8). |
 | `oferta_demanda` | Por zona y categoría: anuncios vs búsquedas, vistas y contactos, con semáforo oportunidad/saturada. |
 | `monetizacion` | Ingresos por tier, MRR, renovaciones, churn y conversión gratis→pago. |
-| `embudo_ventas` | Embudo de anunciantes (registro → publicada → fotos → completa → verificada → contactos → intento de pago → pago → renovación), foto actual de pago, checkout, cohortes mensuales, valor entregado y precio (MRR, churn, LTV, precios ya cobrados). Con `segmento`, la lista de perfiles para contactar. Mismo cálculo que /admin/embudo. |
+| `embudo_ventas` | Registro previo a la cuenta (paso del formulario donde desisten y errores que los frenan) y embudo de anunciantes (registro → publicada → fotos → completa → verificada → contactos → intento de pago → pago → renovación), foto actual de pago, checkout, cohortes mensuales, valor entregado y precio (MRR, churn, LTV, precios ya cobrados). Con `segmento`, la lista de perfiles para contactar. Mismo cálculo que /admin/embudo. |
 | `verticales` | ON/OFF de marketplace, U-Mate, videollamadas, tokens y live; métricas sólo de las que están ON. |
 | `buscar_usuarios`, `ranking_perfiles`, `membresias`, `informe_ingresos`, `listar_pagos`, `pendientes`, `resumen_marketplace`, `resumen_umate` | Igual que antes. |
 | `detalle_registros` | Drill-down: las filas detrás de cualquier número (visitas, sesiones, contactos, registros, perfiles, pagos, búsquedas, mensajes, favoritos, impresiones). |

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { type RegisterFormData } from "./AuthForm";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
+import { trackSignupError, trackSignupStep } from "../hooks/useAnalytics";
 import QuickRepliesEditor from "./QuickRepliesEditor";
 import { cleanQuickReplies, type QuickReplies } from "../lib/quickReplies";
 import {
@@ -166,6 +167,12 @@ export default function ProfessionalRegisterForm({
     if (top < window.scrollY) window.scrollTo({ top, behavior: "smooth" });
   }, [subStep]);
 
+  // Embudo de registro: qué paso del formulario alcanzó (ver trackSignupStep).
+  const signupFlow = skipPassword ? "google" : "email";
+  useEffect(() => {
+    trackSignupStep(`p${subStep}`, { type: "PROFESSIONAL", flow: signupFlow });
+  }, [subStep, signupFlow]);
+
   function validateStep(step: number): string | null {
     if (step === 1) {
       if (displayName.trim().length < DISPLAY_NAME_MIN_LENGTH)
@@ -233,6 +240,7 @@ export default function ProfessionalRegisterForm({
     const err = validateStep(subStep);
     if (err) {
       setError(err);
+      trackSignupError(`p${subStep}`, err, { type: "PROFESSIONAL", flow: signupFlow });
       return;
     }
     if (subStep < TOTAL_STEPS) {

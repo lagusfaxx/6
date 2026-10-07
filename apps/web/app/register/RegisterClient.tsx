@@ -8,6 +8,7 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
+import { trackSignupError, trackSignupStep } from "../../hooks/useAnalytics";
 import {
   VenetianMask,
   Building2,
@@ -196,6 +197,20 @@ export default function RegisterClient() {
   };
   const isProfessional = profileType === "PROFESSIONAL";
 
+  /* Embudo de registro (/admin/embudo): la cuenta se crea recién después del
+     código del correo, así que cada paso previo se marca acá para saber
+     dónde abandonan. Sin datos personales: ver trackSignupStep. */
+  const signupMeta = { type: profileType, flow: (isGoogleFlow ? "google" : "email") as "google" | "email" };
+  useEffect(() => {
+    if (step === "form") {
+      trackSignupStep("tipo", signupMeta);
+      // Las profesionales marcan cada paso dentro de su formulario.
+      if (!isProfessional) trackSignupStep("formulario", signupMeta);
+    }
+    if (step === "verify") trackSignupStep("codigo", signupMeta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, profileType]);
+
   const selected = useMemo<OptionConfig | null>(() => {
     if (profileType === null) return null;
     if (profileType === "CLIENT") return consumerOption;
@@ -348,15 +363,17 @@ export default function RegisterClient() {
       // the pending Google session cookie travels with the request.
       await apiFetch("/auth/google/complete", { method: "POST", body: form });
     } catch (err: any) {
-      setRegisterError(
+      const msg =
         err?.body?.message ||
-          friendlyErrorMessage(err) ||
-          "No pudimos crear tu cuenta. Intenta de nuevo.",
-      );
+        friendlyErrorMessage(err) ||
+        "No pudimos crear tu cuenta. Intenta de nuevo.";
+      setRegisterError(msg);
+      trackSignupError("cuenta", msg, signupMeta);
       setRegistering(false);
       return;
     }
 
+    trackSignupStep("cuenta", signupMeta);
     setAccountCreated(true);
     setRegistering(false);
     goToStudio();
@@ -368,6 +385,8 @@ export default function RegisterClient() {
     setRegistering(true);
     setRegisterError(null);
 
+    trackSignupStep("codigo_ok", signupMeta);
+
     if (!accountCreated) {
       try {
         await apiFetch("/auth/register", {
@@ -376,10 +395,12 @@ export default function RegisterClient() {
         });
         // Register auto-creates the session, no separate login needed.
         setAccountCreated(true);
+        trackSignupStep("cuenta", signupMeta);
       } catch (err: any) {
         const msg =
           err?.body?.message || friendlyErrorMessage(err) || "Error al crear la cuenta.";
         setRegisterError(msg);
+        trackSignupError("cuenta", msg, signupMeta);
         setStep("form");
         setRegistering(false);
         return;
@@ -394,6 +415,7 @@ export default function RegisterClient() {
         // the user can re-attach photos that work (e.g. JPG instead of HEIC)
         // without re-triggering /auth/register (which would 409 EMAIL_IN_USE).
         setRegisterError(err?.message || "No se pudieron subir las fotos.");
+        trackSignupError("fotos", err?.message || "No se pudieron subir las fotos.", signupMeta);
         setStep("photos-failed");
         setRegistering(false);
         return;
@@ -481,6 +503,7 @@ export default function RegisterClient() {
         email={registeredEmail}
         onVerified={createAccountAfterVerification}
         onBack={() => setStep("form")}
+        onError={(msg) => trackSignupError("codigo", msg, signupMeta)}
       />
     );
   }

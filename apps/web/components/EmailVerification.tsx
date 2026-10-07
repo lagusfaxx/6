@@ -8,9 +8,11 @@ interface EmailVerificationProps {
   email: string;
   onVerified: () => void | Promise<void>;
   onBack?: () => void;
+  /** Para el embudo de registro: cada error al enviar o validar el código. */
+  onError?: (message: string) => void;
 }
 
-export default function EmailVerification({ email, onVerified, onBack }: EmailVerificationProps) {
+export default function EmailVerification({ email, onVerified, onBack, onError }: EmailVerificationProps) {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -85,6 +87,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
     } catch (err: any) {
       const msg = err?.body?.message || "Error al enviar el código";
       setError(msg);
+      onError?.(msg);
     } finally {
       setResending(false);
     }
@@ -107,6 +110,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
       setCreatingAccount(false);
       const msg = err?.body?.message || "Código incorrecto";
       setError(msg);
+      onError?.(msg);
       setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {

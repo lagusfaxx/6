@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
 import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
+import { trackSignupError } from "../hooks/useAnalytics";
 
 type Mode = "login" | "register";
 
@@ -108,6 +109,10 @@ export default function AuthForm({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Embudo de registro (/admin/embudo): qué error frenó a quien se registraba.
+  useEffect(() => {
+    if (mode === "register" && error) trackSignupError("formulario", error, { type: profileType });
+  }, [mode, error, profileType]);
   const [primaryCategory, setPrimaryCategory] = useState("");
 
   const isBusinessProfile =

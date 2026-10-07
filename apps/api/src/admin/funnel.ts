@@ -7,7 +7,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { CHILE_TZ } from "../lib/chileTime";
 import { getBillingSettings, graceEndsAt, isBillingEnforced } from "../lib/billingSettings";
 import { MIN_PROFILE_PHOTOS, missingProfileFields } from "../lib/profileCompletion";
-import { organicSignupWhere, realActionSql, TEST_EMAIL_SUFFIX } from "../lib/statsFilters";
+import { organicSignupWhere, realActionSql, realPageViewSql, TEST_EMAIL_SUFFIX, visitorKeySql } from "../lib/statsFilters";
 
 /**
  * Embudo de ventas de los anunciantes (profesionales, locales y tiendas).
@@ -219,6 +219,120 @@ const STAGES = [
 ] as const;
 type StageKey = (typeof STAGES)[number]["key"];
 
+// ── Registro: lo que pasa antes de que exista la cuenta ─────────────────────
+
+/**
+ * Pasos del formulario de registro, en orden. Los marca el navegador
+ * (`trackSignupStep` en apps/web/hooks/useAnalytics.ts) porque la cuenta se
+ * crea recién después del código del correo: quien abandona antes no queda en
+ * la tabla User. Los locales y tiendas tienen un solo formulario: al enviarlo
+ * cuentan como que pasaron también los pasos 2 a 5, que no les aplican.
+ */
+const SIGNUP_STEPS = [
+  { key: "tipo", rank: 1, label: "Eligió tipo y abrió el formulario", proOnly: false },
+  { key: "p2", rank: 2, label: "Llegó al paso 2 · Sobre ti (edad, categoría)", proOnly: true },
+  { key: "p3", rank: 3, label: "Llegó al paso 3 · Fotos", proOnly: true },
+  { key: "p4", rank: 4, label: "Llegó al paso 4 · Respuestas rápidas", proOnly: true },
+  { key: "p5", rank: 5, label: "Llegó al paso 5 · Ubicación y términos", proOnly: true },
+  { key: "codigo", rank: 6, label: "Envió el formulario (código al correo)", proOnly: false },
+  { key: "codigo_ok", rank: 7, label: "Validó el código", proOnly: false },
+  { key: "cuenta", rank: 8, label: "Cuenta creada", proOnly: false },
+] as const;
+const SIGNUP_DONE_RANK = 8;
+/** "p1" y "formulario" se marcan junto con "tipo": mismo rango. */
+const SIGNUP_ALIASES: Record<string, number> = { p1: 1, formulario: 1 };
+
+/** Dónde ocurrió cada error de validación. */
+const STEP_LABELS: Record<string, string> = {
+  p1: "Paso 1 · Cuenta",
+  p2: "Paso 2 · Sobre ti",
+  p3: "Paso 3 · Fotos",
+  p4: "Paso 4 · Respuestas rápidas",
+  p5: "Paso 5 · Ubicación y términos",
+  formulario: "Formulario",
+  codigo: "Código del correo",
+  cuenta: "Creación de la cuenta",
+  fotos: "Subida de fotos (cuenta ya creada)",
+};
+
+/** Páginas que invitan a anunciarse (antes del formulario). */
+const LANDING_PATHS = ["/publicate", "/trabajar-de-escort", "/empezar", "/publicar-anuncio-escort", "/publicar-motel", "/publicidad-para-moteles", "/vender-contenido"];
+
+async function buildSignupFunnel(opts: FunnelOptions, from: Date) {
+  const types = typesOf(opts);
+  // Visitante antes que usuario: al crearse la cuenta aparece `userId`, y con
+  // `actorKeySql` el último paso quedaba como si fuera de otra persona.
+  const key = Prisma.sql`COALESCE(ua."visitorId", ua."sessionId", ua."id"::text)`;
+  const rankCase = Prisma.sql`CASE ua."metadata"->>'step'
+    ${Prisma.join(
+      [...SIGNUP_STEPS.map((s) => [s.key, s.rank] as const), ...Object.entries(SIGNUP_ALIASES)].map(
+        ([k, r]) => Prisma.sql`WHEN ${k} THEN ${Prisma.raw(String(r))}`,
+      ),
+      " ",
+    )}
+    ELSE NULL END`;
+  const base = Prisma.sql`ua."createdAt" >= ${from} AND ${realActionSql("ua")}
+    AND ua."metadata"->>'type' IN (${Prisma.join(types)})`;
+
+  const [ranks, byFlow, errors, visits, since] = await Promise.all([
+    prisma.$queryRaw<{ r: number; n: number }[]>`
+      WITH per AS (
+        SELECT ${key} AS k, MAX(${rankCase}) AS r
+        FROM "UserAction" ua WHERE ua."action" = 'signup_step' AND ${base} GROUP BY 1)
+      SELECT r::int AS r, COUNT(*)::int AS n FROM per WHERE r IS NOT NULL GROUP BY 1`,
+    prisma.$queryRaw<{ flow: string; empezaron: number; terminaron: number }[]>`
+      WITH per AS (
+        SELECT ${key} AS k, MIN(COALESCE(ua."metadata"->>'flow', 'email')) AS flow, MAX(${rankCase}) AS r
+        FROM "UserAction" ua WHERE ua."action" = 'signup_step' AND ${base} GROUP BY 1)
+      SELECT flow, COUNT(*)::int AS empezaron, COUNT(*) FILTER (WHERE r >= ${SIGNUP_DONE_RANK})::int AS terminaron FROM per GROUP BY 1 ORDER BY 2 DESC`,
+    prisma.$queryRaw<{ step: string; error: string; personas: number; veces: number; terminaron: number }[]>`
+      WITH done AS (
+        SELECT DISTINCT ${key} AS k FROM "UserAction" ua
+        WHERE ua."action" = 'signup_step' AND ua."metadata"->>'step' = 'cuenta' AND ${base})
+      SELECT ua."metadata"->>'step' AS step, ua."metadata"->>'error' AS error,
+        COUNT(DISTINCT ${key})::int AS personas, COUNT(*)::int AS veces,
+        COUNT(DISTINCT ${key}) FILTER (WHERE ${key} IN (SELECT k FROM done))::int AS terminaron
+      FROM "UserAction" ua WHERE ua."action" = 'signup_error' AND ${base}
+      GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 25`,
+    prisma.$queryRaw<{ registro: number; captacion: number }[]>`
+      SELECT COUNT(DISTINCT ${visitorKeySql("pv")}) FILTER (WHERE pv."path" LIKE '/register%')::int AS registro,
+        COUNT(DISTINCT ${visitorKeySql("pv")}) FILTER (WHERE pv."path" IN (${Prisma.join(LANDING_PATHS)}))::int AS captacion
+      FROM "PageView" pv WHERE pv."createdAt" >= ${from} AND ${realPageViewSql("pv")}`,
+    prisma.$queryRaw<{ desde: Date | null }[]>`
+      SELECT MIN(ua."createdAt") AS desde FROM "UserAction" ua WHERE ua."action" = 'signup_step'`,
+  ]);
+
+  const proView = opts.profileType === "PROFESSIONAL" || opts.profileType === "ALL";
+  const steps = SIGNUP_STEPS.filter((s) => proView || !s.proOnly);
+  const reached = (rank: number) => ranks.filter((r) => r.r >= rank).reduce((acc, r) => acc + r.n, 0);
+  const started = reached(1);
+  const out = steps.map((s, i) => {
+    const count = reached(s.rank);
+    const prev = i === 0 ? started : reached(steps[i - 1].rank);
+    const next = steps[i + 1];
+    return {
+      key: s.key,
+      label: s.label,
+      count,
+      pctOfStarted: pct(count, started),
+      pctOfPrevious: pct(count, prev),
+      // Llegaron a este paso y no al siguiente: aquí desistieron.
+      abandonedHere: next ? count - reached(next.rank) : 0,
+    };
+  });
+
+  return {
+    trackingSince: since[0]?.desde?.toISOString() ?? null,
+    visitors: { registerPage: visits[0]?.registro ?? 0, landingPages: visits[0]?.captacion ?? 0 },
+    started,
+    completed: reached(SIGNUP_DONE_RANK),
+    completionPct: pct(reached(SIGNUP_DONE_RANK), started),
+    steps: out,
+    byFlow: byFlow.map((f) => ({ ...f, pct: pct(f.terminaron, f.empezaron) })),
+    errors: errors.map((e) => ({ ...e, stepLabel: STEP_LABELS[e.step] ?? e.step })),
+  };
+}
+
 /** Lo usa también el servidor MCP, por eso vive aparte del handler. */
 export async function buildSalesFunnel(opts: FunnelOptions) {
   const now = new Date();
@@ -377,6 +491,8 @@ export async function buildSalesFunnel(opts: FunnelOptions) {
     WHERE ${organic} AND u."createdAt" >= ${new Date(now.getTime() - 365 * DAY_MS)}
     GROUP BY 1 ORDER BY 1`;
 
+  const signup = await buildSignupFunnel(opts, from);
+
   // ── 5. Valor que reciben y precio ──
   // Perfiles publicados hoy: cuántos contactos les llegan al mes, pagando o no.
   const published = await prisma.user.findMany({
@@ -455,6 +571,7 @@ export async function buildSalesFunnel(opts: FunnelOptions) {
         .map(([source, r]) => ({ source, ...r, pctPublicadas: pct(r.publicadas, r.registros), pctPagaron: pct(r.pagaron, r.registros) }))
         .sort((x, y) => y.registros - x.registros),
     },
+    signup,
     paymentStatus: statusRow,
     checkout: {
       byMethod: [...checkoutByMethod.entries()].map(([method, r]) => ({ method, ...r, pctPagados: pct(r.pagados, r.abiertos) })),
@@ -496,6 +613,7 @@ export async function buildSalesFunnel(opts: FunnelOptions) {
     },
     criteria: [
       "Sólo registros orgánicos: sin perfiles cargados por el equipo, de prueba ni cuentas del equipo.",
+      "Registro (antes de la cuenta): pasos del formulario que marca el navegador, una persona = un navegador. La cuenta recién se crea después del código del correo, así que quien abandona antes no aparece en el embudo de cuentas. Sin datos personales: no se puede contactar a quien no terminó.",
       "El embudo es secuencial: cada etapa cuenta a quienes cumplen esa etapa y todas las anteriores. “Independiente” cuenta a quienes la cumplen aunque se hayan saltado una anterior.",
       "Contactos = clicks de WhatsApp o teléfono (uno por persona, perfil y día, sin el equipo) + conversaciones de chat (remitentes distintos).",
       "Pago abandonado = pago por Flow que quedó pendiente más de 1 hora, o que Flow marcó como vencido.",

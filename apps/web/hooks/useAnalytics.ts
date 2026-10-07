@@ -116,6 +116,42 @@ export function usePageViewTracker() {
   }, [pathname]);
 }
 
+/**
+ * Pasos del registro, para el embudo de /admin/embudo. La cuenta recién se
+ * crea al final (después del código del correo), así que sin esto quien
+ * abandona a mitad de formulario no deja ningún rastro. No se manda ningún
+ * dato personal: sólo el paso, el tipo de cuenta, el camino (correo o Google)
+ * y, en los errores, el mensaje de validación que la frenó.
+ *
+ * Un mismo paso se cuenta una vez por carga de página (ir y volver entre
+ * pasos no infla los números). Los errores se mandan siempre.
+ */
+const signupSent = new Set<string>();
+/* `keepalive`: "cuenta creada" se manda justo antes de saltar al estudio, y
+   sin esto el navegador cortaba la petición al cambiar de página. */
+function sendSignupEvent(action: string, metadata: Record<string, unknown>) {
+  apiFetch("/analytics/action", {
+    method: "POST",
+    keepalive: true,
+    body: JSON.stringify({ action, metadata, sessionId: getSessionId(), visitorId: getVisitorId() }),
+  }).catch(() => {});
+}
+export function trackSignupStep(step: string, meta: { type?: string | null; flow?: "email" | "google" } = {}) {
+  const key = `${step}|${meta.type ?? ""}`;
+  if (signupSent.has(key)) return;
+  signupSent.add(key);
+  sendSignupEvent("signup_step", { step, type: meta.type ?? null, flow: meta.flow ?? "email" });
+}
+
+export function trackSignupError(step: string, error: string, meta: { type?: string | null; flow?: "email" | "google" } = {}) {
+  sendSignupEvent("signup_error", {
+    step,
+    error: error.slice(0, 160),
+    type: meta.type ?? null,
+    flow: meta.flow ?? "email",
+  });
+}
+
 /** Track a specific user action */
 export function trackAction(action: string, targetId?: string, metadata?: Record<string, unknown>) {
   console.log("[uzeed] trackAction:", action, targetId);
