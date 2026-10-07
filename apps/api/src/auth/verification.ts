@@ -72,6 +72,18 @@ const verifiedEmails = new Map<string, { expiresAt: number; phone?: string }>();
  * must match the phone that received it.
  */
 export function consumeVerifiedEmail(email: string, phone?: string | null): boolean {
+  if (!isEmailVerified(email, phone)) return false;
+  verifiedEmails.delete(String(email || "").trim().toLowerCase());
+  return true;
+}
+
+/**
+ * Same check as consumeVerifiedEmail but without consuming the marker. /register
+ * uses it to reject unverified requests before processing photos, and only
+ * consumes the marker once the photos pass: if they fail, the user can retry
+ * without verifying the email again.
+ */
+export function isEmailVerified(email: string, phone?: string | null): boolean {
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized) return false;
   const marker = verifiedEmails.get(normalized);
@@ -81,7 +93,6 @@ export function consumeVerifiedEmail(email: string, phone?: string | null): bool
     return false;
   }
   if (marker.phone && normalizePhoneForWhatsApp(phone) !== marker.phone) return false;
-  verifiedEmails.delete(normalized);
   return true;
 }
 

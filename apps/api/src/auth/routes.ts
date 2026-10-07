@@ -18,9 +18,13 @@ import { redeemReferralCode } from "../referral/redeem";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
-import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
+import { sendSetPasswordEmail, consumeVerifiedEmail, isEmailVerified } from "./verification";
 import { createFlowPayment } from "../khipu/client";
-import { createProfessionalUser, InsufficientGalleryPhotosError } from "./createProfessional";
+import {
+  createProfessionalUser,
+  InsufficientGalleryPhotosError,
+  MIN_PROFESSIONAL_GALLERY_PHOTOS,
+} from "./createProfessional";
 import { googleAuthRouter } from "./google";
 import { twoFactorRouter, isPanelStaff } from "./twoFactor";
 import {
@@ -83,11 +87,63 @@ function normalizeProfileType(input: string) {
   return value;
 }
 
+// Gallery uploads for /register (professionals) and /quick-register. The
+// photos travel in the same request that creates the account so the server
+// can enforce the minimum before the professional exists.
+const quickRegisterStorage = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
+});
+
+const quickRegisterDisk = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    await quickRegisterStorage.ensureBaseDir();
+    cb(null, config.storageDir);
+  },
+  filename: (_req, file, cb) => {
+    cb(null, safeUploadFilename(file));
+  },
+});
+
+const quickRegisterUpload = multer({
+  storage: quickRegisterDisk,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
+    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
+    return cb(null, true);
+  },
+});
+
 authRouter.post(
   "/register",
   authLimiter,
+  // Professionals send multipart with their gallery photos; every other
+  // profile type sends JSON, which multer leaves untouched.
+  quickRegisterUpload.fields([{ name: "gallery", maxCount: 6 }]),
   asyncHandler(async (req, res) => {
     const payload = { ...req.body } as Record<string, any>;
+    if (req.is("multipart/form-data")) {
+      // Multipart fields arrive as strings: coerce them to what the schema
+      // expects (same treatment as /auth/google/complete).
+      for (const key of Object.keys(payload)) {
+        if (payload[key] === "") payload[key] = undefined;
+      }
+      for (const key of ["latitude", "longitude"]) {
+        if (payload[key] !== undefined) payload[key] = Number(payload[key]);
+      }
+      payload.acceptTerms = payload.acceptTerms === "true";
+      if (payload.autoReplyEnabled !== undefined) {
+        payload.autoReplyEnabled = payload.autoReplyEnabled === "true";
+      }
+      if (typeof payload.quickReplies === "string") {
+        try {
+          payload.quickReplies = JSON.parse(payload.quickReplies);
+        } catch {
+          payload.quickReplies = undefined;
+        }
+      }
+    }
     if (typeof payload.profileType === "string") {
       payload.profileType = normalizeProfileType(payload.profileType);
     }
@@ -142,10 +198,11 @@ authRouter.post(
       });
 
     // Enforce email verification on the backend. The /verify-code endpoint
-    // stores a short-lived verified marker which we consume here exactly
-    // once. Without it, anyone could POST /register directly bypassing the
-    // email verification UI.
-    if (!consumeVerifiedEmail(email, phone)) {
+    // stores a short-lived verified marker which we consume right before
+    // creating the account, exactly once. Without it, anyone could POST
+    // /register directly bypassing the email verification UI. Here it is only
+    // checked, so a rejected gallery doesn't force the user to get a new code.
+    if (!isEmailVerified(email, phone)) {
       return res.status(403).json({
         error: "EMAIL_NOT_VERIFIED",
         message:
@@ -243,6 +300,49 @@ authRouter.post(
       }
     }
 
+    // Professionals must arrive with the gallery minimum, like quick-register
+    // and the Google flow. The photos come in this same request so the
+    // account is never created without them: when they were uploaded in a
+    // second step, a dropped connection or the "skip" button left published
+    // professionals with no photos.
+    const galleryUrls: string[] = [];
+    if (profileType === "PROFESSIONAL") {
+      const files = req.files as { gallery?: Express.Multer.File[] } | undefined;
+      const incomingGalleryCount = files?.gallery?.length || 0;
+      let galleryUploadFailures = 0;
+      for (const gFile of files?.gallery || []) {
+        try {
+          await validateUploadedFile(gFile, "image");
+          const optimized = await optimizeUploadedImage(gFile, "gallery");
+          galleryUrls.push(quickRegisterStorage.publicUrl(optimized));
+        } catch (err) {
+          galleryUploadFailures++;
+          console.error("[auth/register] gallery upload failed", { email, error: err });
+        }
+      }
+      if (galleryUrls.length < MIN_PROFESSIONAL_GALLERY_PHOTOS) {
+        console.warn("[auth/register] insufficient photos", {
+          email,
+          incoming: incomingGalleryCount,
+          accepted: galleryUrls.length,
+          failures: galleryUploadFailures,
+        });
+        const message =
+          galleryUploadFailures > 0
+            ? `Algunas de tus fotos no se pudieron procesar. Debes subir al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS} fotos válidas para registrarte. Intenta de nuevo con otras imágenes (JPG o PNG funcionan mejor).`
+            : `Debes subir al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS} fotos para registrarte.`;
+        return res.status(400).json({ error: "INSUFFICIENT_PHOTOS", message });
+      }
+    }
+
+    if (!consumeVerifiedEmail(email, phone)) {
+      return res.status(403).json({
+        error: "EMAIL_NOT_VERIFIED",
+        message:
+          "Debes verificar tu correo antes de crear la cuenta. Solicita un nuevo código.",
+      });
+    }
+
     let user;
     try {
       user = await prisma.user.create({
@@ -250,6 +350,8 @@ authRouter.post(
           email,
           username,
           signupSource: "form",
+          // First validated gallery photo as the profile picture.
+          ...(galleryUrls.length ? { avatarUrl: galleryUrls[0] } : {}),
           phone,
           gender: gender || null,
           // Trans no es una categoría (puede ser escort o masajista): se
@@ -342,6 +444,18 @@ authRouter.post(
       throw err;
     }
 
+    // Persist the validated gallery (>= MIN photos, checked above). Locked
+    // like every other registration gallery.
+    for (const url of galleryUrls) {
+      try {
+        await prisma.profileMedia.create({
+          data: { ownerId: user.id, type: "IMAGE", url, isLocked: true },
+        });
+      } catch (err) {
+        console.error("[auth/register] gallery media failed", { userId: user.id, url, error: err });
+      }
+    }
+
     // Regenerate session to prevent session fixation
     await new Promise<void>((resolve, reject) => {
       req.session.regenerate((err) => {
@@ -405,31 +519,6 @@ authRouter.post(
 );
 
 /* ── Quick Register (publícate flow — no password required) ── */
-
-const quickRegisterStorage = new LocalStorageProvider({
-  baseDir: config.storageDir,
-  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
-});
-
-const quickRegisterDisk = multer.diskStorage({
-  destination: async (_req, _file, cb) => {
-    await quickRegisterStorage.ensureBaseDir();
-    cb(null, config.storageDir);
-  },
-  filename: (_req, file, cb) => {
-    cb(null, safeUploadFilename(file));
-  },
-});
-
-const quickRegisterUpload = multer({
-  storage: quickRegisterDisk,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
-    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
-    return cb(null, true);
-  },
-});
 
 function slugify(text: string): string {
   return text
