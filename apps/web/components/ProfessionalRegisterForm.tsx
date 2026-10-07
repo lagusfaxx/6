@@ -6,6 +6,7 @@ import { type RegisterFormData } from "./AuthForm";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 import QuickRepliesEditor from "./QuickRepliesEditor";
 import { cleanQuickReplies, type QuickReplies } from "../lib/quickReplies";
+import { funnelFieldHandlers, trackRegister } from "../lib/registerFunnel";
 import {
   ArrowLeft,
   ArrowRight,
@@ -166,6 +167,11 @@ export default function ProfessionalRegisterForm({
     if (top < window.scrollY) window.scrollTo({ top, behavior: "smooth" });
   }, [subStep]);
 
+  // Embudo: hasta qué paso llega cada visita.
+  useEffect(() => {
+    trackRegister("reg_step", { flow: "PROFESSIONAL", step: subStep });
+  }, [subStep]);
+
   function validateStep(step: number): string | null {
     if (step === 1) {
       if (displayName.trim().length < DISPLAY_NAME_MIN_LENGTH)
@@ -233,6 +239,7 @@ export default function ProfessionalRegisterForm({
     const err = validateStep(subStep);
     if (err) {
       setError(err);
+      trackRegister("reg_error", { flow: "PROFESSIONAL", step: subStep, message: err });
       return;
     }
     if (subStep < TOTAL_STEPS) {
@@ -278,6 +285,7 @@ export default function ProfessionalRegisterForm({
     <form
       noValidate
       onSubmit={handleSubmit}
+      {...funnelFieldHandlers("PROFESSIONAL")}
       className="relative flex min-h-[calc(100svh-6rem)] flex-col sm:block sm:min-h-0"
     >
       <div ref={topRef} className="scroll-mt-4" />
@@ -324,7 +332,7 @@ export default function ProfessionalRegisterForm({
           {/* ─── Paso 1: Cuenta ─── */}
           {subStep === 1 && (
             <>
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="nombre">
                 <label className="flex items-center justify-between text-sm font-medium text-white/70">
                   Nombre público
                   <span className="text-[11px] font-normal text-white/35">
@@ -349,7 +357,7 @@ export default function ProfessionalRegisterForm({
                 </p>
               </div>
 
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="email">
                 <label className="text-sm font-medium text-white/70">Email</label>
                 <input
                   className={`input ${lockEmail ? "cursor-not-allowed opacity-70" : ""}`}
@@ -369,7 +377,7 @@ export default function ProfessionalRegisterForm({
                 )}
               </div>
 
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="telefono">
                 <label className="text-sm font-medium text-white/70">Teléfono (WhatsApp)</label>
                 <input
                   className="input"
@@ -384,7 +392,7 @@ export default function ProfessionalRegisterForm({
               </div>
 
               {!skipPassword && (
-                <div className="grid gap-2">
+                <div className="grid gap-2" data-funnel="password">
                   <label className="text-sm font-medium text-white/70">Contraseña</label>
                   <div className="relative">
                     <input
@@ -414,7 +422,7 @@ export default function ProfessionalRegisterForm({
           {/* ─── Paso 2: Sobre ti ─── */}
           {subStep === 2 && (
             <>
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="categoria">
                 <span className="text-sm font-medium text-white/70">¿Cómo te defines?</span>
                 <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((c) => {
@@ -445,7 +453,7 @@ export default function ProfessionalRegisterForm({
                 </div>
               </div>
 
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="genero">
                 <span className="text-sm font-medium text-white/70">Género</span>
                 <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
                   {GENDERS.map((g) => (
@@ -466,7 +474,7 @@ export default function ProfessionalRegisterForm({
                 </div>
               </div>
 
-              <div className="grid gap-2">
+              <div className="grid gap-2" data-funnel="nacimiento">
                 <span className="text-sm font-medium text-white/70">Fecha de nacimiento</span>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
@@ -509,7 +517,7 @@ export default function ProfessionalRegisterForm({
 
           {/* ─── Paso 3: Fotos ─── */}
           {subStep === 3 && (
-            <div className="grid gap-3">
+            <div className="grid gap-3" data-funnel="fotos">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-white/45">
                   Mínimo {minPhotos}, hasta {maxPhotos}. La primera es tu foto principal.
@@ -591,15 +599,17 @@ export default function ProfessionalRegisterForm({
           {/* ─── Paso 4: Respuestas rápidas + mensaje automático ─── */}
           {subStep === 4 && (
             <>
-              <QuickRepliesEditor
-                value={quickReplies}
-                onChange={(next) => {
-                  setQuickReplies(next);
-                  setError(null);
-                }}
-              />
+              <div className="contents" data-funnel="respuestas_rapidas">
+                <QuickRepliesEditor
+                  value={quickReplies}
+                  onChange={(next) => {
+                    setQuickReplies(next);
+                    setError(null);
+                  }}
+                />
+              </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-funnel="mensaje_auto">
                 <div className="flex items-center gap-3">
                   <MessageSquare className="h-4 w-4 shrink-0 text-fuchsia-300" />
                   <span className="min-w-0 flex-1">
@@ -644,23 +654,25 @@ export default function ProfessionalRegisterForm({
           {/* ─── Paso 5: Ubicación y términos ─── */}
           {subStep === 5 && (
             <>
-              <MapboxAddressAutocomplete
-                label="Dirección"
-                value={address}
-                onChange={(next) => {
-                  setAddress(next);
-                  setLatitude("");
-                  setLongitude("");
-                }}
-                onSelect={(selection) => {
-                  setAddress(selection.placeName);
-                  setCity(selection.city || "");
-                  setLatitude(String(selection.latitude));
-                  setLongitude(String(selection.longitude));
-                }}
-                placeholder="Busca tu dirección"
-                required
-              />
+              <div className="contents" data-funnel="direccion">
+                <MapboxAddressAutocomplete
+                  label="Dirección"
+                  value={address}
+                  onChange={(next) => {
+                    setAddress(next);
+                    setLatitude("");
+                    setLongitude("");
+                  }}
+                  onSelect={(selection) => {
+                    setAddress(selection.placeName);
+                    setCity(selection.city || "");
+                    setLatitude(String(selection.latitude));
+                    setLongitude(String(selection.longitude));
+                  }}
+                  placeholder="Busca tu dirección"
+                  required
+                />
+              </div>
               <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                 <p className="text-xs leading-relaxed text-emerald-300/80">
@@ -671,7 +683,7 @@ export default function ProfessionalRegisterForm({
               {/* Opcionales: plegados para no alargar el paso */}
               <div className="grid gap-2">
                 {showBio ? (
-                  <div className="grid gap-2">
+                  <div className="grid gap-2" data-funnel="descripcion">
                     <label className="text-sm font-medium text-white/70">Descripción del perfil</label>
                     <textarea
                       className="input min-h-[96px]"
@@ -684,6 +696,7 @@ export default function ProfessionalRegisterForm({
                 ) : (
                   <button
                     type="button"
+                    data-funnel="descripcion"
                     onClick={() => setShowBio(true)}
                     className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-left text-sm text-white/70 transition hover:bg-white/[0.06]"
                   >
@@ -695,7 +708,7 @@ export default function ProfessionalRegisterForm({
                 )}
 
                 {showReferral ? (
-                  <div className="relative">
+                  <div className="relative" data-funnel="referido">
                     <Gift className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                     <input
                       className="input pl-10"
@@ -709,6 +722,7 @@ export default function ProfessionalRegisterForm({
                 ) : (
                   <button
                     type="button"
+                    data-funnel="referido"
                     onClick={() => setShowReferral(true)}
                     className="justify-self-start px-1 text-xs text-white/45 underline-offset-2 transition hover:text-white/70 hover:underline"
                   >
@@ -717,7 +731,7 @@ export default function ProfessionalRegisterForm({
                 )}
               </div>
 
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+              <label data-funnel="terminos" className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
                 <input
                   type="checkbox"
                   className="mt-0.5 h-5 w-5 rounded border-white/20 bg-white/5 accent-fuchsia-500"

@@ -8,6 +8,7 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
+import { trackRegister } from "../../lib/registerFunnel";
 import {
   VenetianMask,
   Building2,
@@ -131,6 +132,7 @@ export default function RegisterClient() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   function onGoogleClick() {
+    trackRegister("reg_type", { flow: "CLIENT", google: true });
     setGoogleLoading(true);
     setRegisterError(null);
     window.location.href = `${getApiBase()}/auth/google/start?next=/`;
@@ -138,6 +140,14 @@ export default function RegisterClient() {
 
   const MIN_PHOTOS = 3;
   const MAX_PHOTOS = 6;
+
+  // Embudo: entrada al registro. El flujo de Google llega directo al
+  // formulario, así que ahí también cuenta como tipo elegido.
+  useEffect(() => {
+    trackRegister("reg_view", { flow: linkedType, google: isGoogleFlow });
+    if (isGoogleFlow) trackRegister("reg_type", { flow: googleInitialType, google: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // When arriving from the Google chooser (?google=1&type=PROFESSIONAL),
   // pull the pending profile to prefill email + displayName. If the session
@@ -240,8 +250,10 @@ export default function RegisterClient() {
     setRegistering(true);
     setRegisterError(null);
 
+    trackRegister("reg_submit", { flow: "PROFESSIONAL", google: true });
     if (galleryFiles.length < MIN_PHOTOS) {
       setRegisterError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
+      trackRegister("reg_fail", { flow: "PROFESSIONAL", google: true, message: "Faltan fotos" });
       setRegistering(false);
       return;
     }
@@ -255,15 +267,17 @@ export default function RegisterClient() {
       // the pending Google session cookie travels with the request.
       await apiFetch("/auth/google/complete", { method: "POST", body: form });
     } catch (err: any) {
-      setRegisterError(
+      const msg =
         err?.body?.message ||
-          friendlyErrorMessage(err) ||
-          "No pudimos crear tu cuenta. Intenta de nuevo.",
-      );
+        friendlyErrorMessage(err) ||
+        "No pudimos crear tu cuenta. Intenta de nuevo.";
+      setRegisterError(msg);
+      trackRegister("reg_fail", { flow: "PROFESSIONAL", google: true, message: msg });
       setRegistering(false);
       return;
     }
 
+    trackRegister("reg_done", { flow: "PROFESSIONAL", google: true });
     setRegistering(false);
     goToStudio();
   }
@@ -278,6 +292,7 @@ export default function RegisterClient() {
 
     if (isProfessional && galleryFiles.length < MIN_PHOTOS) {
       setRegisterError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
+      trackRegister("reg_fail", { flow: profileType, message: "Faltan fotos" });
       setStep("form");
       setRegistering(false);
       return;
@@ -295,11 +310,13 @@ export default function RegisterClient() {
       const msg =
         err?.body?.message || friendlyErrorMessage(err) || "Error al crear la cuenta.";
       setRegisterError(msg);
+      trackRegister("reg_fail", { flow: profileType, message: msg });
       setStep("form");
       setRegistering(false);
       return;
     }
 
+    trackRegister("reg_done", { flow: profileType });
     setRegistering(false);
     if (isBusinessProfile) {
       goToStudio();
@@ -314,9 +331,11 @@ export default function RegisterClient() {
     setPendingFormData(data);
     setRegisteredEmail(data.email);
     setRegisterError(null);
+    trackRegister("reg_submit", { flow: data.profileType });
     if (verifiedEmail && verifiedEmail === data.email.trim().toLowerCase()) {
       createAccountAfterVerification(data);
     } else {
+      trackRegister("reg_verify", { flow: data.profileType });
       setStep("verify");
     }
   }
@@ -364,8 +383,12 @@ export default function RegisterClient() {
         email={registeredEmail}
         phone={pendingFormData?.phone}
         name={pendingFormData?.displayName}
-        onVerified={() => createAccountAfterVerification()}
+        onVerified={() => {
+          trackRegister("reg_verified", { flow: profileType });
+          return createAccountAfterVerification();
+        }}
         onBack={() => setStep("form")}
+        funnelFlow={profileType ?? undefined}
       />
     );
   }
@@ -561,6 +584,7 @@ export default function RegisterClient() {
                 type="button"
                 disabled={profileType === null}
                 onClick={() => {
+                  trackRegister("reg_type", { flow: profileType });
                   setTermsAccepted(false);
                   setStep("form");
                 }}
@@ -699,6 +723,7 @@ export default function RegisterClient() {
                   termsAccepted={termsAccepted}
                   onOpenTerms={() => setTermsOpen(true)}
                   onCollectData={submitForm}
+                  funnelFlow={profileType ?? undefined}
                 />
               )}
             </div>

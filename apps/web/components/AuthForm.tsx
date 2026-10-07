@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
 import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
+import { funnelFieldHandlers, trackRegister } from "../lib/registerFunnel";
 
 type Mode = "login" | "register";
 
@@ -79,6 +80,7 @@ export default function AuthForm({
   onOpenTerms,
   onSuccess,
   onCollectData,
+  funnelFlow,
 }: {
   mode: Mode;
   initialProfileType?: string;
@@ -87,6 +89,8 @@ export default function AuthForm({
   onOpenTerms?: () => void;
   onSuccess?: (data: any) => { redirect?: string | null } | void;
   onCollectData?: (data: RegisterFormData) => void;
+  /** Tipo de cuenta para el embudo del registro (/admin/embudo-registro). */
+  funnelFlow?: string;
 }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -118,6 +122,13 @@ export default function AuthForm({
 
   const finalTermsAccepted = externalTermsAccepted ?? acceptTerms;
 
+  const trackFlow = mode === "register" ? funnelFlow : undefined;
+  /* Cualquier aviso que se le muestra a la persona también va al embudo. */
+  function showError(message: string) {
+    setError(message);
+    if (trackFlow) trackRegister("reg_error", { flow: trackFlow, step: "form", message });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -126,12 +137,12 @@ export default function AuthForm({
     try {
       if (mode === "register") {
         if (!finalTermsAccepted) {
-          setError("Debes aceptar los términos y condiciones para continuar.");
+          showError("Debes aceptar los términos y condiciones para continuar.");
           setLoading(false);
           return;
         }
         if (!phoneRegex.test(phone.trim())) {
-          setError(
+          showError(
             "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
           );
           setLoading(false);
@@ -142,7 +153,7 @@ export default function AuthForm({
           (!Number.isFinite(Number(latitude)) ||
             !Number.isFinite(Number(longitude)))
         ) {
-          setError(
+          showError(
             "Debes seleccionar una dirección válida desde el buscador de Mapbox.",
           );
           setLoading(false);
@@ -197,16 +208,18 @@ export default function AuthForm({
       const detailed = err?.body?.details
         ? flattenValidation(err.body.details)
         : null;
-      setError(detailed || friendlyErrorMessage(err) || "Error");
+      const message = detailed || friendlyErrorMessage(err) || "Error";
+      if (mode === "register") showError(message);
+      else setError(message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
+    <form onSubmit={onSubmit} className="grid gap-4" {...funnelFieldHandlers(trackFlow)}>
       {mode === "register" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="nombre">
           <label className="text-sm font-medium text-white/70">Nombre público</label>
           <input
             className="input"
@@ -219,7 +232,7 @@ export default function AuthForm({
         </div>
       ) : null}
 
-      <div className="grid gap-2">
+      <div className="grid gap-2" data-funnel="email">
         <label className="text-sm font-medium text-white/70">Email</label>
         <input
           className="input"
@@ -232,7 +245,7 @@ export default function AuthForm({
       </div>
 
       {mode === "register" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="telefono">
           <label className="text-sm font-medium text-white/70">Teléfono</label>
           <input
             className="input"
@@ -245,7 +258,7 @@ export default function AuthForm({
       ) : null}
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="genero">
           <label className="text-sm font-medium text-white/70">Género</label>
           <div className="relative">
             <select
@@ -265,7 +278,7 @@ export default function AuthForm({
       ) : null}
 
       {mode === "register" && !lockProfileType ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="tipo_perfil">
           <label className="text-sm font-medium text-white/70">Tipo de perfil</label>
           <div className="relative">
             <select
@@ -286,7 +299,7 @@ export default function AuthForm({
       ) : null}
 
       {mode === "register" && profileType === "CLIENT" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="preferencia">
           <label className="text-sm font-medium text-white/70">Preferencia de género</label>
           <div className="relative">
             <select
@@ -307,7 +320,7 @@ export default function AuthForm({
       ) : null}
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="nacimiento">
           <label className="text-sm font-medium text-white/70">Fecha de nacimiento</label>
           <input
             className="input"
@@ -322,7 +335,7 @@ export default function AuthForm({
       ) : null}
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="categoria">
           <label className="text-sm font-medium text-white/70">¿Cómo te defines? (categoría principal)</label>
           <div className="relative">
             <select
@@ -346,7 +359,7 @@ export default function AuthForm({
       (profileType === "PROFESSIONAL" ||
         profileType === "ESTABLISHMENT" ||
         profileType === "SHOP") ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-funnel="descripcion">
           <label className="text-sm font-medium text-white/70">
             {profileType === "PROFESSIONAL"
               ? "Descripción del perfil"
@@ -367,6 +380,7 @@ export default function AuthForm({
 
       {mode === "register" && isBusinessProfile ? (
         <>
+          <div className="contents" data-funnel="direccion">
           <MapboxAddressAutocomplete
             label="Dirección"
             value={address}
@@ -384,6 +398,7 @@ export default function AuthForm({
             placeholder="Busca tu dirección"
             required
           />
+          </div>
           {profileType === "PROFESSIONAL" ? (
             <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
               <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -399,7 +414,7 @@ export default function AuthForm({
         </>
       ) : null}
 
-      <div className="grid gap-2">
+      <div className="grid gap-2" data-funnel="password">
         <label className="text-sm font-medium text-white/70">Contraseña</label>
         <div className="relative">
           <input
@@ -422,7 +437,7 @@ export default function AuthForm({
       </div>
 
       {mode === "register" ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-funnel="terminos">
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
