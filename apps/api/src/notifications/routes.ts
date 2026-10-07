@@ -9,6 +9,7 @@ import {
   logDelivery,
   normalizePhoneForWhatsApp,
   sendWhatsAppNotification,
+  sendTestChat,
   smsNotificationText,
 } from "./whatsapp";
 import { getSmsBalance, isSmsConfigured, sendSms } from "./sms";
@@ -145,6 +146,19 @@ notificationsRouter.get("/notifications/whatsapp/stats", requireAdmin, asyncHand
     byType: byType.map((r) => ({ channel: r.channel, type: r.type, count: r._count._all })),
     recent: recent.map((r) => ({ ...r, userName: r.userId ? names.get(r.userId) ?? null : null })),
   });
+}));
+
+/* Prueba de punta a punta: aviso de chat al WhatsApp del admin y, al
+   responderlo, confirmación del webhook. No crea mensajes reales. */
+notificationsRouter.post("/notifications/whatsapp/test-chat", requireAdmin, asyncHandler(async (req, res) => {
+  let phone = String(req.body?.phone || "").trim();
+  if (!phone) {
+    const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { phone: true } });
+    phone = me?.phone || "";
+  }
+  if (!phone) return res.status(400).json({ ok: false, error: "PHONE_REQUIRED" });
+  const result = await sendTestChat(prisma as any, req.session.userId!, phone);
+  return res.status(result.ok ? 200 : 502).json(result);
 }));
 
 notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {

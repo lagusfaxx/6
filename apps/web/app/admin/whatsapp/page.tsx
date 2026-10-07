@@ -56,6 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
   MARKET_NEW_ORDER: "Venta marketplace",
   SERVICE_PUBLISHED: "Solicitud de servicio",
   TEST: "Prueba",
+  TEST_CHAT: "Prueba de chat",
   UNREAD_REMINDER: "Recordatorio sin leer",
 };
 
@@ -109,7 +110,7 @@ export default function AdminWhatsAppPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testSending, setTestSending] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; channel?: "sms" } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; channel?: "sms" | "chat" } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -206,11 +207,12 @@ export default function AdminWhatsAppPage() {
     };
   }, [status?.baileys?.status, isAdmin, loadStatus]);
 
-  const sendTest = async (channel?: "sms") => {
+  const sendTest = async (channel?: "sms" | "chat") => {
     setTestSending(true);
     setTestResult(null);
     try {
-      const r = await apiFetch<{ ok: boolean; error?: string }>("/notifications/whatsapp/test", {
+      const path = channel === "chat" ? "/notifications/whatsapp/test-chat" : "/notifications/whatsapp/test";
+      const r = await apiFetch<{ ok: boolean; error?: string }>(path, {
         method: "POST",
         body: JSON.stringify({ ...(testPhone.trim() ? { phone: testPhone.trim() } : {}), ...(channel ? { channel } : {}) }),
       });
@@ -345,7 +347,7 @@ export default function AdminWhatsAppPage() {
         <p className="mt-1 text-xs text-white/45">
           Escribe tu número y te llega el mismo aviso que reciben las profesionales. Si lo dejas vacío, usa el teléfono de tu cuenta admin.
         </p>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <label className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
             <Phone className="h-4 w-4 shrink-0 text-white/30" />
             <input
@@ -364,6 +366,17 @@ export default function AdminWhatsAppPage() {
             {testSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Enviar prueba
           </button>
+          {status?.provider === "cloud" && (
+            <button
+              type="button"
+              onClick={() => sendTest("chat")}
+              disabled={testSending}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Probar chat completo
+            </button>
+          )}
           {status?.sms?.configured && (
             <button
               type="button"
@@ -380,7 +393,9 @@ export default function AdminWhatsAppPage() {
           <p className={`mt-3 flex items-center gap-1.5 text-xs ${testResult.ok ? "text-emerald-300" : "text-rose-300"}`}>
             {testResult.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
             {testResult.ok
-              ? testResult.channel === "sms"
+              ? testResult.channel === "chat"
+                ? "Enviado — en tu WhatsApp desliza el mensaje del \"Cliente de prueba\" y respóndelo. El bot te confirmará que tu respuesta llegó."
+                : testResult.channel === "sms"
                 ? "SMS enviado — revisa los mensajes de ese número."
                 : "Enviado — revisa el WhatsApp de ese número."
               : `No se pudo enviar: ${humanError(testResult.error)}`}
