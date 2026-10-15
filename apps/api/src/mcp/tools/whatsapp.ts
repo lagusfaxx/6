@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
-import { renderMetricsCard, type MetricsCardData } from "../../lib/metricsCard";
+import { config } from "../../config";
+import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData } from "../../lib/metricsCard";
 import { actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
 import { getWhatsAppProvider, logDelivery, normalizePhoneForWhatsApp } from "../../notifications/whatsapp";
@@ -25,10 +26,10 @@ import { describeFiltros, hasProfileFilters, pickFiltros, profileSql, withSegmen
 import { avisoFiltros } from "./team";
 
 /**
- * Envíos masivos por WhatsApp desde el MCP: texto y, opcional, una tarjeta
- * PNG con las métricas de cada perfil. Sólo con Baileys (número propio): la
- * Cloud API de Meta no permite texto libre ni imágenes fuera de la ventana
- * de 24 h sin plantillas aprobadas.
+ * Envíos masivos por WhatsApp desde el MCP: texto y, opcional, una imagen
+ * por perfil con su foto: la tarjeta de métricas o un flyer con texto libre.
+ * Sólo con Baileys (número propio): la Cloud API de Meta no permite texto
+ * libre ni imágenes fuera de la ventana de 24 h sin plantillas aprobadas.
  *
  * WhatsApp banea números que mandan mucho y rápido a gente que no les
  * escribió: los envíos van de a uno con pausa aleatoria, con tope por envío
@@ -45,7 +46,10 @@ const MAX_DELAY_MS = 20_000;
 const DELIVERY_TYPE = "MCP_BROADCAST";
 const NOTIFIABLE = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 
-type Recipient = { id: string; username: string; nombre: string; phone: string };
+type Recipient = { id: string; username: string; nombre: string; phone: string; avatarUrl: string | null };
+
+/** Qué imagen va con el mensaje. */
+type Imagen = { tipo: "ninguna" | "metricas" | "flyer"; foto: boolean; titulo?: string; texto?: string };
 
 type Job = {
   id: string;
@@ -151,11 +155,12 @@ function friendlyRange(period: Period): string {
   return `Del ${d1} de ${MESES[m1 - 1]} al ${d2} de ${MESES[m2 - 1]}${suffix}`;
 }
 
-function cardData(r: Recipient, m: Metrics, period: Period): MetricsCardData {
+function cardData(r: Recipient, m: Metrics, period: Period, foto: Buffer | null): MetricsCardData {
   const v = (p: Pair) => ({ actual: p.cur, anterior: p.prev });
   return {
     nombre: r.nombre,
     periodo: friendlyRange(period),
+    foto,
     visitantes: v(m.visitantes),
     contactos: v(m.contactos),
     impresiones: v(m.impresiones),
@@ -175,12 +180,34 @@ function personalize(text: string, r: Recipient, m: Metrics | null): string {
     .replace(/\{impresiones\}/g, String(m?.impresiones.cur ?? 0));
 }
 
+const METRIC_TAGS = /\{(visitas|contactos|favoritos|mensajes|impresiones)\}/;
+
+function needsMetrics(mensaje: string, img: Imagen): boolean {
+  return img.tipo === "metricas" || [mensaje, img.titulo ?? "", img.texto ?? ""].some((t) => METRIC_TAGS.test(t));
+}
+
+/** Arma la imagen de un destinatario; null si el envío es sólo texto. */
+async function buildImage(img: Imagen, r: Recipient, m: Metrics | null, period: Period): Promise<Buffer | null> {
+  if (img.tipo === "ninguna") return null;
+  const [w, h] = img.tipo === "flyer" ? [W, FLYER_PHOTO_H] : [AVATAR_PX, AVATAR_PX];
+  const foto = img.foto ? await loadProfilePhoto(r.avatarUrl, w, h) : null;
+  if (img.tipo === "metricas") return m ? renderMetricsCard(cardData(r, m, period, foto)) : null;
+  const host = new URL(config.appUrl).host;
+  return renderFlyer({
+    nombre: r.nombre,
+    titulo: personalize(img.titulo ?? "", r, m),
+    texto: personalize(img.texto ?? "", r, m),
+    foto,
+    pie: `${host}/profesional/${r.username}`,
+  });
+}
+
 // ── Destinatarios ─────────────────────────────────────────────────────────
 
 async function recipients(ids: string[]): Promise<{ ok: Recipient[]; sinTelefono: number }> {
   const users = await prisma.user.findMany({
     where: { id: { in: ids }, isActive: true, profileType: { in: NOTIFIABLE as any } },
-    select: { id: true, username: true, displayName: true, phone: true },
+    select: { id: true, username: true, displayName: true, phone: true, avatarUrl: true },
   });
   const ok: Recipient[] = [];
   const seen = new Set<string>();
@@ -188,7 +215,7 @@ async function recipients(ids: string[]): Promise<{ ok: Recipient[]; sinTelefono
     const phone = normalizePhoneForWhatsApp(u.phone);
     if (!phone || seen.has(phone)) continue;
     seen.add(phone);
-    ok.push({ id: u.id, username: u.username, nombre: (u.displayName || u.username || "").trim(), phone });
+    ok.push({ id: u.id, username: u.username, nombre: (u.displayName || u.username || "").trim(), phone, avatarUrl: u.avatarUrl });
   }
   return { ok, sinTelefono: ids.length - ok.length };
 }
@@ -199,8 +226,8 @@ async function sentToday(): Promise<number> {
   });
 }
 
-function confirmationCode(ids: string[], mensaje: string, tarjeta: boolean, periodLabel: string) {
-  const payload = JSON.stringify({ ids: [...ids].sort(), mensaje, tarjeta, periodLabel });
+function confirmationCode(ids: string[], mensaje: string, img: Imagen, periodLabel: string) {
+  const payload = JSON.stringify({ ids: [...ids].sort(), mensaje, img, periodLabel });
   return createHash("sha256").update(payload).digest("hex").slice(0, 10);
 }
 
@@ -208,7 +235,7 @@ function confirmationCode(ids: string[], mensaje: string, tarjeta: boolean, peri
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function runJob(job: Job, list: Recipient[], mensaje: string, metrics: Map<string, Metrics> | null, period: Period, tarjeta: boolean) {
+async function runJob(job: Job, list: Recipient[], mensaje: string, metrics: Map<string, Metrics> | null, period: Period, img: Imagen) {
   try {
     for (const [i, r] of list.entries()) {
       if (job.cancelado) break;
@@ -216,9 +243,8 @@ async function runJob(job: Job, list: Recipient[], mensaje: string, metrics: Map
       const text = personalize(mensaje, r, m);
       let result: { ok: boolean; error?: string };
       try {
-        result = tarjeta && m
-          ? await sendBaileysImage(r.phone, await renderMetricsCard(cardData(r, m, period)), text)
-          : await sendBaileysText(r.phone, text);
+        const image = await buildImage(img, r, m, period);
+        result = image ? await sendBaileysImage(r.phone, image, text) : await sendBaileysText(r.phone, text);
       } catch (err: any) {
         result = { ok: false, error: err?.message || "ERROR" };
       }
@@ -252,7 +278,17 @@ function jobView(j: Job) {
 // ── Herramientas ──────────────────────────────────────────────────────────
 
 type Args = Filtros &
-  PeriodInput & { usuario?: string; usuarios?: string[]; mensaje: string; tarjetaMetricas?: boolean; confirmacion?: string };
+  PeriodInput & {
+    usuario?: string;
+    usuarios?: string[];
+    mensaje: string;
+    imagen?: "ninguna" | "metricas" | "flyer";
+    tarjetaMetricas?: boolean;
+    incluirFoto?: boolean;
+    flyerTitulo?: string;
+    flyerTexto?: string;
+    confirmacion?: string;
+  };
 
 export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
   if (ctx.scope !== "full") return;
@@ -260,12 +296,13 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "enviar_whatsapp",
     {
-      title: "Enviar WhatsApp masivo (con tarjeta de métricas)",
+      title: "Enviar WhatsApp masivo (con tarjeta de métricas o flyer)",
       description:
         "Manda un WhatsApp desde el número del bot a uno o varios perfiles (usuario, lista de usuarios, o filtros de perfil / segmento). " +
-        "Con tarjetaMetricas=true cada perfil recibe una imagen con SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior) y el mensaje va como pie de foto. " +
-        "El mensaje acepta {nombre}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
-        "SIEMPRE en dos pasos: 1) sin `confirmacion` devuelve la vista previa (cuántos, a quiénes, el texto y la tarjeta del primero) y un código: muéstrasela al usuario. " +
+        "Con imagen=metricas cada perfil recibe una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior). " +
+        "Con imagen=flyer recibe un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto (lo que pida el usuario: promo, aviso, felicitación...). En ambos casos el mensaje va como pie de foto; incluirFoto=false quita la foto del perfil. " +
+        "El mensaje, flyerTitulo y flyerTexto aceptan {nombre}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
+        "SIEMPRE en dos pasos: 1) sin `confirmacion` devuelve la vista previa (cuántos, a quiénes, el texto y la imagen del primero) y un código: muéstrasela al usuario. " +
         "2) Sólo si la aprueba, repite la llamada igual con confirmacion=<código>. El envío corre en segundo plano, de a uno con pausas de 8-20 s para no arriesgar el número; mira el avance con estado_whatsapp. " +
         `Máximo ${MAX_PER_SEND} por envío y ${DAILY_CAP} por día. Sólo a profesionales, establecimientos y tiendas activos con teléfono. Requiere el bot en modo Baileys conectado.`,
       inputSchema: {
@@ -273,7 +310,11 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         usuarios: z.array(z.string()).max(MAX_PER_SEND).optional().describe("Lista de id/username/email"),
         ...avisoFiltros,
         mensaje: z.string().trim().min(3).max(1000),
-        tarjetaMetricas: z.boolean().optional().describe("Adjunta la tarjeta PNG con las métricas de cada perfil."),
+        imagen: z.enum(["ninguna", "metricas", "flyer"]).optional().describe("Imagen por perfil. Por defecto ninguna (sólo texto)."),
+        tarjetaMetricas: z.boolean().optional().describe("Equivale a imagen=metricas."),
+        incluirFoto: z.boolean().optional().describe("Foto del perfil en la imagen. Por defecto sí."),
+        flyerTitulo: z.string().trim().min(2).max(60).optional().describe("Para imagen=flyer: titular grande (hasta 2 líneas)."),
+        flyerTexto: z.string().trim().max(240).optional().describe("Para imagen=flyer: texto bajo el titular (hasta 4 líneas)."),
         ...periodShape,
         confirmacion: z.string().optional().describe("Código de la vista previa, una vez que el usuario la aprobó."),
       },
@@ -314,37 +355,48 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         return errorResult(`Son ${list.length} destinatarios con teléfono; el máximo por envío es ${MAX_PER_SEND}. Acota los filtros o divide el envío.`);
       }
 
-      const tarjeta = Boolean(args.tarjetaMetricas);
+      const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
+      if (tipo === "flyer" && !args.flyerTitulo) return errorResult("Para imagen=flyer indica flyerTitulo (y opcional flyerTexto).");
+      const img: Imagen = {
+        tipo,
+        foto: args.incluirFoto !== false,
+        ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
+      };
       const period = resolvePeriod(args);
-      const code = confirmationCode(list.map((r) => r.id), args.mensaje, tarjeta, period.label);
+      const code = confirmationCode(list.map((r) => r.id), args.mensaje, img, period.label);
       const restantesHoy = DAILY_CAP - (await sentToday());
       const etaMin = Math.ceil((list.length * ((MIN_DELAY_MS + MAX_DELAY_MS) / 2 + 2_000)) / 60_000);
 
       if (args.confirmacion !== code) {
         const first = list[0];
-        const m = tarjeta || /\{(visitas|contactos|favoritos|mensajes|impresiones)\}/.test(args.mensaje)
-          ? (await profileMetrics([first.id], period)).get(first.id)!
-          : null;
+        const m = needsMetrics(args.mensaje, img) ? (await profileMetrics([first.id], period)).get(first.id)! : null;
         const preview = jsonResult({
           vistaPrevia: true,
           aviso: "NO SE HA ENVIADO NADA. Muestra esto al usuario y, si lo aprueba, repite la llamada con confirmacion.",
-          codigoInvalido: args.confirmacion ? "El código no corresponde (cambió el texto, la tarjeta, el periodo o los destinatarios). Usa el nuevo." : undefined,
+          codigoInvalido: args.confirmacion ? "El código no corresponde (cambió el texto, la imagen, el periodo o los destinatarios). Usa el nuevo." : undefined,
           destinatarios: {
             total: list.length,
             descartadosSinTelefonoOInactivos: sinTelefono,
             criterio,
             muestra: list.slice(0, 8).map((r) => ({ usuario: r.username, nombre: r.nombre })),
           },
-          tarjetaMetricas: tarjeta ? { periodo: period.label, ejemplo: first.username } : false,
+          imagen: tipo === "ninguna" ? false : {
+            tipo,
+            fotoDelPerfil: img.foto,
+            sinFoto: img.foto ? list.filter((r) => !r.avatarUrl).length : undefined,
+            periodo: tipo === "metricas" ? period.label : undefined,
+            ejemplo: first.username,
+          },
           mensajeEjemplo: personalize(args.mensaje, first, m),
           botConectadoComo: bot.connectedAs,
           duracionEstimadaMin: etaMin,
           enviosDisponiblesHoy: restantesHoy,
           confirmacion: code,
         });
-        if (tarjeta && m) {
-          const png = await renderMetricsCard(cardData(first, m, period));
-          preview.content.push({ type: "image", data: png.toString("base64"), mimeType: "image/png" });
+        const image = await buildImage(img, first, m, period);
+        if (image) {
+          const mimeType = tipo === "flyer" ? "image/jpeg" : "image/png";
+          preview.content.push({ type: "image", data: image.toString("base64"), mimeType });
         }
         return preview;
       }
@@ -354,8 +406,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         return errorResult(`Hoy quedan ${Math.max(0, restantesHoy)} envíos disponibles (tope ${DAILY_CAP} por día para cuidar el número).`);
       }
 
-      const needsMetrics = tarjeta || /\{(visitas|contactos|favoritos|mensajes|impresiones)\}/.test(args.mensaje);
-      const metrics = needsMetrics ? await profileMetrics(list.map((r) => r.id), period) : null;
+      const metrics = needsMetrics(args.mensaje, img) ? await profileMetrics(list.map((r) => r.id), period) : null;
       const job: Job = {
         id: randomUUID().slice(0, 8),
         by: ctx.userId,
@@ -369,7 +420,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       jobs.set(job.id, job);
       if (jobs.size > 50) jobs.delete(jobs.keys().next().value!);
       running = job;
-      runJob(job, list, args.mensaje, metrics, period, tarjeta).catch((err) =>
+      runJob(job, list, args.mensaje, metrics, period, img).catch((err) =>
         console.error("[mcp] enviar_whatsapp:", err?.message || err),
       );
       return jsonResult({ enviando: true, envio: job.id, destinatarios: list.length, duracionEstimadaMin: etaMin, verAvance: "estado_whatsapp" });
