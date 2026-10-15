@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { config } from "../../config";
-import { listDesigns, loadDesign, renderDesign, unknownPlaceholders } from "../../lib/customDesign";
+import { listDesigns, listFixedImages, loadDesign, loadFixedImage, renderDesign, unknownPlaceholders } from "../../lib/customDesign";
 import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData, type SeriePoint } from "../../lib/metricsCard";
 import { actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
@@ -86,13 +86,18 @@ type Recipient = { id: string; username: string; nombre: string; phone: string; 
 
 /** Qué imagen va con el mensaje. */
 type Imagen = {
-  tipo: "ninguna" | "metricas" | "flyer" | "diseno";
+  tipo: "ninguna" | "metricas" | "flyer" | "diseno" | "fija";
   foto: boolean;
   titulo?: string;
   texto?: string;
   /** imagen=diseno: nombre y contenido del SVG propio (el contenido entra al código de confirmación). */
   diseno?: { nombre: string; svg: string };
+  /** imagen=fija: la misma imagen para todos (su hash entra al código de confirmación). */
+  fija?: { nombre: string; sha: string };
 };
+
+/* La imagen fija se lee una vez por envío, no por destinatario. */
+const fixedCache = new Map<string, Buffer>();
 
 /** PNG o JPEG, según los primeros bytes. */
 const imageMime = (b: Buffer) => (b[0] === 0xff && b[1] === 0xd8 ? "image/jpeg" : "image/png");
@@ -282,6 +287,7 @@ function needsMetrics(texts: string[], img: Imagen): boolean {
 /** Arma la imagen de un destinatario; null si el envío es sólo texto. */
 async function buildImage(img: Imagen, r: Recipient, m: Metrics | null, period: Period): Promise<Buffer | null> {
   if (img.tipo === "ninguna") return null;
+  if (img.tipo === "fija") return img.fija ? fixedCache.get(img.fija.sha) ?? null : null;
   const [w, h] = img.tipo === "flyer" ? [W, FLYER_PHOTO_H] : img.tipo === "diseno" ? [W, W] : [AVATAR_PX, AVATAR_PX];
   const foto = img.foto ? await loadProfilePhoto(r.avatarUrl, w, h) : null;
   if (img.tipo === "metricas") return m ? renderMetricsCard(cardData(r, m, period, foto)) : null;
@@ -342,13 +348,16 @@ function botSender(mensaje: string): Sender {
 }
 
 function templateSender(t: Plantilla, img: Imagen): Sender {
+  // La imagen fija se sube a Meta una sola vez y se reutiliza su media id.
+  let fixedMediaId: string | undefined;
   return async (r, m, image) => {
-    let headerImageId: string | undefined;
-    if (image) {
+    let headerImageId: string | undefined = img.tipo === "fija" ? fixedMediaId : undefined;
+    if (image && !headerImageId) {
       const mime = imageMime(image);
       const up = await uploadCloudMedia(image, mime, mime === "image/jpeg" ? "imagen.jpg" : "imagen.png");
       if (!up.ok) return { ok: false, error: `MEDIA: ${up.error}` };
       headerImageId = up.mediaId;
+      if (img.tipo === "fija") fixedMediaId = up.mediaId;
     }
     const result = await sendCloudTemplateMessage(r.phone, t, {
       body: t.variables.map((v) => personalize(v, r, m)),
@@ -460,6 +469,7 @@ type ImageArgs = {
   flyerTitulo?: string;
   flyerTexto?: string;
   diseno?: string;
+  imagenFija?: string;
 };
 
 /** Busca la plantilla en Meta (si hay WHATSAPP_BUSINESS_ACCOUNT_ID) y arma el envío. */
@@ -501,7 +511,7 @@ async function resolveTemplate(args: TemplateArgs): Promise<{ template: CloudTem
 }
 
 /** Qué imagen va, y que calce con el encabezado de la plantilla. */
-function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null, allowed?: Imagen["tipo"][]): { img: Imagen } | { error: string } {
+async function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null, allowed?: Imagen["tipo"][]): Promise<{ img: Imagen } | { error: string }> {
   const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
   if (allowed && !allowed.includes(tipo)) return { error: `Aquí la imagen puede ser: ${allowed.join(", ")}.` };
   if (tipo === "flyer" && !args.flyerTitulo) return { error: "Para imagen=flyer indica flyerTitulo (y opcional flyerTexto)." };
@@ -511,9 +521,17 @@ function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null, allow
     if (!svg) return { error: `Indica un diseño que exista con diseno=<nombre>. Disponibles: ${listDesigns().join(", ") || "ninguno (se agregan en apps/api/assets/whatsapp)"}.` };
     diseno = { nombre: args.diseno!, svg };
   }
+  let fija: Imagen["fija"];
+  if (tipo === "fija") {
+    const buf = args.imagenFija ? await loadFixedImage(args.imagenFija) : null;
+    if (!buf) return { error: `Indica una imagen fija que exista con imagenFija=<nombre>. Disponibles: ${listFixedImages().join(", ") || "ninguna (se agregan como PNG/JPG en apps/api/assets/whatsapp)"}.` };
+    const sha = createHash("sha256").update(buf).digest("hex").slice(0, 16);
+    fixedCache.set(sha, buf);
+    fija = { nombre: args.imagenFija!, sha };
+  }
   if (template) {
     const conImagen = template.encabezado === "IMAGE";
-    if (conImagen && tipo === "ninguna") return { error: `La plantilla "${template.nombre}" lleva imagen de encabezado: indica la imagen (${(allowed ?? ["metricas", "flyer", "diseno"]).filter((t) => t !== "ninguna").join(", ")}).` };
+    if (conImagen && tipo === "ninguna") return { error: `La plantilla "${template.nombre}" lleva imagen de encabezado: indica la imagen (${(allowed ?? ["metricas", "flyer", "diseno", "fija"]).filter((t) => t !== "ninguna").join(", ")}).` };
     if (!conImagen && tipo !== "ninguna") return { error: `La plantilla "${template.nombre}" no tiene encabezado de imagen (${template.encabezado ?? "sin encabezado"}). Usa una con imagen o envía sin imagen.` };
   }
   return {
@@ -522,6 +540,7 @@ function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null, allow
       foto: args.incluirFoto !== false,
       ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
       ...(diseno ? { diseno } : {}),
+      ...(fija ? { fija } : {}),
     },
   };
 }
@@ -537,7 +556,7 @@ type Args = Filtros &
     idioma?: string;
     variables?: string[];
     botonVariable?: string;
-    imagen?: "ninguna" | "metricas" | "flyer" | "diseno";
+    imagen?: "ninguna" | "metricas" | "flyer" | "diseno" | "fija";
     diseno?: string;
     tarjetaMetricas?: boolean;
     incluirFoto?: boolean;
@@ -572,7 +591,8 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         idioma: z.string().trim().optional().describe("Idioma de la plantilla (ej. es, es_CL). Por defecto el de la plantilla o WHATSAPP_TEMPLATE_LANG."),
         variables: z.array(z.string().max(1000)).max(20).optional().describe("Vía plantilla: valores de {{1}}, {{2}}... del cuerpo, en orden."),
         botonVariable: z.string().max(200).optional().describe("Vía plantilla: sufijo de la URL dinámica del botón, ej. profesional/{usuario}."),
-        imagen: z.enum(["ninguna", "metricas", "flyer", "diseno"]).optional().describe("Imagen por perfil. Por defecto ninguna."),
+        imagen: z.enum(["ninguna", "metricas", "flyer", "diseno", "fija"]).optional().describe("Imagen por perfil. Por defecto ninguna."),
+        imagenFija: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional().describe("Para imagen=fija: nombre de la imagen PNG/JPG del equipo, igual para todos."),
         diseno: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional().describe("Para imagen=diseno: nombre del diseño SVG propio (ver estado_whatsapp → disenos)."),
         tarjetaMetricas: z.boolean().optional().describe("Equivale a imagen=metricas."),
         incluirFoto: z.boolean().optional().describe("Foto del perfil en la imagen. Por defecto sí."),
@@ -607,7 +627,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         ({ template, plantilla } = t);
       }
 
-      const im = resolveImage(args, template);
+      const im = await resolveImage(args, template);
       if ("error" in im) return errorResult(im.error);
       const { img } = im;
       const tipo = img.tipo;
@@ -735,7 +755,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         "Manda una plantilla aprobada de Meta a una lista de contactos (teléfono y nombre, ej. de un Excel) que NO tienen cuenta en UZEED, para invitarlos a registrarse. " +
         "Descarta solo: números inválidos o repetidos, los que ya tienen cuenta (comparando el teléfono normalizado), los que ya recibieron un envío de estos y los que respondieron BAJA/STOP. " +
         `Envía hasta ${LIMITS.contactos.dailyCap} por día: pásale la lista completa cada día y sigue con los que faltan. ` +
-        "`variables` llena {{1}}, {{2}}... del cuerpo y acepta {nombre}. Imagen opcional: flyer (flyerTitulo/flyerTexto, sin foto) o diseno (SVG propio; las métricas salen en 0). " +
+        "`variables` llena {{1}}, {{2}}... del cuerpo y acepta {nombre}. Imagen: fija (imagenFija=<nombre>, la misma PNG/JPG para todos; la recomendada), flyer (flyerTitulo/flyerTexto, sin foto) o diseno (SVG propio con {{nombre}}; las métricas salen en 0). " +
         "Si un contacto responde, le llega el link para publicarse y el equipo recibe un aviso en la bandeja (whatsapp_prospect_replied). " +
         "SIEMPRE en dos pasos: sin `confirmacion` devuelve la vista previa con el resumen y un código; sólo si el usuario la aprueba, repite con confirmacion=<código>.",
       inputSchema: {
@@ -747,7 +767,8 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         idioma: z.string().trim().optional(),
         variables: z.array(z.string().max(1000)).max(20).optional(),
         botonVariable: z.string().max(200).optional(),
-        imagen: z.enum(["ninguna", "flyer", "diseno"]).optional(),
+        imagen: z.enum(["ninguna", "fija", "flyer", "diseno"]).optional().describe("fija = la misma imagen (PNG/JPG del equipo) para todos; es lo recomendado para invitaciones."),
+        imagenFija: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional().describe("Para imagen=fija: nombre de la imagen (ver estado_whatsapp → imagenesFijas)."),
         flyerTitulo: z.string().trim().min(2).max(60).optional(),
         flyerTexto: z.string().trim().max(240).optional(),
         diseno: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional(),
@@ -764,7 +785,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         const t = await resolveTemplate(args);
         if ("error" in t) return errorResult(t.error);
         const { template, plantilla } = t;
-        const im = resolveImage({ ...args, incluirFoto: false }, template, ["ninguna", "flyer", "diseno"]);
+        const im = await resolveImage({ ...args, incluirFoto: false }, template, ["ninguna", "fija", "flyer", "diseno"]);
         if ("error" in im) return errorResult(im.error);
         const { img } = im;
 
@@ -967,6 +988,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         bot,
         cloudApi: { configurada: cloudConfigured(), validaPlantillas: Boolean(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID) },
         disenos: listDesigns(),
+        imagenesFijas: listFixedImages(),
         enviosHoy: {
           bot: { enviados: hoyBot, tope: LIMITS.bot.dailyCap },
           plantilla: { enviados: hoyPlantilla, tope: LIMITS.plantilla.dailyCap },

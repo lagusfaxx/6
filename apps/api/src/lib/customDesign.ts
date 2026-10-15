@@ -35,6 +35,35 @@ export function listDesigns(): string[] {
   }
 }
 
+/* Imágenes fijas (PNG/JPG hechas en Canva, iguales para todos) en la misma carpeta. */
+const FIXED_EXT = [".png", ".jpg", ".jpeg"];
+
+export function listFixedImages(): string[] {
+  try {
+    return fs
+      .readdirSync(designsDir())
+      .filter((f) => FIXED_EXT.includes(path.extname(f).toLowerCase()))
+      .map((f) => f.slice(0, -path.extname(f).length))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lee una imagen fija y la deja lista para WhatsApp: JPEG de hasta 1600 px de
+ * lado (Meta acepta hasta 5 MB; así nunca se pasa).
+ */
+export async function loadFixedImage(name: string): Promise<Buffer | null> {
+  if (!NAME_RE.test(name)) return null;
+  for (const ext of FIXED_EXT) {
+    const file = path.join(designsDir(), `${name}${ext}`);
+    if (!fs.existsSync(file)) continue;
+    return sharp(file).rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 88 }).toBuffer();
+  }
+  return null;
+}
+
 export function loadDesign(name: string): string | null {
   if (!NAME_RE.test(name)) return null;
   try {

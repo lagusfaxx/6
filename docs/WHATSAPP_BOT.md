@@ -201,6 +201,11 @@ recibir nada. Si responde otra cosa, le llega el link para publicarse
 (`WHATSAPP_PROSPECT_URL`, por defecto https://uzeed.cl/publicate) y el equipo
 recibe un aviso en la bandeja. Tope: `WHATSAPP_PROSPECT_DAILY` (100 por día).
 
+Para la imagen de la invitación lo recomendado es una **imagen fija**
+(`imagen=fija`, `imagenFija=<nombre>`): un PNG o JPG igual para todos,
+guardado en `apps/api/assets/whatsapp/` (viene `invitacion.png` de ejemplo).
+Se sube a Meta una sola vez por envío.
+
 ### Responder desde WhatsApp
 
 Con la Cloud API, cuando un cliente escribe, a la profesional le llega su
