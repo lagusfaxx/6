@@ -3,6 +3,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { canMessage } from "../messages/canMessage";
 import { sendToUser } from "../realtime/sse";
+import { emitAdminEvent } from "../lib/adminEvents";
 import { getWhatsAppProvider, sendCloudReaction, sendCloudText } from "./whatsapp";
 
 /**
@@ -77,6 +78,43 @@ function alreadySeen(id: string): boolean {
   return false;
 }
 
+const PROSPECT_URL = process.env.WHATSAPP_PROSPECT_URL || "https://uzeed.cl/publicate";
+const OPT_OUT_RE = /^\s*(stop|baja|detener|cancelar|no\s+(quiero|gracias|me\s+interesa))\b/i;
+/* Un aviso al equipo por contacto cada 12 h, aunque escriba varias veces. */
+const PROSPECT_NOTIFY_EVERY_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Respuesta de un contacto sin cuenta (WhatsAppProspect). STOP/BAJA lo saca de
+ * los envíos; cualquier otra cosa recibe el link para publicarse y avisa al
+ * equipo. Devuelve false si el número no es un contacto de estos.
+ */
+async function handleProspectReply(from: string, message: any): Promise<boolean> {
+  const prospect = await prisma.whatsAppProspect.findUnique({ where: { waId: from } });
+  if (!prospect) return false;
+  const text = typeof message?.text?.body === "string" ? message.text.body : "";
+  const quickReply = typeof message?.button?.text === "string" ? message.button.text : "";
+
+  if (OPT_OUT_RE.test(text) || OPT_OUT_RE.test(quickReply)) {
+    await prisma.whatsAppProspect.update({ where: { waId: from }, data: { optedOutAt: new Date() } });
+    await sendCloudText(from, "Listo, no te enviaremos más mensajes. ¡Gracias!");
+    return true;
+  }
+
+  const notify = !prospect.repliedAt || Date.now() - prospect.repliedAt.getTime() > PROSPECT_NOTIFY_EVERY_MS;
+  await prisma.whatsAppProspect.update({ where: { waId: from }, data: { repliedAt: new Date() } });
+  if (notify) {
+    await sendCloudText(
+      from,
+      `¡Hola${prospect.name ? ` ${prospect.name}` : ""}! Gracias por responder 🙌 Puedes crear tu perfil en UZEED aquí: ${PROSPECT_URL}\n\nAlguien del equipo te va a escribir para ayudarte. Si no quieres recibir más mensajes, responde BAJA.`,
+    );
+    await emitAdminEvent({
+      type: "whatsapp_prospect_replied",
+      user: `${prospect.name || "Sin nombre"} (+${from}): ${(text || quickReply || `[${message?.type || "mensaje"}]`).slice(0, 200)}`,
+    }).catch(() => {});
+  }
+  return true;
+}
+
 async function handleIncoming(message: any): Promise<void> {
   const from = String(message?.from || "");
   const wamid = String(message?.id || "");
@@ -97,6 +135,9 @@ async function handleIncoming(message: any): Promise<void> {
         where: { waId: from, createdAt: { gt: new Date(Date.now() - LAST_RELAY_MAX_AGE_MS) } },
         orderBy: { createdAt: "desc" },
       });
+
+  // Contacto sin cuenta que responde a una plantilla enviada desde el MCP.
+  if (!relay && (await handleProspectReply(from, message))) return;
 
   // El aviso citado tiene que haber sido enviado a este mismo número.
   if (!relay || relay.waId !== from || !relay.peerId) {

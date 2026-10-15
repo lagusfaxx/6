@@ -33,6 +33,7 @@ const BANDEJA_TIPOS = [
   "face_verification_submitted",
   "stats_alert",
   "mcp_authorized",
+  "whatsapp_prospect_replied",
 ] as const;
 
 /** Los avisos traen correos de quien escribió: salen enmascarados. */

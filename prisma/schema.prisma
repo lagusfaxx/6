@@ -918,6 +918,21 @@ model AutoReplyLog {
 /// Avisos enviados por WhatsApp (Cloud API). Si la profesional responde a uno
 /// desde WhatsApp, su respuesta va al chat de ese aviso (peerId). Los avisos
 /// que no son de un chat se guardan con peerId nulo.
+/// Contactos sin cuenta (ej. de un Excel) a los que el equipo les manda
+/// plantillas de WhatsApp desde el MCP. Evita repetirles el mensaje, guarda
+/// si respondieron y si pidieron no recibir más (optedOutAt).
+model WhatsAppProspect {
+  waId       String    @id
+  name       String?
+  sentCount  Int       @default(0)
+  lastSentAt DateTime?
+  repliedAt  DateTime?
+  optedOutAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([lastSentAt])
+}
+
 model WhatsAppRelay {
   wamid     String   @id
   userId    String   @db.Uuid

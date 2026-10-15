@@ -12,7 +12,8 @@ export type AdminEventType =
   | "phone_change_requested"
   | "face_verification_submitted"
   | "mcp_authorized"
-  | "stats_alert";
+  | "stats_alert"
+  | "whatsapp_prospect_replied";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -55,6 +56,11 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Cambio de número solicitado",
     body: "Una profesional pidió cambiar su número de WhatsApp.",
     url: "/admin/phone-changes",
+  },
+  whatsapp_prospect_replied: {
+    title: "Respondió un contacto de WhatsApp",
+    body: "Un contacto sin cuenta respondió al mensaje de WhatsApp. Escríbele para ayudarle a registrarse.",
+    url: "/admin/whatsapp",
   },
   stats_alert: {
     title: "Alerta de estadísticas",

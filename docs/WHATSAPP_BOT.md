@@ -190,6 +190,17 @@ Canva: `imagen=diseno` con `diseno=<nombre>`. Los diseños son SVG en
 - Fuentes: DejaVu Sans viene instalada; otra fuente hay que agregarla al
   Dockerfile.
 
+### Invitar contactos sin cuenta (ej. un Excel)
+
+`enviar_whatsapp_contactos` manda una plantilla aprobada a una lista de
+teléfonos que todavía no tienen cuenta. Usa una plantilla aparte (ej.
+`uzeed_invitacion`), porque a estos contactos no se les pueden mostrar
+métricas. Cada contacto recibe el mensaje una sola vez: queda guardado en
+`WhatsAppProspect`, igual que quien responde BAJA o STOP, que no vuelve a
+recibir nada. Si responde otra cosa, le llega el link para publicarse
+(`WHATSAPP_PROSPECT_URL`, por defecto https://uzeed.cl/publicate) y el equipo
+recibe un aviso en la bandeja. Tope: `WHATSAPP_PROSPECT_DAILY` (100 por día).
+
 ### Responder desde WhatsApp
 
 Con la Cloud API, cuando un cliente escribe, a la profesional le llega su

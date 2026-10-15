@@ -52,7 +52,7 @@ import { avisoFiltros } from "./team";
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } as const;
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
-type Via = "bot" | "plantilla";
+type Via = "bot" | "plantilla" | "contactos";
 
 const LIMITS: Record<Via, { maxPerSend: number; dailyCap: number; minDelayMs: number; maxDelayMs: number; deliveryType: string }> = {
   bot: {
@@ -69,6 +69,14 @@ const LIMITS: Record<Via, { maxPerSend: number; dailyCap: number; minDelayMs: nu
     minDelayMs: 400,
     maxDelayMs: 900,
     deliveryType: "MCP_BROADCAST_TEMPLATE",
+  },
+  // Contactos sin cuenta (ej. un Excel): plantilla de Meta, tope diario propio.
+  contactos: {
+    maxPerSend: Number(process.env.WHATSAPP_PROSPECT_DAILY || 100),
+    dailyCap: Number(process.env.WHATSAPP_PROSPECT_DAILY || 100),
+    minDelayMs: 400,
+    maxDelayMs: 900,
+    deliveryType: "MCP_PROSPECT",
   },
 };
 const MAX_LIST = Math.max(LIMITS.bot.maxPerSend, LIMITS.plantilla.maxPerSend);
@@ -284,7 +292,7 @@ async function buildImage(img: Imagen, r: Recipient, m: Metrics | null, period: 
     titulo: personalize(img.titulo ?? "", r, m),
     texto: personalize(img.texto ?? "", r, m),
     foto,
-    pie: `${host}/profesional/${r.username}`,
+    pie: r.username ? `${host}/profesional/${r.username}` : host,
   });
 }
 
@@ -349,7 +357,46 @@ function templateSender(t: Plantilla, img: Imagen): Sender {
       urlButtonIndex: t.botonIndice,
     });
     // Si responde, que no caiga en su último chat con un cliente.
-    if (result.ok) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
+    if (result.ok && !isProspect(r)) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
+    return result;
+  };
+}
+
+/**
+ * Nombres como vienen en los avisos: "F E R N A N D A" → "Fernanda",
+ * "M A S A J E S __ K I S S" → "Masajes Kiss".
+ */
+export function cleanName(raw: string): string {
+  return raw
+    .split(/\s*_+\s*|\s{2,}/)
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .map((w) => (/^(\S )+\S$/.test(w) ? w.replace(/ /g, "") : w))
+    .map((w) => w.toLowerCase().replace(/(^|\s)(\p{L})/gu, (_, sp, ch) => sp + ch.toUpperCase()))
+    .join(" ")
+    .slice(0, 60);
+}
+
+/* Los contactos sin cuenta van como Recipient con id "ext:<número>". */
+const isProspect = (r: Recipient) => r.id.startsWith("ext:");
+
+const zeroMetrics = (): Metrics => {
+  const z = () => ({ cur: 0, prev: 0 });
+  return { visitantes: z(), contactos: z(), impresiones: z(), favoritos: z(), mensajes: z(), serie: [] };
+};
+
+/** Plantilla a un contacto sin cuenta: deja registro para no repetirle el envío. */
+function prospectSender(t: Plantilla, img: Imagen): Sender {
+  const base = templateSender(t, img);
+  return async (r, m, image) => {
+    const result = await base(r, m, image);
+    if (result.ok) {
+      await prisma.whatsAppProspect.upsert({
+        where: { waId: r.phone },
+        create: { waId: r.phone, name: r.nombre || null, sentCount: 1, lastSentAt: new Date() },
+        update: { name: r.nombre || undefined, sentCount: { increment: 1 }, lastSentAt: new Date() },
+      });
+    }
     return result;
   };
 }
@@ -366,9 +413,9 @@ async function runJob(job: Job, list: Recipient[], send: Sender, metrics: Map<st
       } catch (err: any) {
         result = { ok: false, error: err?.message || "ERROR" };
       }
-      await logDelivery(prisma, { userId: r.id, channel: "WHATSAPP", type: lim.deliveryType, result });
+      await logDelivery(prisma, { userId: isProspect(r) ? null : r.id, channel: "WHATSAPP", type: lim.deliveryType, result });
       if (result.ok) job.enviados++;
-      else job.fallidos.push({ usuario: r.username, error: result.error || "ERROR" });
+      else job.fallidos.push({ usuario: isProspect(r) ? `${r.nombre || "contacto"} (+${r.phone})` : r.username, error: result.error || "ERROR" });
       // Bot desconectado o credenciales de Meta inválidas: no seguir quemando la lista.
       if (!result.ok && /^NOT_CONNECTED|CLOUD_API_NOT_CONFIGURED|access token/i.test(result.error || "")) break;
       if (i < list.length - 1) await sleep(lim.minDelayMs + Math.random() * (lim.maxDelayMs - lim.minDelayMs));
@@ -401,6 +448,82 @@ function cloudConfigured(): boolean {
 /** Cuerpo de la plantilla con las variables reemplazadas, para la vista previa. */
 function fillTemplateBody(body: string, values: string[]): string {
   return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (all, n) => values[Number(n) - 1] ?? all);
+}
+
+// ── Plantilla e imagen (comunes a los envíos) ────────────────────────────
+
+type TemplateArgs = { plantilla?: string; idioma?: string; variables?: string[]; botonVariable?: string };
+type ImageArgs = {
+  imagen?: Imagen["tipo"];
+  tarjetaMetricas?: boolean;
+  incluirFoto?: boolean;
+  flyerTitulo?: string;
+  flyerTexto?: string;
+  diseno?: string;
+};
+
+/** Busca la plantilla en Meta (si hay WHATSAPP_BUSINESS_ACCOUNT_ID) y arma el envío. */
+async function resolveTemplate(args: TemplateArgs): Promise<{ template: CloudTemplateInfo | null; plantilla: Plantilla } | { error: string }> {
+  if (!cloudConfigured()) return { error: "La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID)." };
+  if (!args.plantilla) return { error: "Indica la plantilla de Meta (ver plantillas_whatsapp)." };
+  let template: CloudTemplateInfo | null = null;
+  const all = await listCloudTemplates().catch((err) => {
+    throw new Error(`No pude leer las plantillas de Meta: ${err?.message || err}`);
+  });
+  if (all) {
+    const same = all.filter((t) => t.nombre === args.plantilla);
+    template = same.find((t) => !args.idioma || t.idioma === args.idioma) ?? null;
+    if (!template) {
+      return {
+        error: same.length
+          ? `La plantilla "${args.plantilla}" no existe en idioma ${args.idioma}. Idiomas: ${same.map((t) => t.idioma).join(", ")}.`
+          : `No existe la plantilla "${args.plantilla}". Revisa plantillas_whatsapp.`,
+      };
+    }
+    if (template.estado !== "APPROVED") return { error: `La plantilla "${template.nombre}" está ${template.estado}: sólo se pueden enviar las aprobadas.` };
+    if (template.formatoNombrado) return { error: "La plantilla usa variables con nombre; este envío sólo soporta las numeradas ({{1}}, {{2}}...)." };
+    const vars = args.variables ?? [];
+    if (vars.length !== template.variablesCuerpo) {
+      return { error: `La plantilla "${template.nombre}" pide ${template.variablesCuerpo} variables en el cuerpo y mandaste ${vars.length}. Cuerpo: ${template.cuerpo}` };
+    }
+    if (template.botonUrlDinamico && !args.botonVariable) return { error: "La plantilla tiene un botón con URL dinámica: indica botonVariable (ej. profesional/{usuario})." };
+  }
+  return {
+    template,
+    plantilla: {
+      name: args.plantilla,
+      language: template?.idioma ?? args.idioma ?? (process.env.WHATSAPP_TEMPLATE_LANG || "es"),
+      variables: args.variables ?? [],
+      botonVariable: args.botonVariable,
+      botonIndice: template?.indiceBotonUrl ?? undefined,
+    },
+  };
+}
+
+/** Qué imagen va, y que calce con el encabezado de la plantilla. */
+function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null, allowed?: Imagen["tipo"][]): { img: Imagen } | { error: string } {
+  const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
+  if (allowed && !allowed.includes(tipo)) return { error: `Aquí la imagen puede ser: ${allowed.join(", ")}.` };
+  if (tipo === "flyer" && !args.flyerTitulo) return { error: "Para imagen=flyer indica flyerTitulo (y opcional flyerTexto)." };
+  let diseno: Imagen["diseno"];
+  if (tipo === "diseno") {
+    const svg = args.diseno ? loadDesign(args.diseno) : null;
+    if (!svg) return { error: `Indica un diseño que exista con diseno=<nombre>. Disponibles: ${listDesigns().join(", ") || "ninguno (se agregan en apps/api/assets/whatsapp)"}.` };
+    diseno = { nombre: args.diseno!, svg };
+  }
+  if (template) {
+    const conImagen = template.encabezado === "IMAGE";
+    if (conImagen && tipo === "ninguna") return { error: `La plantilla "${template.nombre}" lleva imagen de encabezado: indica la imagen (${(allowed ?? ["metricas", "flyer", "diseno"]).filter((t) => t !== "ninguna").join(", ")}).` };
+    if (!conImagen && tipo !== "ninguna") return { error: `La plantilla "${template.nombre}" no tiene encabezado de imagen (${template.encabezado ?? "sin encabezado"}). Usa una con imagen o envía sin imagen.` };
+  }
+  return {
+    img: {
+      tipo,
+      foto: args.incluirFoto !== false,
+      ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
+      ...(diseno ? { diseno } : {}),
+    },
+  };
 }
 
 // ── Herramientas ──────────────────────────────────────────────────────────
@@ -479,53 +602,16 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         }
         botConectadoComo = bot.connectedAs;
       } else {
-        if (!cloudConfigured()) return errorResult("La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID).");
-        const all = await listCloudTemplates().catch((err) => {
-          throw new Error(`No pude leer las plantillas de Meta: ${err?.message || err}`);
-        });
-        if (all) {
-          const same = all.filter((t) => t.nombre === args.plantilla);
-          template = same.find((t) => !args.idioma || t.idioma === args.idioma) ?? null;
-          if (!template) {
-            return errorResult(same.length
-              ? `La plantilla "${args.plantilla}" no existe en idioma ${args.idioma}. Idiomas: ${same.map((t) => t.idioma).join(", ")}.`
-              : `No existe la plantilla "${args.plantilla}". Revisa plantillas_whatsapp.`);
-          }
-          if (template.estado !== "APPROVED") return errorResult(`La plantilla "${template.nombre}" está ${template.estado}: sólo se pueden enviar las aprobadas.`);
-          if (template.formatoNombrado) return errorResult("La plantilla usa variables con nombre; este envío sólo soporta las numeradas ({{1}}, {{2}}...).");
-        }
-        plantilla = {
-          name: args.plantilla!,
-          language: template?.idioma ?? args.idioma ?? (process.env.WHATSAPP_TEMPLATE_LANG || "es"),
-          variables: args.variables ?? [],
-          botonVariable: args.botonVariable,
-          botonIndice: template?.indiceBotonUrl ?? undefined,
-        };
+        const t = await resolveTemplate(args);
+        if ("error" in t) return errorResult(t.error);
+        ({ template, plantilla } = t);
       }
 
-      const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
-      if (tipo === "flyer" && !args.flyerTitulo) return errorResult("Para imagen=flyer indica flyerTitulo (y opcional flyerTexto).");
-      let diseno: Imagen["diseno"];
-      if (tipo === "diseno") {
-        const svg = args.diseno ? loadDesign(args.diseno) : null;
-        if (!svg) return errorResult(`Indica un diseño que exista con diseno=<nombre>. Disponibles: ${listDesigns().join(", ") || "ninguno (se agregan en apps/api/assets/whatsapp)"}.`);
-        diseno = { nombre: args.diseno!, svg };
-      }
-      if (template) {
-        const conImagen = template.encabezado === "IMAGE";
-        if (conImagen && tipo === "ninguna") return errorResult(`La plantilla "${template.nombre}" lleva imagen de encabezado: indica imagen=metricas o imagen=flyer.`);
-        if (!conImagen && tipo !== "ninguna") return errorResult(`La plantilla "${template.nombre}" no tiene encabezado de imagen (${template.encabezado ?? "sin encabezado"}). Usa una con imagen o envía sin imagen.`);
-        if ((plantilla!.variables.length) !== template.variablesCuerpo) {
-          return errorResult(`La plantilla "${template.nombre}" pide ${template.variablesCuerpo} variables en el cuerpo y mandaste ${plantilla!.variables.length}. Cuerpo: ${template.cuerpo}`);
-        }
-        if (template.botonUrlDinamico && !args.botonVariable) return errorResult("La plantilla tiene un botón con URL dinámica: indica botonVariable (ej. profesional/{usuario}).");
-      }
-      const img: Imagen = {
-        tipo,
-        foto: args.incluirFoto !== false,
-        ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
-        ...(diseno ? { diseno } : {}),
-      };
+      const im = resolveImage(args, template);
+      if ("error" in im) return errorResult(im.error);
+      const { img } = im;
+      const tipo = img.tipo;
+      const diseno = img.diseno;
 
       // ── Destinatarios ──
       let ids: string[];
@@ -642,6 +728,150 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
   );
 
   server.registerTool(
+    "enviar_whatsapp_contactos",
+    {
+      title: "Enviar plantilla de WhatsApp a contactos sin cuenta (ej. un Excel)",
+      description:
+        "Manda una plantilla aprobada de Meta a una lista de contactos (teléfono y nombre, ej. de un Excel) que NO tienen cuenta en UZEED, para invitarlos a registrarse. " +
+        "Descarta solo: números inválidos o repetidos, los que ya tienen cuenta (comparando el teléfono normalizado), los que ya recibieron un envío de estos y los que respondieron BAJA/STOP. " +
+        `Envía hasta ${LIMITS.contactos.dailyCap} por día: pásale la lista completa cada día y sigue con los que faltan. ` +
+        "`variables` llena {{1}}, {{2}}... del cuerpo y acepta {nombre}. Imagen opcional: flyer (flyerTitulo/flyerTexto, sin foto) o diseno (SVG propio; las métricas salen en 0). " +
+        "Si un contacto responde, le llega el link para publicarse y el equipo recibe un aviso en la bandeja (whatsapp_prospect_replied). " +
+        "SIEMPRE en dos pasos: sin `confirmacion` devuelve la vista previa con el resumen y un código; sólo si el usuario la aprueba, repite con confirmacion=<código>.",
+      inputSchema: {
+        contactos: z
+          .array(z.object({ telefono: z.string().max(40), nombre: z.string().max(80).optional() }))
+          .min(1)
+          .max(5000),
+        plantilla: z.string().trim().regex(/^[a-z0-9_]+$/, "Nombre de plantilla de Meta: minúsculas, números y _"),
+        idioma: z.string().trim().optional(),
+        variables: z.array(z.string().max(1000)).max(20).optional(),
+        botonVariable: z.string().max(200).optional(),
+        imagen: z.enum(["ninguna", "flyer", "diseno"]).optional(),
+        flyerTitulo: z.string().trim().min(2).max(60).optional(),
+        flyerTexto: z.string().trim().max(240).optional(),
+        diseno: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional(),
+        cantidad: z.number().int().min(1).max(LIMITS.contactos.maxPerSend).optional().describe(`Cuántos enviar en esta tanda. Por defecto lo que quede del día (máx. ${LIMITS.contactos.dailyCap}).`),
+        confirmacion: z.string().optional(),
+      },
+      annotations: WRITE,
+    },
+    guarded(
+      "enviar_whatsapp_contactos",
+      ctx,
+      async (args: TemplateArgs & ImageArgs & { contactos: { telefono: string; nombre?: string }[]; cantidad?: number; confirmacion?: string }) => {
+        const lim = LIMITS.contactos;
+        const t = await resolveTemplate(args);
+        if ("error" in t) return errorResult(t.error);
+        const { template, plantilla } = t;
+        const im = resolveImage({ ...args, incluirFoto: false }, template, ["ninguna", "flyer", "diseno"]);
+        if ("error" in im) return errorResult(im.error);
+        const { img } = im;
+
+        // Normalizar y quitar repetidos.
+        const byPhone = new Map<string, string>();
+        let invalidos = 0;
+        for (const c of args.contactos) {
+          const n = normalizePhoneForWhatsApp(c.telefono);
+          if (!n) invalidos++;
+          else if (!byPhone.has(n)) byPhone.set(n, cleanName(c.nombre ?? ""));
+        }
+        const repetidos = args.contactos.length - invalidos - byPhone.size;
+
+        // Ya registrados (por teléfono) y ya contactados o dados de baja.
+        const users = await prisma.user.findMany({ where: { phone: { not: null } }, select: { phone: true } });
+        const registered = new Set(users.map((u) => normalizePhoneForWhatsApp(u.phone)).filter((x): x is string => !!x));
+        const prospects = await prisma.whatsAppProspect.findMany({
+          where: { waId: { in: [...byPhone.keys()] } },
+          select: { waId: true, lastSentAt: true, optedOutAt: true },
+        });
+        const optedOut = new Set(prospects.filter((p) => p.optedOutAt).map((p) => p.waId));
+        const alreadySent = new Set(prospects.filter((p) => p.lastSentAt).map((p) => p.waId));
+        let yaRegistrados = 0;
+        let yaEnviados = 0;
+        let dieronDeBaja = 0;
+        const pending: Recipient[] = [];
+        for (const [phone, nombre] of byPhone) {
+          if (registered.has(phone)) yaRegistrados++;
+          else if (optedOut.has(phone)) dieronDeBaja++;
+          else if (alreadySent.has(phone)) yaEnviados++;
+          else pending.push({ id: `ext:${phone}`, username: "", nombre, phone, avatarUrl: null });
+        }
+
+        const restantesHoy = Math.max(0, lim.dailyCap - (await sentToday("contactos")));
+        const batch = pending.slice(0, Math.min(args.cantidad ?? lim.maxPerSend, restantesHoy));
+        const resumen = {
+          enLista: args.contactos.length,
+          invalidos,
+          repetidos,
+          yaRegistrados,
+          yaEnviadosAntes: yaEnviados,
+          dieronDeBaja,
+          pendientes: pending.length,
+          seEnviaranAhora: batch.length,
+          quedanParaOtrosDias: pending.length - batch.length,
+          enviosDisponiblesHoy: restantesHoy,
+        };
+        if (!batch.length) {
+          return jsonResult({ nadaQueEnviar: true, motivo: restantesHoy ? "No quedan contactos pendientes en la lista." : `Hoy ya se usaron los ${lim.dailyCap} envíos.`, resumen });
+        }
+
+        const metrics = new Map(batch.map((r) => [r.id, zeroMetrics()]));
+        const period = resolvePeriod({});
+        const code = confirmationCode(batch.map((r) => r.id), plantilla, img, "contactos");
+        const etaMin = Math.ceil((batch.length * ((lim.minDelayMs + lim.maxDelayMs) / 2 + 1_500)) / 60_000);
+
+        if (args.confirmacion !== code) {
+          const first = batch[0];
+          const values = plantilla.variables.map((v) => personalize(v, first, null));
+          const preview = jsonResult({
+            vistaPrevia: true,
+            aviso: "NO SE HA ENVIADO NADA. Muestra esto al usuario y, si lo aprueba, repite la llamada con confirmacion.",
+            codigoInvalido: args.confirmacion ? "El código no corresponde (cambió la lista, la plantilla o la imagen). Usa el nuevo." : undefined,
+            resumen,
+            muestra: batch.slice(0, 8).map((r) => ({ nombre: r.nombre, telefono: `+${r.phone}` })),
+            plantilla: {
+              nombre: plantilla.name,
+              idioma: plantilla.language,
+              categoria: template?.categoria,
+              cuerpoEjemplo: template ? fillTemplateBody(template.cuerpo, values) : undefined,
+              variablesEjemplo: values,
+              botonEjemplo: plantilla.botonVariable ? personalize(plantilla.botonVariable, first, null) : undefined,
+              validada: template ? true : "No: falta WHATSAPP_BUSINESS_ACCOUNT_ID; si algo no calza, Meta rechazará cada envío.",
+            },
+            costoAprox: `${batch.length} plantillas de marketing; Meta cobra cada una entregada.`,
+            duracionEstimadaMin: etaMin,
+            confirmacion: code,
+          });
+          const image = await buildImage(img, first, metrics.get(first.id)!, period);
+          if (image) preview.content.push({ type: "image", data: image.toString("base64"), mimeType: imageMime(image) });
+          return preview;
+        }
+
+        if (running) return errorResult(`Ya hay un envío en curso (${running.id}). Espera a que termine o cancélalo con estado_whatsapp.`);
+        const job: Job = {
+          id: randomUUID().slice(0, 8),
+          via: "contactos",
+          by: ctx.userId,
+          startedAt: new Date(),
+          finishedAt: null,
+          total: batch.length,
+          enviados: 0,
+          fallidos: [],
+          cancelado: false,
+        };
+        jobs.set(job.id, job);
+        if (jobs.size > 50) jobs.delete(jobs.keys().next().value!);
+        running = job;
+        runJob(job, batch, prospectSender(plantilla, img), metrics, period, img).catch((err) =>
+          console.error("[mcp] enviar_whatsapp_contactos:", err?.message || err),
+        );
+        return jsonResult({ enviando: true, envio: job.id, destinatarios: batch.length, quedanParaOtrosDias: resumen.quedanParaOtrosDias, duracionEstimadaMin: etaMin, verAvance: "estado_whatsapp" });
+      },
+    ),
+  );
+
+  server.registerTool(
     "cruzar_telefonos",
     {
       title: "Cruzar una lista de teléfonos con las cuentas de UZEED",
@@ -731,7 +961,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       }
       const { sessionDir: _dir, ...bot } = getBaileysStatus();
       const list = envio ? [jobs.get(envio)].filter((j): j is Job => !!j) : [...jobs.values()].slice(-5).reverse();
-      const [hoyBot, hoyPlantilla] = await Promise.all([sentToday("bot"), sentToday("plantilla")]);
+      const [hoyBot, hoyPlantilla, hoyContactos] = await Promise.all([sentToday("bot"), sentToday("plantilla"), sentToday("contactos")]);
       return jsonResult({
         proveedor: getWhatsAppProvider(),
         bot,
@@ -740,6 +970,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         enviosHoy: {
           bot: { enviados: hoyBot, tope: LIMITS.bot.dailyCap },
           plantilla: { enviados: hoyPlantilla, tope: LIMITS.plantilla.dailyCap },
+          contactosSinCuenta: { enviados: hoyContactos, tope: LIMITS.contactos.dailyCap },
         },
         envios: list.map(jobView),
       });
