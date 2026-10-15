@@ -203,6 +203,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 /** Envía texto libre. `to` debe venir ya normalizado (solo dígitos con país). */
 export async function sendBaileysText(to: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  return sendBaileysContent(to, { text });
+}
+
+/** Envía una imagen (PNG/JPEG) con texto al pie. `to` ya normalizado. */
+export async function sendBaileysImage(
+  to: string,
+  image: Buffer,
+  caption: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return sendBaileysContent(to, { image, caption });
+}
+
+async function sendBaileysContent(to: string, content: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
   if (!isBaileysEnabled()) return { ok: false, error: "BAILEYS_DISABLED" };
   const sock = state.sock;
   if (!sock || state.status !== "connected") {
@@ -222,7 +235,7 @@ export async function sendBaileysText(to: string, text: string): Promise<{ ok: b
     } catch {
       // Si la verificación falla/expira seguimos con el JID directo
     }
-    await withTimeout(sock.sendMessage(jid, { text }), 20_000, "SEND_TIMEOUT");
+    await withTimeout(sock.sendMessage(jid, content), 20_000, "SEND_TIMEOUT");
     return { ok: true };
   } catch (err: any) {
     const msg = err?.message || "SEND_FAILED";

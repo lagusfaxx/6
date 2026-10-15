@@ -38,7 +38,8 @@ RUN pnpm --filter @uzeed/api build
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg && rm -rf /var/lib/apt/lists/*
+# fonts-dejavu-core: sharp dibuja el texto de las tarjetas de métricas (SVG → PNG)
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg fonts-dejavu-core fontconfig && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma/node_modules ./prisma/node_modules

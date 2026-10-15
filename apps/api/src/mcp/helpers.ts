@@ -53,7 +53,7 @@ export function sanitize<T>(value: T): unknown {
 }
 
 export type ToolResult = {
-  content: { type: "text"; text: string }[];
+  content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string })[];
   isError?: boolean;
 };
 

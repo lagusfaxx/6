@@ -62,7 +62,7 @@ export function guarded<A>(tool: string, ctx: McpContext, handler: (args: A) => 
     const base = { tool, scope: ctx.scope, userId: ctx.userId, clientId: ctx.clientId, ip: ctx.ip, args };
     try {
       const result = await handler(args);
-      await writeAudit({ ...base, ok: !result.isError, error: result.isError ? result.content[0]?.text : undefined });
+      await writeAudit({ ...base, ok: !result.isError, error: result.isError ? result.content.find((c): c is { type: "text"; text: string } => c.type === "text")?.text : undefined });
       return result;
     } catch (err: any) {
       const message = err?.message || String(err);

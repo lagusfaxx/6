@@ -47,7 +47,7 @@ const MAX_RECIPIENTS = 1000;
 const MAX_EMAILS = 300;
 const DAILY_CAP = 2000;
 
-const avisoFiltros = (({ region, ciudad, comuna, categoria, tipoPerfil, tier, verificado, estadoPerfil, segmento }) => ({
+export const avisoFiltros = (({ region, ciudad, comuna, categoria, tipoPerfil, tier, verificado, estadoPerfil, segmento }) => ({
   region,
   ciudad,
   comuna,
