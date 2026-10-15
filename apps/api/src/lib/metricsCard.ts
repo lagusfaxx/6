@@ -45,11 +45,11 @@ export const AVATAR_PX = 420;
 const FONT = "DejaVu Sans, Arial, sans-serif";
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
-function esc(text: string): string {
+export function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
 }
 
-function fmt(n: number): string {
+export function fmt(n: number): string {
   return Math.round(n).toLocaleString("es-CL");
 }
 
@@ -111,7 +111,7 @@ export async function loadProfilePhoto(avatarUrl: string | null | undefined, wid
   }
 }
 
-function photoHref(foto: Buffer): string {
+export function photoHref(foto: Buffer): string {
   return `data:image/jpeg;base64,${foto.toString("base64")}`;
 }
 
@@ -146,7 +146,7 @@ const DEFS = `<defs>
   </defs>`;
 
 /** "+12%", "−8%", "nuevo" o "" si no hay base para comparar. */
-function delta(v: MetricValue): { text: string; up: boolean | null } {
+export function delta(v: MetricValue): { text: string; up: boolean | null } {
   if (v.anterior <= 0) return v.actual > 0 ? { text: "nuevo", up: true } : { text: "", up: null };
   const pct = Math.round(((v.actual - v.anterior) / v.anterior) * 100);
   if (pct === 0) return { text: "igual que antes", up: null };
@@ -169,7 +169,11 @@ function tile(x: number, y: number, w: number, h: number, label: string, v: Metr
  * la punta redondeada sobre la línea base, 2 px de separación y etiqueta sólo
  * en el mejor día y en las fechas de los extremos.
  */
-function barChart(x: number, y: number, w: number, h: number, serie: SeriePoint[]): string {
+export type ChartTheme = { bar: string; label: string; muted: string; axis: string };
+export const DARK_CHART: ChartTheme = { bar: "#3b2f4f", label: "#ffffff", muted: "#94a3b8", axis: "#33333d" };
+export const LIGHT_CHART: ChartTheme = { bar: "#e9d5ff", label: "#1f2937", muted: "#6b7280", axis: "#d1d5db" };
+
+export function barChart(x: number, y: number, w: number, h: number, serie: SeriePoint[], theme: ChartTheme = DARK_CHART): string {
   if (!serie.length) return "";
   const n = serie.length;
   const gap = n > 20 ? 4 : 8;
@@ -185,20 +189,20 @@ function barChart(x: number, y: number, w: number, h: number, serie: SeriePoint[
       const bh = p.valor > 0 ? Math.max(6, (p.valor / max) * plotH) : 0;
       const r = Math.min(6, bw / 2, bh);
       const top = base - bh;
-      const fill = i === best && p.valor > 0 ? "url(#accentV)" : "#3b2f4f";
+      const fill = i === best && p.valor > 0 ? "url(#accentV)" : theme.bar;
       const bar = bh > 0
         ? `<path d="M${bx},${base} V${top + r} Q${bx},${top} ${bx + r},${top} H${bx + bw - r} Q${bx + bw},${top} ${bx + bw},${top + r} V${base} Z" fill="${fill}"/>`
         : "";
       const lbl = i === best && p.valor > 0
-        ? `<text x="${bx + bw / 2}" y="${top - 12}" text-anchor="middle" font-family="${FONT}" font-size="26" font-weight="bold" fill="#ffffff">${fmt(p.valor)}</text>`
+        ? `<text x="${bx + bw / 2}" y="${top - 12}" text-anchor="middle" font-family="${FONT}" font-size="26" font-weight="bold" fill="${theme.label}">${fmt(p.valor)}</text>`
         : "";
       return bar + lbl;
     })
     .join("");
-  const axis = `<line x1="${x}" y1="${base + 1}" x2="${x + w}" y2="${base + 1}" stroke="#33333d" stroke-width="2"/>`;
+  const axis = `<line x1="${x}" y1="${base + 1}" x2="${x + w}" y2="${base + 1}" stroke="${theme.axis}" stroke-width="2"/>`;
   const ends = `
-  <text x="${x}" y="${base + 40}" font-family="${FONT}" font-size="24" fill="#94a3b8">${esc(serie[0].etiqueta)}</text>
-  <text x="${x + w}" y="${base + 40}" text-anchor="end" font-family="${FONT}" font-size="24" fill="#94a3b8">${esc(serie[n - 1].etiqueta)}</text>`;
+  <text x="${x}" y="${base + 40}" font-family="${FONT}" font-size="24" fill="${theme.muted}">${esc(serie[0].etiqueta)}</text>
+  <text x="${x + w}" y="${base + 40}" text-anchor="end" font-family="${FONT}" font-size="24" fill="${theme.muted}">${esc(serie[n - 1].etiqueta)}</text>`;
   return axis + bars + ends;
 }
 

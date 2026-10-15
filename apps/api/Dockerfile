@@ -46,6 +46,8 @@ COPY --from=build /app/prisma/node_modules ./prisma/node_modules
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+# Diseños SVG propios para las imágenes de WhatsApp (enviar_whatsapp imagen=diseno)
+COPY apps/api/assets ./apps/api/assets
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 COPY apps/api/scripts/migrate-umate-premium-to-private.js /app/apps/api/scripts/migrate-umate-premium-to-private.js

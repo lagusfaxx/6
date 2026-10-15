@@ -171,6 +171,25 @@ entregar marketing a quien ya recibió muchos (error 131049). Topes propios:
 `WHATSAPP_TEMPLATE_BROADCAST_MAX` (1000 por envío) y
 `WHATSAPP_TEMPLATE_BROADCAST_DAILY` (1000 por día).
 
+### Diseño propio para la imagen (SVG)
+
+En vez de la tarjeta de UZEED se puede usar un diseño propio hecho en Figma o
+Canva: `imagen=diseno` con `diseno=<nombre>`. Los diseños son SVG en
+`apps/api/assets/whatsapp/<nombre>.svg` (hay uno de ejemplo, `ejemplo.svg`).
+
+- Tamaño 1080×1350 (vertical) o 1080×1080. Exportar como SVG con el texto
+  como texto (no contornos).
+- Textos variables, se reemplazan por los datos de cada perfil:
+  `{{nombre}}`, `{{usuario}}`, `{{periodo}}`, `{{visitas}}`, `{{contactos}}`,
+  `{{apariciones}}`, `{{mensajes}}`, `{{favoritos}}`, `{{tasa}}` y
+  `{{variacion_visitas}}`, `{{variacion_contactos}}`… (ej. "▲ 27% vs anterior").
+- Foto del perfil: una capa llamada `foto` (en el SVG, `id="foto"`): imagen,
+  rectángulo, círculo o elipse; la foto toma esa forma.
+- Gráfico de visitantes por día: un rectángulo llamado `grafico`. Si su color
+  es claro, el gráfico usa colores para fondo claro.
+- Fuentes: DejaVu Sans viene instalada; otra fuente hay que agregarla al
+  Dockerfile.
+
 ### Responder desde WhatsApp
 
 Con la Cloud API, cuando un cliente escribe, a la profesional le llega su

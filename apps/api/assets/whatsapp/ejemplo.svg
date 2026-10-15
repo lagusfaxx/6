@@ -1,0 +1,14 @@
+<svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Diseño de ejemplo. Así queda un export de Figma: capas "foto" y "grafico", textos variables entre llaves dobles. -->
+<rect width="1080" height="1350" fill="#FFF4F9"/>
+<rect x="0" y="0" width="1080" height="420" fill="#DB2777"/>
+<circle id="foto" cx="540" cy="420" r="150" fill="#F9A8D4" stroke="#FFFFFF" stroke-width="12"/>
+<text fill="#FFFFFF" font-family="DejaVu Sans" font-size="40" font-weight="bold" letter-spacing="0.2em"><tspan x="540" y="110" text-anchor="middle">UZEED</tspan></text>
+<text fill="#1F2937" font-family="DejaVu Sans" font-size="64" font-weight="bold"><tspan x="540" y="660" text-anchor="middle">¡Hola {{nombre}}!</tspan></text>
+<text fill="#6B7280" font-family="DejaVu Sans" font-size="32"><tspan x="540" y="712" text-anchor="middle">{{periodo}}</tspan></text>
+<text fill="#DB2777" font-family="DejaVu Sans" font-size="150" font-weight="bold"><tspan x="540" y="880" text-anchor="middle">{{visitas}}</tspan></text>
+<text fill="#374151" font-family="DejaVu Sans" font-size="36"><tspan x="540" y="935" text-anchor="middle">personas vieron tu perfil · {{variacion_visitas}}</tspan></text>
+<rect id="grafico" x="140" y="985" width="800" height="200" fill="#FCE7F3"/>
+<text fill="#1F2937" font-family="DejaVu Sans" font-size="34"><tspan x="540" y="1260" text-anchor="middle">{{contactos}} te escribieron · {{favoritos}} nuevos favoritos</tspan></text>
+<text fill="#9CA3AF" font-family="DejaVu Sans" font-size="26"><tspan x="540" y="1315" text-anchor="middle">uzeed.cl/profesional/{{usuario}}</tspan></text>
+</svg>
