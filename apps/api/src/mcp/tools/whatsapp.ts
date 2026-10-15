@@ -7,7 +7,16 @@ import { config } from "../../config";
 import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData } from "../../lib/metricsCard";
 import { actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
-import { getWhatsAppProvider, logDelivery, normalizePhoneForWhatsApp } from "../../notifications/whatsapp";
+import {
+  getWhatsAppProvider,
+  listCloudTemplates,
+  logDelivery,
+  normalizePhoneForWhatsApp,
+  saveRelay,
+  sendCloudTemplateMessage,
+  uploadCloudMedia,
+  type CloudTemplateInfo,
+} from "../../notifications/whatsapp";
 import { getBaileysStatus, sendBaileysImage, sendBaileysText } from "../../notifications/whatsappBaileys";
 import { guarded, type McpContext } from "../audit";
 import {
@@ -26,24 +35,42 @@ import { describeFiltros, hasProfileFilters, pickFiltros, profileSql, withSegmen
 import { avisoFiltros } from "./team";
 
 /**
- * Envíos masivos por WhatsApp desde el MCP: texto y, opcional, una imagen
- * por perfil con su foto: la tarjeta de métricas o un flyer con texto libre.
- * Sólo con Baileys (número propio): la Cloud API de Meta no permite texto
- * libre ni imágenes fuera de la ventana de 24 h sin plantillas aprobadas.
+ * Envíos masivos por WhatsApp desde el MCP, con una imagen opcional por
+ * perfil (tarjeta de métricas o flyer, con su foto). Dos vías:
  *
- * WhatsApp banea números que mandan mucho y rápido a gente que no les
- * escribió: los envíos van de a uno con pausa aleatoria, con tope por envío
- * y por día, y nunca dos envíos a la vez.
+ * - "bot" (Baileys, número propio): texto libre con la imagen. WhatsApp banea
+ *   números que mandan mucho y rápido a gente que no les escribió, así que va
+ *   de a uno con pausas largas y topes bajos.
+ * - "plantilla" (Cloud API de Meta): plantilla aprobada (normalmente de
+ *   marketing) con la imagen como encabezado. Es la vía oficial: Meta cobra
+ *   cada envío y limita cuántos por día según el nivel de la cuenta.
+ *
+ * Nunca dos envíos a la vez.
  */
 
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } as const;
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
-const MAX_PER_SEND = Number(process.env.WHATSAPP_BROADCAST_MAX || 150);
-const DAILY_CAP = Number(process.env.WHATSAPP_BROADCAST_DAILY || 300);
-const MIN_DELAY_MS = 8_000;
-const MAX_DELAY_MS = 20_000;
-const DELIVERY_TYPE = "MCP_BROADCAST";
+type Via = "bot" | "plantilla";
+
+const LIMITS: Record<Via, { maxPerSend: number; dailyCap: number; minDelayMs: number; maxDelayMs: number; deliveryType: string }> = {
+  bot: {
+    maxPerSend: Number(process.env.WHATSAPP_BROADCAST_MAX || 150),
+    dailyCap: Number(process.env.WHATSAPP_BROADCAST_DAILY || 300),
+    minDelayMs: 8_000,
+    maxDelayMs: 20_000,
+    deliveryType: "MCP_BROADCAST",
+  },
+  plantilla: {
+    maxPerSend: Number(process.env.WHATSAPP_TEMPLATE_BROADCAST_MAX || 1000),
+    // El nivel inicial de Meta permite 250 conversaciones iniciadas por día.
+    dailyCap: Number(process.env.WHATSAPP_TEMPLATE_BROADCAST_DAILY || 1000),
+    minDelayMs: 400,
+    maxDelayMs: 900,
+    deliveryType: "MCP_BROADCAST_TEMPLATE",
+  },
+};
+const MAX_LIST = Math.max(LIMITS.bot.maxPerSend, LIMITS.plantilla.maxPerSend);
 const NOTIFIABLE = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 
 type Recipient = { id: string; username: string; nombre: string; phone: string; avatarUrl: string | null };
@@ -53,6 +80,7 @@ type Imagen = { tipo: "ninguna" | "metricas" | "flyer"; foto: boolean; titulo?: 
 
 type Job = {
   id: string;
+  via: Via;
   by: string;
   startedAt: Date;
   finishedAt: Date | null;
@@ -169,10 +197,11 @@ function cardData(r: Recipient, m: Metrics, period: Period, foto: Buffer | null)
   };
 }
 
-/** Reemplaza {nombre}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. */
+/** Reemplaza {nombre}, {usuario}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. */
 function personalize(text: string, r: Recipient, m: Metrics | null): string {
   return text
     .replace(/\{nombre\}/g, r.nombre)
+    .replace(/\{usuario\}/g, r.username)
     .replace(/\{visitas\}/g, String(m?.visitantes.cur ?? 0))
     .replace(/\{contactos\}/g, String(m?.contactos.cur ?? 0))
     .replace(/\{favoritos\}/g, String(m?.favoritos.cur ?? 0))
@@ -182,8 +211,8 @@ function personalize(text: string, r: Recipient, m: Metrics | null): string {
 
 const METRIC_TAGS = /\{(visitas|contactos|favoritos|mensajes|impresiones)\}/;
 
-function needsMetrics(mensaje: string, img: Imagen): boolean {
-  return img.tipo === "metricas" || [mensaje, img.titulo ?? "", img.texto ?? ""].some((t) => METRIC_TAGS.test(t));
+function needsMetrics(texts: string[], img: Imagen): boolean {
+  return img.tipo === "metricas" || [...texts, img.titulo ?? "", img.texto ?? ""].some((t) => METRIC_TAGS.test(t));
 }
 
 /** Arma la imagen de un destinatario; null si el envío es sólo texto. */
@@ -220,14 +249,14 @@ async function recipients(ids: string[]): Promise<{ ok: Recipient[]; sinTelefono
   return { ok, sinTelefono: ids.length - ok.length };
 }
 
-async function sentToday(): Promise<number> {
+async function sentToday(via: Via): Promise<number> {
   return prisma.notificationDelivery.count({
-    where: { type: DELIVERY_TYPE, channel: "WHATSAPP", ok: true, createdAt: { gte: chileMidnight(chileToday()) } },
+    where: { type: LIMITS[via].deliveryType, channel: "WHATSAPP", ok: true, createdAt: { gte: chileMidnight(chileToday()) } },
   });
 }
 
-function confirmationCode(ids: string[], mensaje: string, img: Imagen, periodLabel: string) {
-  const payload = JSON.stringify({ ids: [...ids].sort(), mensaje, img, periodLabel });
+function confirmationCode(ids: string[], contenido: unknown, img: Imagen, periodLabel: string) {
+  const payload = JSON.stringify({ ids: [...ids].sort(), contenido, img, periodLabel });
   return createHash("sha256").update(payload).digest("hex").slice(0, 10);
 }
 
@@ -235,25 +264,57 @@ function confirmationCode(ids: string[], mensaje: string, img: Imagen, periodLab
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function runJob(job: Job, list: Recipient[], mensaje: string, metrics: Map<string, Metrics> | null, period: Period, img: Imagen) {
+type Plantilla = { name: string; language: string; variables: string[]; botonVariable?: string; botonIndice?: number };
+
+/** Cómo sale un mensaje a un destinatario, según la vía. */
+type Sender = (r: Recipient, m: Metrics | null, image: Buffer | null) => Promise<{ ok: boolean; error?: string; messageId?: string }>;
+
+function botSender(mensaje: string): Sender {
+  return async (r, m, image) => {
+    const text = personalize(mensaje, r, m);
+    return image ? sendBaileysImage(r.phone, image, text) : sendBaileysText(r.phone, text);
+  };
+}
+
+function templateSender(t: Plantilla, img: Imagen): Sender {
+  return async (r, m, image) => {
+    let headerImageId: string | undefined;
+    if (image) {
+      const jpeg = img.tipo === "flyer";
+      const up = await uploadCloudMedia(image, jpeg ? "image/jpeg" : "image/png", jpeg ? "flyer.jpg" : "metricas.png");
+      if (!up.ok) return { ok: false, error: `MEDIA: ${up.error}` };
+      headerImageId = up.mediaId;
+    }
+    const result = await sendCloudTemplateMessage(r.phone, t, {
+      body: t.variables.map((v) => personalize(v, r, m)),
+      headerImageId,
+      urlButtonSuffix: t.botonVariable ? personalize(t.botonVariable, r, m) : undefined,
+      urlButtonIndex: t.botonIndice,
+    });
+    // Si responde, que no caiga en su último chat con un cliente.
+    if (result.ok) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
+    return result;
+  };
+}
+
+async function runJob(job: Job, list: Recipient[], send: Sender, metrics: Map<string, Metrics> | null, period: Period, img: Imagen) {
+  const lim = LIMITS[job.via];
   try {
     for (const [i, r] of list.entries()) {
       if (job.cancelado) break;
       const m = metrics?.get(r.id) ?? null;
-      const text = personalize(mensaje, r, m);
-      let result: { ok: boolean; error?: string };
+      let result: { ok: boolean; error?: string; messageId?: string };
       try {
-        const image = await buildImage(img, r, m, period);
-        result = image ? await sendBaileysImage(r.phone, image, text) : await sendBaileysText(r.phone, text);
+        result = await send(r, m, await buildImage(img, r, m, period));
       } catch (err: any) {
         result = { ok: false, error: err?.message || "ERROR" };
       }
-      await logDelivery(prisma, { userId: r.id, channel: "WHATSAPP", type: DELIVERY_TYPE, result });
+      await logDelivery(prisma, { userId: r.id, channel: "WHATSAPP", type: lim.deliveryType, result });
       if (result.ok) job.enviados++;
       else job.fallidos.push({ usuario: r.username, error: result.error || "ERROR" });
-      // Si el bot se desconectó no tiene sentido seguir quemando la lista.
-      if (!result.ok && result.error?.startsWith("NOT_CONNECTED")) break;
-      if (i < list.length - 1) await sleep(MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS));
+      // Bot desconectado o credenciales de Meta inválidas: no seguir quemando la lista.
+      if (!result.ok && /^NOT_CONNECTED|CLOUD_API_NOT_CONFIGURED|access token/i.test(result.error || "")) break;
+      if (i < list.length - 1) await sleep(lim.minDelayMs + Math.random() * (lim.maxDelayMs - lim.minDelayMs));
     }
   } finally {
     job.finishedAt = new Date();
@@ -264,6 +325,7 @@ async function runJob(job: Job, list: Recipient[], mensaje: string, metrics: Map
 function jobView(j: Job) {
   return {
     id: j.id,
+    via: j.via,
     estado: j.finishedAt ? (j.cancelado ? "cancelado" : "terminado") : "enviando",
     total: j.total,
     enviados: j.enviados,
@@ -275,13 +337,26 @@ function jobView(j: Job) {
   };
 }
 
+function cloudConfigured(): boolean {
+  return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+}
+
+/** Cuerpo de la plantilla con las variables reemplazadas, para la vista previa. */
+function fillTemplateBody(body: string, values: string[]): string {
+  return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (all, n) => values[Number(n) - 1] ?? all);
+}
+
 // ── Herramientas ──────────────────────────────────────────────────────────
 
 type Args = Filtros &
   PeriodInput & {
     usuario?: string;
     usuarios?: string[];
-    mensaje: string;
+    mensaje?: string;
+    plantilla?: string;
+    idioma?: string;
+    variables?: string[];
+    botonVariable?: string;
     imagen?: "ninguna" | "metricas" | "flyer";
     tarjetaMetricas?: boolean;
     incluirFoto?: boolean;
@@ -296,21 +371,27 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "enviar_whatsapp",
     {
-      title: "Enviar WhatsApp masivo (con tarjeta de métricas o flyer)",
+      title: "Enviar WhatsApp masivo (bot o plantilla de Meta, con tarjeta de métricas o flyer)",
       description:
-        "Manda un WhatsApp desde el número del bot a uno o varios perfiles (usuario, lista de usuarios, o filtros de perfil / segmento). " +
-        "Con imagen=metricas cada perfil recibe una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior). " +
-        "Con imagen=flyer recibe un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto (lo que pida el usuario: promo, aviso, felicitación...). En ambos casos el mensaje va como pie de foto; incluirFoto=false quita la foto del perfil. " +
-        "El mensaje, flyerTitulo y flyerTexto aceptan {nombre}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
+        "Manda un WhatsApp a uno o varios perfiles (usuario, lista de usuarios, o filtros de perfil / segmento), con una imagen opcional por perfil. " +
+        "Dos vías: (a) con `plantilla` = nombre de una plantilla aprobada en Meta (vía oficial, Cloud API; normalmente de marketing): la imagen va como encabezado, `variables` llena {{1}}, {{2}}... del cuerpo y `botonVariable` el final de la URL del botón si es dinámica. Revisa antes plantillas_whatsapp para ver cuáles hay, cuántas variables piden y si llevan encabezado de imagen. " +
+        "(b) sin plantilla, con `mensaje`: texto libre desde el bot (Baileys, número propio), la imagen con el mensaje de pie de foto. " +
+        "Imagen: imagen=metricas es una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior); imagen=flyer es un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto. incluirFoto=false quita la foto del perfil. " +
+        "mensaje, variables, botonVariable, flyerTitulo y flyerTexto aceptan {nombre}, {usuario}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
         "SIEMPRE en dos pasos: 1) sin `confirmacion` devuelve la vista previa (cuántos, a quiénes, el texto y la imagen del primero) y un código: muéstrasela al usuario. " +
-        "2) Sólo si la aprueba, repite la llamada igual con confirmacion=<código>. El envío corre en segundo plano, de a uno con pausas de 8-20 s para no arriesgar el número; mira el avance con estado_whatsapp. " +
-        `Máximo ${MAX_PER_SEND} por envío y ${DAILY_CAP} por día. Sólo a profesionales, establecimientos y tiendas activos con teléfono. Requiere el bot en modo Baileys conectado.`,
+        "2) Sólo si la aprueba, repite la llamada igual con confirmacion=<código>. El envío corre en segundo plano; mira el avance con estado_whatsapp. " +
+        `Bot: máximo ${LIMITS.bot.maxPerSend} por envío y ${LIMITS.bot.dailyCap} por día, con pausas de 8-20 s. Plantilla: máximo ${LIMITS.plantilla.maxPerSend} por envío y ${LIMITS.plantilla.dailyCap} por día; Meta cobra cada mensaje. ` +
+        "Sólo a profesionales, establecimientos y tiendas activos con teléfono.",
       inputSchema: {
         usuario: z.string().optional().describe("id, username o email de un usuario"),
-        usuarios: z.array(z.string()).max(MAX_PER_SEND).optional().describe("Lista de id/username/email"),
+        usuarios: z.array(z.string()).max(MAX_LIST).optional().describe("Lista de id/username/email"),
         ...avisoFiltros,
-        mensaje: z.string().trim().min(3).max(1000),
-        imagen: z.enum(["ninguna", "metricas", "flyer"]).optional().describe("Imagen por perfil. Por defecto ninguna (sólo texto)."),
+        mensaje: z.string().trim().min(3).max(1000).optional().describe("Vía bot: texto del mensaje (pie de foto si hay imagen)."),
+        plantilla: z.string().trim().regex(/^[a-z0-9_]+$/, "Nombre de plantilla de Meta: minúsculas, números y _").optional().describe("Vía plantilla: nombre de la plantilla aprobada en Meta."),
+        idioma: z.string().trim().optional().describe("Idioma de la plantilla (ej. es, es_CL). Por defecto el de la plantilla o WHATSAPP_TEMPLATE_LANG."),
+        variables: z.array(z.string().max(1000)).max(20).optional().describe("Vía plantilla: valores de {{1}}, {{2}}... del cuerpo, en orden."),
+        botonVariable: z.string().max(200).optional().describe("Vía plantilla: sufijo de la URL dinámica del botón, ej. profesional/{usuario}."),
+        imagen: z.enum(["ninguna", "metricas", "flyer"]).optional().describe("Imagen por perfil. Por defecto ninguna."),
         tarjetaMetricas: z.boolean().optional().describe("Equivale a imagen=metricas."),
         incluirFoto: z.boolean().optional().describe("Foto del perfil en la imagen. Por defecto sí."),
         flyerTitulo: z.string().trim().min(2).max(60).optional().describe("Para imagen=flyer: titular grande (hasta 2 líneas)."),
@@ -321,14 +402,66 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       annotations: WRITE,
     },
     guarded("enviar_whatsapp", ctx, async (args: Args) => {
-      if (getWhatsAppProvider() !== "baileys") {
-        return errorResult("Los envíos masivos necesitan WHATSAPP_PROVIDER=baileys. Con la Cloud API de Meta sólo se pueden mandar plantillas aprobadas fuera de la ventana de 24 h.");
-      }
-      const bot = getBaileysStatus();
-      if (bot.status !== "connected") {
-        return errorResult(`El bot de WhatsApp no está conectado (estado: ${bot.status}). Vincúlalo con el QR en /admin/whatsapp.`);
+      const via: Via = args.plantilla ? "plantilla" : "bot";
+      const lim = LIMITS[via];
+
+      // ── Vía y plantilla ──
+      let template: CloudTemplateInfo | null = null;
+      let plantilla: Plantilla | null = null;
+      let botConectadoComo: string | null = null;
+      if (via === "bot") {
+        if (!args.mensaje) return errorResult("Indica `mensaje` (vía bot) o `plantilla` (vía plantilla de Meta).");
+        if (getWhatsAppProvider() !== "baileys") {
+          return errorResult("El bot (Baileys) no está activo. Con la Cloud API de Meta usa una plantilla aprobada: pasa `plantilla` (ver plantillas_whatsapp).");
+        }
+        const bot = getBaileysStatus();
+        if (bot.status !== "connected") {
+          return errorResult(`El bot de WhatsApp no está conectado (estado: ${bot.status}). Vincúlalo con el QR en /admin/whatsapp.`);
+        }
+        botConectadoComo = bot.connectedAs;
+      } else {
+        if (!cloudConfigured()) return errorResult("La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID).");
+        const all = await listCloudTemplates().catch((err) => {
+          throw new Error(`No pude leer las plantillas de Meta: ${err?.message || err}`);
+        });
+        if (all) {
+          const same = all.filter((t) => t.nombre === args.plantilla);
+          template = same.find((t) => !args.idioma || t.idioma === args.idioma) ?? null;
+          if (!template) {
+            return errorResult(same.length
+              ? `La plantilla "${args.plantilla}" no existe en idioma ${args.idioma}. Idiomas: ${same.map((t) => t.idioma).join(", ")}.`
+              : `No existe la plantilla "${args.plantilla}". Revisa plantillas_whatsapp.`);
+          }
+          if (template.estado !== "APPROVED") return errorResult(`La plantilla "${template.nombre}" está ${template.estado}: sólo se pueden enviar las aprobadas.`);
+          if (template.formatoNombrado) return errorResult("La plantilla usa variables con nombre; este envío sólo soporta las numeradas ({{1}}, {{2}}...).");
+        }
+        plantilla = {
+          name: args.plantilla!,
+          language: template?.idioma ?? args.idioma ?? (process.env.WHATSAPP_TEMPLATE_LANG || "es"),
+          variables: args.variables ?? [],
+          botonVariable: args.botonVariable,
+          botonIndice: template?.indiceBotonUrl ?? undefined,
+        };
       }
 
+      const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
+      if (tipo === "flyer" && !args.flyerTitulo) return errorResult("Para imagen=flyer indica flyerTitulo (y opcional flyerTexto).");
+      if (template) {
+        const conImagen = template.encabezado === "IMAGE";
+        if (conImagen && tipo === "ninguna") return errorResult(`La plantilla "${template.nombre}" lleva imagen de encabezado: indica imagen=metricas o imagen=flyer.`);
+        if (!conImagen && tipo !== "ninguna") return errorResult(`La plantilla "${template.nombre}" no tiene encabezado de imagen (${template.encabezado ?? "sin encabezado"}). Usa una con imagen o envía sin imagen.`);
+        if ((plantilla!.variables.length) !== template.variablesCuerpo) {
+          return errorResult(`La plantilla "${template.nombre}" pide ${template.variablesCuerpo} variables en el cuerpo y mandaste ${plantilla!.variables.length}. Cuerpo: ${template.cuerpo}`);
+        }
+        if (template.botonUrlDinamico && !args.botonVariable) return errorResult("La plantilla tiene un botón con URL dinámica: indica botonVariable (ej. profesional/{usuario}).");
+      }
+      const img: Imagen = {
+        tipo,
+        foto: args.incluirFoto !== false,
+        ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
+      };
+
+      // ── Destinatarios ──
       let ids: string[];
       let criterio: Record<string, unknown>;
       if (args.usuario || args.usuarios?.length) {
@@ -351,29 +484,27 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
 
       const { ok: list, sinTelefono } = await recipients(ids);
       if (!list.length) return errorResult("Ningún perfil activo con teléfono válido calza con eso.");
-      if (list.length > MAX_PER_SEND) {
-        return errorResult(`Son ${list.length} destinatarios con teléfono; el máximo por envío es ${MAX_PER_SEND}. Acota los filtros o divide el envío.`);
+      if (list.length > lim.maxPerSend) {
+        return errorResult(`Son ${list.length} destinatarios con teléfono; el máximo por envío (${via}) es ${lim.maxPerSend}. Acota los filtros o divide el envío.`);
       }
 
-      const tipo = args.imagen ?? (args.tarjetaMetricas ? "metricas" : "ninguna");
-      if (tipo === "flyer" && !args.flyerTitulo) return errorResult("Para imagen=flyer indica flyerTitulo (y opcional flyerTexto).");
-      const img: Imagen = {
-        tipo,
-        foto: args.incluirFoto !== false,
-        ...(tipo === "flyer" ? { titulo: args.flyerTitulo, texto: args.flyerTexto ?? "" } : {}),
-      };
+      const texts = via === "bot" ? [args.mensaje!] : [...plantilla!.variables, plantilla!.botonVariable ?? ""];
       const period = resolvePeriod(args);
-      const code = confirmationCode(list.map((r) => r.id), args.mensaje, img, period.label);
-      const restantesHoy = DAILY_CAP - (await sentToday());
-      const etaMin = Math.ceil((list.length * ((MIN_DELAY_MS + MAX_DELAY_MS) / 2 + 2_000)) / 60_000);
+      const contenido = via === "bot" ? { mensaje: args.mensaje } : plantilla;
+      const code = confirmationCode(list.map((r) => r.id), contenido, img, period.label);
+      const restantesHoy = lim.dailyCap - (await sentToday(via));
+      const perMsg = (lim.minDelayMs + lim.maxDelayMs) / 2 + (via === "bot" ? 2_000 : 1_500);
+      const etaMin = Math.ceil((list.length * perMsg) / 60_000);
 
       if (args.confirmacion !== code) {
         const first = list[0];
-        const m = needsMetrics(args.mensaje, img) ? (await profileMetrics([first.id], period)).get(first.id)! : null;
+        const m = needsMetrics(texts, img) ? (await profileMetrics([first.id], period)).get(first.id)! : null;
+        const values = plantilla?.variables.map((v) => personalize(v, first, m)) ?? [];
         const preview = jsonResult({
           vistaPrevia: true,
           aviso: "NO SE HA ENVIADO NADA. Muestra esto al usuario y, si lo aprueba, repite la llamada con confirmacion.",
-          codigoInvalido: args.confirmacion ? "El código no corresponde (cambió el texto, la imagen, el periodo o los destinatarios). Usa el nuevo." : undefined,
+          codigoInvalido: args.confirmacion ? "El código no corresponde (cambió el texto, la plantilla, la imagen, el periodo o los destinatarios). Usa el nuevo." : undefined,
+          via,
           destinatarios: {
             total: list.length,
             descartadosSinTelefonoOInactivos: sinTelefono,
@@ -387,8 +518,22 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
             periodo: tipo === "metricas" ? period.label : undefined,
             ejemplo: first.username,
           },
-          mensajeEjemplo: personalize(args.mensaje, first, m),
-          botConectadoComo: bot.connectedAs,
+          mensajeEjemplo: via === "bot" ? personalize(args.mensaje!, first, m) : undefined,
+          plantilla: plantilla
+            ? {
+                nombre: plantilla.name,
+                idioma: plantilla.language,
+                categoria: template?.categoria,
+                cuerpoEjemplo: template ? fillTemplateBody(template.cuerpo, values) : undefined,
+                variablesEjemplo: values,
+                botonEjemplo: plantilla.botonVariable ? personalize(plantilla.botonVariable, first, m) : undefined,
+                validada: template
+                  ? true
+                  : "No: falta WHATSAPP_BUSINESS_ACCOUNT_ID, no pude revisar que exista, esté aprobada y calcen las variables. Si algo no calza, Meta rechazará cada envío.",
+                costo: "Meta cobra cada plantilla entregada (marketing es la categoría más cara) y limita los envíos por día según el nivel de la cuenta.",
+              }
+            : undefined,
+          botConectadoComo: botConectadoComo ?? undefined,
           duracionEstimadaMin: etaMin,
           enviosDisponiblesHoy: restantesHoy,
           confirmacion: code,
@@ -403,12 +548,13 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
 
       if (running) return errorResult(`Ya hay un envío en curso (${running.id}). Espera a que termine o cancélalo con estado_whatsapp.`);
       if (list.length > restantesHoy) {
-        return errorResult(`Hoy quedan ${Math.max(0, restantesHoy)} envíos disponibles (tope ${DAILY_CAP} por día para cuidar el número).`);
+        return errorResult(`Hoy quedan ${Math.max(0, restantesHoy)} envíos disponibles por ${via} (tope ${lim.dailyCap} por día).`);
       }
 
-      const metrics = needsMetrics(args.mensaje, img) ? await profileMetrics(list.map((r) => r.id), period) : null;
+      const metrics = needsMetrics(texts, img) ? await profileMetrics(list.map((r) => r.id), period) : null;
       const job: Job = {
         id: randomUUID().slice(0, 8),
+        via,
         by: ctx.userId,
         startedAt: new Date(),
         finishedAt: null,
@@ -420,10 +566,35 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       jobs.set(job.id, job);
       if (jobs.size > 50) jobs.delete(jobs.keys().next().value!);
       running = job;
-      runJob(job, list, args.mensaje, metrics, period, img).catch((err) =>
+      const send = via === "bot" ? botSender(args.mensaje!) : templateSender(plantilla!, img);
+      runJob(job, list, send, metrics, period, img).catch((err) =>
         console.error("[mcp] enviar_whatsapp:", err?.message || err),
       );
-      return jsonResult({ enviando: true, envio: job.id, destinatarios: list.length, duracionEstimadaMin: etaMin, verAvance: "estado_whatsapp" });
+      return jsonResult({ enviando: true, via, envio: job.id, destinatarios: list.length, duracionEstimadaMin: etaMin, verAvance: "estado_whatsapp" });
+    }),
+  );
+
+  server.registerTool(
+    "plantillas_whatsapp",
+    {
+      title: "Plantillas de WhatsApp aprobadas en Meta",
+      description:
+        "Lista las plantillas de la cuenta de WhatsApp Business (nombre, idioma, estado, categoría, si llevan imagen de encabezado, el cuerpo y cuántas variables {{n}} pide). Úsala antes de enviar_whatsapp con plantilla. Necesita WHATSAPP_BUSINESS_ACCOUNT_ID.",
+      inputSchema: {
+        soloAprobadas: z.boolean().optional().describe("Por defecto sí."),
+        categoria: z.enum(["MARKETING", "UTILITY", "AUTHENTICATION"]).optional(),
+      },
+      annotations: READ,
+    },
+    guarded("plantillas_whatsapp", ctx, async ({ soloAprobadas, categoria }: { soloAprobadas?: boolean; categoria?: string }) => {
+      if (!cloudConfigured()) return errorResult("La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID).");
+      const all = await listCloudTemplates();
+      if (!all) return errorResult("Falta WHATSAPP_BUSINESS_ACCOUNT_ID (WhatsApp Manager → Configuración de la cuenta → ID de la cuenta de WhatsApp Business).");
+      const list = all.filter((t) => (soloAprobadas === false || t.estado === "APPROVED") && (!categoria || t.categoria === categoria));
+      return jsonResult({
+        plantillas: list,
+        nota: "Para enviar con imagen, la plantilla debe tener encabezado IMAGE. Las plantillas se crean y aprueban en WhatsApp Manager.",
+      });
     }),
   );
 
@@ -431,7 +602,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
     "estado_whatsapp",
     {
       title: "Estado del bot y de los envíos de WhatsApp",
-      description: "Estado de conexión del bot de WhatsApp y avance de los envíos masivos (enviados, fallidos, pendientes). Con cancelar=<id> detiene un envío en curso (lo ya enviado no se puede deshacer).",
+      description: "Estado de conexión del bot de WhatsApp, si la Cloud API de Meta está configurada, y avance de los envíos masivos (enviados, fallidos, pendientes). Con cancelar=<id> detiene un envío en curso (lo ya enviado no se puede deshacer).",
       inputSchema: {
         envio: z.string().optional().describe("id del envío; por defecto los últimos"),
         cancelar: z.string().optional().describe("id del envío en curso a detener"),
@@ -447,11 +618,15 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       }
       const { sessionDir: _dir, ...bot } = getBaileysStatus();
       const list = envio ? [jobs.get(envio)].filter((j): j is Job => !!j) : [...jobs.values()].slice(-5).reverse();
+      const [hoyBot, hoyPlantilla] = await Promise.all([sentToday("bot"), sentToday("plantilla")]);
       return jsonResult({
         proveedor: getWhatsAppProvider(),
         bot,
-        enviosHoy: await sentToday(),
-        topeDiario: DAILY_CAP,
+        cloudApi: { configurada: cloudConfigured(), validaPlantillas: Boolean(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID) },
+        enviosHoy: {
+          bot: { enviados: hoyBot, tope: LIMITS.bot.dailyCap },
+          plantilla: { enviados: hoyPlantilla, tope: LIMITS.plantilla.dailyCap },
+        },
         envios: list.map(jobView),
       });
     }),

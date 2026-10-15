@@ -135,6 +135,42 @@ escanear el QR otra vez. Para que la sesión sobreviva:
    (`{{1}}` profesional, `{{2}}` cliente, `{{3}}` texto. Se cambia con
    `WHATSAPP_MESSAGE_TEMPLATE_NAME`.)
 
+### Envíos masivos desde Claude (plantilla de marketing)
+
+La herramienta MCP `enviar_whatsapp` manda a muchos perfiles a la vez una
+plantilla aprobada, con una imagen por perfil de encabezado (tarjeta con sus
+métricas o un flyer, con su foto). Para eso:
+
+1. WhatsApp Manager → *Message templates* → crear, por ejemplo:
+   - Categoría **Marketing** · Nombre `uzeed_metricas` · Idioma **es**
+   - Encabezado: **Imagen** (sube una de muestra; en cada envío va la del perfil)
+   - Cuerpo:
+
+     ```
+     Hola {{1}} 👋 Esta semana {{2}} personas vieron tu perfil en UZEED.
+     Sube historias nuevas para aparecer más arriba.
+     ```
+
+   - Botón (opcional): *Visitar sitio web* con URL dinámica
+     `https://uzeed.cl/{{1}}` (se llena con `botonVariable`, ej.
+     `profesional/{usuario}`).
+2. Agrega `WHATSAPP_BUSINESS_ACCOUNT_ID` (WhatsApp Manager → Configuración
+   de la cuenta). Con él, Claude ve las plantillas (`plantillas_whatsapp`) y
+   revisa antes de enviar que esté aprobada, que tenga imagen y que calcen
+   las variables. Sin él igual envía, pero si algo no calza Meta rechaza cada
+   mensaje.
+3. Pídele a Claude, por ejemplo: *"manda la plantilla uzeed_metricas con la
+   tarjeta de métricas de los últimos 7 días a las Gold de Santiago; {{1}} es
+   el nombre y {{2}} las visitas"*. Muestra una vista previa y sólo envía si
+   la apruebas.
+
+Meta cobra cada plantilla de marketing entregada, exige que las personas
+hayan aceptado recibir mensajes del negocio, limita cuántas conversaciones
+se inician por día según el nivel de la cuenta (parte en 250) y puede no
+entregar marketing a quien ya recibió muchos (error 131049). Topes propios:
+`WHATSAPP_TEMPLATE_BROADCAST_MAX` (1000 por envío) y
+`WHATSAPP_TEMPLATE_BROADCAST_DAILY` (1000 por día).
+
 ### Responder desde WhatsApp
 
 Con la Cloud API, cuando un cliente escribe, a la profesional le llega su
