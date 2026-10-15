@@ -642,6 +642,52 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
   );
 
   server.registerTool(
+    "cruzar_telefonos",
+    {
+      title: "Cruzar una lista de teléfonos con las cuentas de UZEED",
+      description:
+        "Recibe una lista de teléfonos (ej. de un Excel de contactos) y dice cuáles ya tienen cuenta en UZEED, comparando el número normalizado (+56 9 1234 5678, 912345678 y 56912345678 son el mismo). " +
+        "Devuelve, para cada número de la lista, si está registrado y con qué usuario y tipo de perfil; nunca devuelve teléfonos de la base que no estén en la lista. Los inválidos salen aparte.",
+      inputSchema: {
+        telefonos: z.array(z.string().max(40)).min(1).max(5000),
+      },
+      annotations: READ,
+    },
+    guarded("cruzar_telefonos", ctx, async ({ telefonos }: { telefonos: string[] }) => {
+      const wanted = new Map<string, string>(); // normalizado → como venía
+      const invalidos: string[] = [];
+      for (const raw of telefonos) {
+        const n = normalizePhoneForWhatsApp(raw);
+        if (n) wanted.set(n, wanted.get(n) ?? raw);
+        else invalidos.push(raw);
+      }
+      const users = await prisma.user.findMany({
+        where: { phone: { not: null } },
+        select: { id: true, username: true, displayName: true, profileType: true, isActive: true, phone: true, createdAt: true },
+      });
+      const byPhone = new Map<string, (typeof users)[number]>();
+      for (const u of users) {
+        const n = normalizePhoneForWhatsApp(u.phone);
+        if (n && wanted.has(n) && !byPhone.has(n)) byPhone.set(n, u);
+      }
+      const resultados = [...wanted].map(([n, original]) => {
+        const u = byPhone.get(n);
+        return u
+          ? { telefono: original, normalizado: n, registrado: true, usuario: u.username, nombre: u.displayName, tipoPerfil: u.profileType, activo: u.isActive, registradoEl: u.createdAt }
+          : { telefono: original, normalizado: n, registrado: false };
+      });
+      return jsonResult({
+        total: telefonos.length,
+        unicos: wanted.size,
+        registrados: resultados.filter((r) => r.registrado).length,
+        noRegistrados: resultados.filter((r) => !r.registrado).length,
+        invalidos,
+        resultados,
+      });
+    }),
+  );
+
+  server.registerTool(
     "plantillas_whatsapp",
     {
       title: "Plantillas de WhatsApp aprobadas en Meta",
