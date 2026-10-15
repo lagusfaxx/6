@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { config } from "../../config";
-import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData } from "../../lib/metricsCard";
+import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData, type SeriePoint } from "../../lib/metricsCard";
 import { actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
 import {
@@ -101,7 +101,36 @@ const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).form
 const lastMs = (d: Date) => new Date(d.getTime() - 1);
 
 type Pair = { cur: number; prev: number };
-type Metrics = { visitantes: Pair; contactos: Pair; impresiones: Pair; favoritos: Pair; mensajes: Pair };
+type Metrics = { visitantes: Pair; contactos: Pair; impresiones: Pair; favoritos: Pair; mensajes: Pair; serie: SeriePoint[] };
+
+const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** Días calendario (YYYY-MM-DD, hora de Chile) del periodo, en orden. */
+function periodDays(period: Period): string[] {
+  const first = ymd(period.from);
+  const last = ymd(lastMs(period.to));
+  const days: string[] = [];
+  // Aritmética sobre la fecha en UTC: no le afectan los cambios de horario.
+  for (let d = new Date(`${first}T00:00:00Z`); days.length < 400; d = new Date(d.getTime() + 86_400_000)) {
+    const s = d.toISOString().slice(0, 10);
+    days.push(s);
+    if (s >= last) break;
+  }
+  return days;
+}
+
+const dayLabel = (s: string) => `${Number(s.slice(8, 10))} ${MES_CORTO[Number(s.slice(5, 7)) - 1]}`;
+
+/** Hasta 31 barras: por día, o sumando de a 7 días en periodos largos. */
+function buildSerie(days: string[], byDay: Map<string, number>): SeriePoint[] {
+  const step = days.length > 31 ? 7 : 1;
+  const out: SeriePoint[] = [];
+  for (let i = 0; i < days.length; i += step) {
+    const chunk = days.slice(i, i + step);
+    out.push({ etiqueta: dayLabel(chunk[0]), valor: chunk.reduce((a, d) => a + (byDay.get(d) ?? 0), 0) });
+  }
+  return out.slice(-31);
+}
 
 async function profileMetrics(ids: string[], period: Period): Promise<Map<string, Metrics>> {
   const { from, to } = period;
@@ -111,7 +140,7 @@ async function profileMetrics(ids: string[], period: Period): Promise<Map<string
   const prev = (col: string) => Prisma.sql`${Prisma.raw(col)} >= ${pFrom} AND ${Prisma.raw(col)} < ${pTo}`;
   const lo = pFrom < from ? pFrom : from;
 
-  const [vis, con, imp, fav, msg] = await Promise.all([
+  const [vis, con, imp, fav, msg, daily] = await Promise.all([
     prisma.$queryRaw<{ id: string; cur: number; prev: number }[]>`
       WITH u AS (SELECT "id", "username" FROM "User" WHERE "id" = ANY(${ids}::uuid[]))
       SELECT u."id",
@@ -152,12 +181,20 @@ async function profileMetrics(ids: string[], period: Period): Promise<Map<string
       WHERE m."toId" = ANY(${ids}::uuid[]) AND m."createdAt" >= ${lo} AND m."createdAt" < ${to}
         AND m."fromId" NOT IN ${staffIdsSql()}
       GROUP BY 1`,
+    // Visitantes distintos por día del periodo, para el gráfico de la tarjeta.
+    prisma.$queryRaw<{ id: string; dia: string; n: number }[]>`
+      WITH u AS (SELECT "id", "username" FROM "User" WHERE "id" = ANY(${ids}::uuid[]))
+      SELECT u."id", to_char(${localTs('pv."createdAt"')}, 'YYYY-MM-DD') AS dia, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS n
+      FROM "PageView" pv JOIN u ON pv."path" LIKE '/profesional/%'
+        AND (split_part(pv."path", '/', 3) = u."id"::text OR split_part(pv."path", '/', 3) = u."username")
+      WHERE ${cur('pv."createdAt"')} AND ${realPageViewSql("pv")}
+      GROUP BY 1, 2`,
   ]);
 
   const zero = (): Pair => ({ cur: 0, prev: 0 });
   const out = new Map<string, Metrics>();
-  for (const id of ids) out.set(id, { visitantes: zero(), contactos: zero(), impresiones: zero(), favoritos: zero(), mensajes: zero() });
-  const put = (rows: { id: string; cur: number; prev: number }[], key: keyof Metrics) => {
+  for (const id of ids) out.set(id, { visitantes: zero(), contactos: zero(), impresiones: zero(), favoritos: zero(), mensajes: zero(), serie: [] });
+  const put = (rows: { id: string; cur: number; prev: number }[], key: Exclude<keyof Metrics, "serie">) => {
     for (const r of rows) {
       const m = out.get(r.id);
       if (m) m[key] = { cur: r.cur, prev: r.prev };
@@ -168,6 +205,13 @@ async function profileMetrics(ids: string[], period: Period): Promise<Map<string
   put(imp, "impresiones");
   put(fav, "favoritos");
   put(msg, "mensajes");
+  const days = periodDays(period);
+  const byUser = new Map<string, Map<string, number>>();
+  for (const r of daily) {
+    if (!byUser.has(r.id)) byUser.set(r.id, new Map());
+    byUser.get(r.id)!.set(r.dia, r.n);
+  }
+  for (const [id, m] of out) m.serie = buildSerie(days, byUser.get(id) ?? new Map());
   return out;
 }
 
@@ -194,6 +238,7 @@ function cardData(r: Recipient, m: Metrics, period: Period, foto: Buffer | null)
     impresiones: v(m.impresiones),
     favoritos: v(m.favoritos),
     mensajes: v(m.mensajes),
+    serie: m.serie,
   };
 }
 

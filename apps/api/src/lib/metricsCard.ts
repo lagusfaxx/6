@@ -22,7 +22,11 @@ export type MetricsCardData = {
   impresiones: MetricValue;
   favoritos: MetricValue;
   mensajes: MetricValue;
+  /** Visitantes por día (o por semana en periodos largos) para el gráfico. */
+  serie?: SeriePoint[];
 };
+
+export type SeriePoint = { etiqueta: string; valor: number };
 
 export type FlyerData = {
   nombre: string;
@@ -131,6 +135,10 @@ const DEFS = `<defs>
       <stop offset="0" stop-color="#e879f9"/>
       <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
+    <linearGradient id="accentV" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
     <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0.45" stop-color="#0e0e12" stop-opacity="0"/>
       <stop offset="1" stop-color="#0e0e12" stop-opacity="1"/>
@@ -141,48 +149,100 @@ const DEFS = `<defs>
 function delta(v: MetricValue): { text: string; up: boolean | null } {
   if (v.anterior <= 0) return v.actual > 0 ? { text: "nuevo", up: true } : { text: "", up: null };
   const pct = Math.round(((v.actual - v.anterior) / v.anterior) * 100);
-  if (pct === 0) return { text: "= periodo anterior", up: null };
-  return { text: `${pct > 0 ? "+" : "−"}${Math.abs(pct)}% vs anterior`, up: pct > 0 };
+  if (pct === 0) return { text: "igual que antes", up: null };
+  return { text: `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}% vs anterior`, up: pct > 0 };
 }
+
+const deltaColor = (up: boolean | null) => (up === null ? "#94a3b8" : up ? "#6ee7b7" : "#fda4af");
 
 function tile(x: number, y: number, w: number, h: number, label: string, v: MetricValue): string {
   const d = delta(v);
-  const color = d.up === null ? "#94a3b8" : d.up ? "#6ee7b7" : "#fda4af";
   return `
-  <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="32" fill="#18181f" stroke="#2a2a35" stroke-width="2"/>
-  <text x="${x + 40}" y="${y + 70}" font-family="${FONT}" font-size="34" fill="#cbd5e1">${esc(label)}</text>
-  <text x="${x + 40}" y="${y + 172}" font-family="${FONT}" font-size="96" font-weight="bold" fill="#ffffff">${fmt(v.actual)}</text>
-  <text x="${x + 40}" y="${y + h - 40}" font-family="${FONT}" font-size="30" fill="${color}">${esc(d.text)}</text>`;
+  <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="28" fill="#17171e" stroke="#26262f" stroke-width="2"/>
+  <text x="${x + 36}" y="${y + 58}" font-family="${FONT}" font-size="30" fill="#cbd5e1">${esc(label)}</text>
+  <text x="${x + 36}" y="${y + 128}" font-family="${FONT}" font-size="64" font-weight="bold" fill="#ffffff">${fmt(v.actual)}</text>
+  <text x="${x + 36}" y="${y + h - 26}" font-family="${FONT}" font-size="26" fill="${deltaColor(d.up)}">${esc(d.text)}</text>`;
+}
+
+/**
+ * Barras de visitantes por día: una sola serie (sin leyenda), barras finas con
+ * la punta redondeada sobre la línea base, 2 px de separación y etiqueta sólo
+ * en el mejor día y en las fechas de los extremos.
+ */
+function barChart(x: number, y: number, w: number, h: number, serie: SeriePoint[]): string {
+  if (!serie.length) return "";
+  const n = serie.length;
+  const gap = n > 20 ? 4 : 8;
+  const bw = Math.max(4, (w - gap * (n - 1)) / n);
+  const max = Math.max(1, ...serie.map((p) => p.valor));
+  const best = serie.reduce((bi, p, i) => (p.valor > serie[bi].valor ? i : bi), 0);
+  const labelH = 40; // espacio sobre la barra más alta para su número
+  const plotH = h - labelH;
+  const base = y + h;
+  const bars = serie
+    .map((p, i) => {
+      const bx = x + i * (bw + gap);
+      const bh = p.valor > 0 ? Math.max(6, (p.valor / max) * plotH) : 0;
+      const r = Math.min(6, bw / 2, bh);
+      const top = base - bh;
+      const fill = i === best && p.valor > 0 ? "url(#accentV)" : "#3b2f4f";
+      const bar = bh > 0
+        ? `<path d="M${bx},${base} V${top + r} Q${bx},${top} ${bx + r},${top} H${bx + bw - r} Q${bx + bw},${top} ${bx + bw},${top + r} V${base} Z" fill="${fill}"/>`
+        : "";
+      const lbl = i === best && p.valor > 0
+        ? `<text x="${bx + bw / 2}" y="${top - 12}" text-anchor="middle" font-family="${FONT}" font-size="26" font-weight="bold" fill="#ffffff">${fmt(p.valor)}</text>`
+        : "";
+      return bar + lbl;
+    })
+    .join("");
+  const axis = `<line x1="${x}" y1="${base + 1}" x2="${x + w}" y2="${base + 1}" stroke="#33333d" stroke-width="2"/>`;
+  const ends = `
+  <text x="${x}" y="${base + 40}" font-family="${FONT}" font-size="24" fill="#94a3b8">${esc(serie[0].etiqueta)}</text>
+  <text x="${x + w}" y="${base + 40}" text-anchor="end" font-family="${FONT}" font-size="24" fill="#94a3b8">${esc(serie[n - 1].etiqueta)}</text>`;
+  return axis + bars + ends;
 }
 
 export function metricsCardSvg(d: MetricsCardData): string {
-  const gap = 32;
-  const pad = 64;
-  const tw = (W - pad * 2 - gap) / 2;
-  const th = 270;
-  const top = 360;
+  const pad = 56;
+  const gap = 28;
+  const r = 92;
+  const tx = pad + r * 2 + 44;
   const tasa = d.visitantes.actual > 0 ? Math.round((d.contactos.actual / d.visitantes.actual) * 1000) / 10 : 0;
-  // Encabezado: foto a la izquierda, marca, nombre y periodo a la derecha.
-  const r = 105;
-  const tx = pad + r * 2 + 48;
+  const hd = delta(d.visitantes);
+
+  // Panel principal: visitantes con su tendencia diaria.
+  const hx = pad;
+  const hy = 300;
+  const hw = W - pad * 2;
+  const hh = 520;
+  // Cuatro tarjetas chicas en 2x2.
+  const ty = hy + hh + gap;
+  const tw = (hw - gap) / 2;
+  const th = 196;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${DEFS}
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  ${avatar(pad + r, 190, r, d.nombre, d.foto)}
-  <text x="${tx}" y="130" font-family="${FONT}" font-size="36" font-weight="bold" fill="#e879f9" letter-spacing="6">UZEED</text>
-  <text x="${tx}" y="212" font-family="${FONT}" font-size="60" font-weight="bold" fill="#ffffff">${esc(cut(d.nombre, 20))}</text>
-  <text x="${tx}" y="268" font-family="${FONT}" font-size="32" fill="#94a3b8">${esc(cut(d.periodo, 38))}</text>
-  ${tile(pad, top, tw, th, "Vieron tu perfil", d.visitantes)}
-  ${tile(pad + tw + gap, top, tw, th, "Contactos WhatsApp", d.contactos)}
-  ${tile(pad, top + th + gap, tw, th, "Apariciones", d.impresiones)}
-  ${tile(pad + tw + gap, top + th + gap, tw, th, "Mensajes recibidos", d.mensajes)}
-  ${tile(pad, top + (th + gap) * 2, tw, th, "Nuevos favoritos", d.favoritos)}
-  <rect x="${pad + tw + gap}" y="${top + (th + gap) * 2}" width="${tw}" height="${th}" rx="32" fill="url(#accent)"/>
-  <text x="${pad + tw + gap + 40}" y="${top + (th + gap) * 2 + 70}" font-family="${FONT}" font-size="34" fill="#ffffff">Tasa de contacto</text>
-  <text x="${pad + tw + gap + 40}" y="${top + (th + gap) * 2 + 172}" font-family="${FONT}" font-size="96" font-weight="bold" fill="#ffffff">${tasa.toLocaleString("es-CL")}%</text>
-  <text x="${pad + tw + gap + 40}" y="${top + (th + gap) * 2 + th - 40}" font-family="${FONT}" font-size="30" fill="#ffffff">de tus visitas te escribió</text>
-  <text x="${W / 2}" y="${H - 48}" text-anchor="middle" font-family="${FONT}" font-size="30" fill="#64748b">uzeed.cl · Mejora tu perfil para recibir más contactos</text>
+  <circle cx="${W - 120}" cy="120" r="260" fill="#7c3aed" opacity="0.10"/>
+  ${avatar(pad + r, 64 + r, r, d.nombre, d.foto)}
+  <text x="${tx}" y="112" font-family="${FONT}" font-size="30" font-weight="bold" fill="#e879f9" letter-spacing="6">UZEED · TUS MÉTRICAS</text>
+  <text x="${tx}" y="186" font-family="${FONT}" font-size="58" font-weight="bold" fill="#ffffff">${esc(cut(d.nombre, 20))}</text>
+  <text x="${tx}" y="236" font-family="${FONT}" font-size="30" fill="#94a3b8">${esc(cut(d.periodo, 40))}</text>
+
+  <rect x="${hx}" y="${hy}" width="${hw}" height="${hh}" rx="36" fill="#17171e" stroke="#26262f" stroke-width="2"/>
+  <text x="${hx + 44}" y="${hy + 66}" font-family="${FONT}" font-size="32" fill="#cbd5e1">Personas que vieron tu perfil</text>
+  <text x="${hx + 44}" y="${hy + 178}" font-family="${FONT}" font-size="120" font-weight="bold" fill="#ffffff">${fmt(d.visitantes.actual)}</text>
+  <text x="${hx + 44}" y="${hy + 228}" font-family="${FONT}" font-size="28" fill="${deltaColor(hd.up)}">${esc(hd.text)}</text>
+  <rect x="${hx + hw - 320}" y="${hy + 44}" width="276" height="120" rx="24" fill="url(#accent)"/>
+  <text x="${hx + hw - 182}" y="${hy + 108}" text-anchor="middle" font-family="${FONT}" font-size="52" font-weight="bold" fill="#ffffff">${tasa.toLocaleString("es-CL")}%</text>
+  <text x="${hx + hw - 182}" y="${hy + 146}" text-anchor="middle" font-family="${FONT}" font-size="22" fill="#ffffff">te escribió</text>
+  ${barChart(hx + 44, hy + 270, hw - 88, 180, d.serie ?? [])}
+
+  ${tile(hx, ty, tw, th, "Contactos WhatsApp", d.contactos)}
+  ${tile(hx + tw + gap, ty, tw, th, "Apariciones", d.impresiones)}
+  ${tile(hx, ty + th + gap, tw, th, "Mensajes recibidos", d.mensajes)}
+  ${tile(hx + tw + gap, ty + th + gap, tw, th, "Nuevos favoritos", d.favoritos)}
+  <text x="${W / 2}" y="${H - 34}" text-anchor="middle" font-family="${FONT}" font-size="26" fill="#64748b">uzeed.cl · Mejora tu perfil para recibir más contactos</text>
 </svg>`;
 }
 
