@@ -1,6 +1,5 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
-import DirectoryPage from "../../components/DirectoryPage";
+import ContenidoClient from "./ContenidoClient";
 
 /*
  * Creadoras de contenido: profesionales que venden fotos y videos. Las que
@@ -24,14 +23,5 @@ export const metadata: Metadata = {
 };
 
 export default function ContenidoPage() {
-  return (
-    <Suspense>
-      <DirectoryPage
-        key="contenido"
-        entityType="professional"
-        categorySlug="contenido"
-        title="Creadoras de contenido"
-      />
-    </Suspense>
-  );
+  return <ContenidoClient />;
 }

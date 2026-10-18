@@ -552,6 +552,121 @@ async function galleryByOwner(ids: string[]): Promise<Map<string, string[]>> {
   return out;
 }
 
+/* ────────────────────────────────────────────────────────────
+   GET /directory/creators — vitrina de creadoras de contenido (/contenido).
+   Sin mapa ni distancia: lo que vende acá es la foto. Trae la galería
+   pública, los datos físicos y lo que tiene a la venta en su tienda, para
+   que el cliente elija a la que más le gusta y vaya directo a comprar.
+     tags   : etiquetas del perfil, separadas por coma (rubia,tetona…): todas
+     gender : 'FEMALE' (por defecto, incluye sin género) | 'MALE' | 'OTHER'
+     sort   : 'popular' (por defecto) | 'new'
+     limit / offset
+   ──────────────────────────────────────────────────────────── */
+directoryRouter.get(
+  "/directory/creators",
+  asyncHandler(async (req, res) => {
+    const now = Date.now();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 24, 1), 60);
+    const offset = Math.max(0, Math.min(Number(req.query.offset) || 0, 600));
+    const sort = req.query.sort === "new" ? "new" : "popular";
+    const genderParam = typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "FEMALE";
+    const tags = (typeof req.query.tags === "string" ? req.query.tags : "")
+      .split(",")
+      .map((t) => t.toLowerCase().trim().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/-/g, " "))
+      .filter(Boolean)
+      .slice(0, 6);
+
+    const genderCond: Prisma.UserWhereInput =
+      genderParam === "MALE" || genderParam === "OTHER"
+        ? { gender: genderParam as "MALE" | "OTHER" }
+        : { OR: [{ gender: "FEMALE" }, { gender: null }] };
+
+    const users = await prisma.user.findMany({
+      where: withActivePlan<Prisma.UserWhereInput>({
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        isVerified: true,
+        avatarUrl: { not: null },
+        ...contentCreatorWhere(),
+        ...(tags.length ? { profileTags: { hasEvery: tags } } : {}),
+        AND: [genderCond],
+      }),
+      take: 400,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true, username: true, displayName: true, avatarUrl: true, coverUrl: true,
+        birthdate: true, bio: true, city: true, lastSeen: true, createdAt: true,
+        heightCm: true, measurements: true, hairColor: true, skinTone: true,
+        profileTags: true, serviceCategories: true, profileViews: true,
+        adminQualityScore: true, undisclosedFields: true,
+      },
+    });
+    const ids = users.map((u) => u.id);
+
+    /* Tienda: cantidad de artículos a la venta y el más barato. */
+    const [gallery, productStats, sellers] = await Promise.all([
+      galleryByOwner(ids).catch(() => new Map<string, string[]>()),
+      prisma.marketProduct
+        .groupBy({
+          by: ["userId"],
+          where: { userId: { in: ids }, isActive: true, isHidden: false },
+          _count: { _all: true },
+          _min: { priceClp: true },
+          _sum: { salesCount: true },
+        })
+        .catch(() => []),
+      prisma.marketSeller
+        .findMany({
+          where: { userId: { in: ids }, isActive: true, isBanned: false },
+          select: { userId: true },
+        })
+        .catch(() => []),
+    ]);
+    const activeSellers = new Set(sellers.map((s) => s.userId));
+    const statsByUser = new Map(productStats.map((p) => [p.userId, p]));
+
+    const creators = users.map((u) => {
+      const stats = activeSellers.has(u.id) ? statsByUser.get(u.id) : undefined;
+      const hidden = new Set(u.undisclosedFields ?? []);
+      const photos = gallery.get(u.id) ?? [];
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName || u.username,
+        age: resolveAge(u.birthdate, u.bio),
+        city: u.city,
+        avatarUrl: u.avatarUrl,
+        coverUrl: u.coverUrl,
+        photos: photos.length ? photos : [u.avatarUrl].filter(Boolean),
+        heightCm: hidden.has("heightCm") ? null : u.heightCm,
+        measurements: hidden.has("measurements") ? null : u.measurements,
+        hairColor: hidden.has("hairColor") ? null : u.hairColor,
+        profileTags: u.profileTags ?? [],
+        alsoEscort: (u.serviceCategories ?? []).some((c) => c !== CONTENT_CATEGORY),
+        availableNow: u.lastSeen ? now - u.lastSeen.getTime() <= 5 * 60 * 1000 : false,
+        isNew: now - u.createdAt.getTime() <= 15 * 24 * 60 * 60 * 1000,
+        shop: stats
+          ? {
+              productCount: stats._count._all,
+              minPriceClp: stats._min.priceClp,
+              sales: stats._sum.salesCount ?? 0,
+            }
+          : null,
+        _score:
+          (stats ? 1_000_000 + (stats._sum.salesCount ?? 0) * 1000 : 0) +
+          (u.adminQualityScore ?? 0) * 100 +
+          (u.profileViews ?? 0) +
+          photos.length * 50,
+        _created: u.createdAt.getTime(),
+      };
+    });
+
+    creators.sort((a, b) => (sort === "new" ? b._created - a._created : b._score - a._score));
+    const page = creators.slice(offset, offset + limit).map(({ _score, _created, ...c }) => c);
+    return res.json({ creators: page, total: creators.length, hasMore: offset + page.length < creators.length });
+  }),
+);
+
 directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {
