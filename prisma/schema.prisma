@@ -476,6 +476,12 @@ model User {
   languages           String?
   serviceStyleTags    String?
   primaryCategory     String?
+  /// Tipos de servicio que ofrece la profesional (puede marcar varios):
+  /// "escort", "masajes", "despedidas", "videollamadas", "contenido".
+  /// Quien sólo marca "contenido" vende contenido y no atiende: no sale en el
+  /// inicio ni en las secciones de escorts, sólo en /contenido. Vacío en las
+  /// cuentas anteriores a la columna: cuenta como su `primaryCategory`.
+  serviceCategories   String[]          @default([])
   profileTags         String[]          @default([])
   serviceTags         String[]          @default([])
   avgResponseMinutes  Int?

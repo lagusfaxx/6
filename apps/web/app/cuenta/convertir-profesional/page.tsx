@@ -18,6 +18,11 @@ import {
 
 import useMe from "../../../hooks/useMe";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../../lib/api";
+import {
+  SERVICE_CATEGORY_OPTIONS,
+  primaryFromServiceCategories,
+  toggleServiceCategory,
+} from "../../../lib/serviceCategories";
 import MapboxAddressAutocomplete from "../../../components/MapboxAddressAutocomplete";
 import TermsModal from "../../../components/TermsModal";
 
@@ -67,7 +72,7 @@ export default function UpgradeToProfessionalPage() {
   const [birthYear, setBirthYear] = useState("");
 
   // Step 2
-  const [primaryCategory, setPrimaryCategory] = useState("");
+  const [serviceCategories, setServiceCategories] = useState<string[]>([]);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -154,7 +159,7 @@ export default function UpgradeToProfessionalPage() {
       if (age < 18) return "Debes ser mayor de 18 años.";
     }
     if (step === 2) {
-      if (!primaryCategory) return "Selecciona el tipo de servicio que ofreces.";
+      if (!serviceCategories.length) return "Selecciona el tipo de servicio que ofreces.";
       if (galleryFiles.length < MIN_PHOTOS)
         return `Sube al menos ${MIN_PHOTOS} fotos para continuar.`;
     }
@@ -242,7 +247,8 @@ export default function UpgradeToProfessionalPage() {
           displayName: displayName.trim(),
           gender,
           phone: phone.trim(),
-          primaryCategory,
+          primaryCategory: primaryFromServiceCategories(serviceCategories),
+          serviceCategories,
           address,
           city: city || undefined,
           latitude: Number(latitude),
@@ -421,7 +427,7 @@ export default function UpgradeToProfessionalPage() {
                   >
                     <option value="FEMALE">Mujer</option>
                     <option value="MALE">Hombre</option>
-                    <option value="OTHER">Otro</option>
+                    <option value="OTHER">Trans</option>
                   </select>
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
                     ▾
@@ -492,24 +498,28 @@ export default function UpgradeToProfessionalPage() {
             <>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-white/70">
-                  ¿Cómo te defines? (categoría principal)
+                  ¿Qué ofreces? <span className="font-normal text-white/30">— puedes marcar varias</span>
                 </label>
-                <div className="relative">
-                  <select
-                    className="input appearance-none pr-10"
-                    value={primaryCategory}
-                    onChange={(e) => setPrimaryCategory(e.target.value)}
-                  >
-                    <option value="">Selecciona tu categoría</option>
-                    <option value="escort">Escort / Acompañante</option>
-                    <option value="masajes">Masajista</option>
-                    <option value="trans">Trans</option>
-                    <option value="despedidas">Despedidas de soltero</option>
-                    <option value="videollamadas">Videollamadas</option>
-                  </select>
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
-                    ▾
-                  </span>
+                <div className="flex flex-wrap gap-2">
+                  {SERVICE_CATEGORY_OPTIONS.map((c) => {
+                    const selected = serviceCategories.includes(c.value);
+                    return (
+                      <button
+                        key={c.value}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setServiceCategories((prev) => toggleServiceCategory(prev, c.value))}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                          selected
+                            ? "border-fuchsia-500/50 bg-fuchsia-500/20 text-fuchsia-200"
+                            : "border-white/10 text-white/55 hover:border-fuchsia-500/30 hover:text-white/80"
+                        }`}
+                      >
+                        <span className="mr-1">{c.emoji}</span>
+                        {c.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

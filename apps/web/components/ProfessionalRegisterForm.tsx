@@ -7,6 +7,12 @@ import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 import QuickRepliesEditor from "./QuickRepliesEditor";
 import { cleanQuickReplies, type QuickReplies } from "../lib/quickReplies";
 import {
+  SERVICE_CATEGORY_OPTIONS,
+  isContentOnly,
+  primaryFromServiceCategories,
+  toggleServiceCategory,
+} from "../lib/serviceCategories";
+import {
   ArrowLeft,
   ArrowRight,
   Check,
@@ -64,12 +70,8 @@ const GENDERS = [
   { value: "OTHER", label: "Trans" },
 ];
 
-const CATEGORIES = [
-  { value: "escort", label: "Escort", hint: "Acompañante", emoji: "💋" },
-  { value: "masajes", label: "Masajista", hint: "Masajes", emoji: "💆" },
-  { value: "despedidas", label: "Despedidas", hint: "De soltero", emoji: "🎉" },
-  { value: "videollamadas", label: "Videollamadas", hint: "Solo online", emoji: "📱" },
-];
+/* Se puede marcar más de uno: hay escorts que además venden contenido. */
+const CATEGORIES = SERVICE_CATEGORY_OPTIONS;
 
 /* Pasos cortos, una idea por pantalla: en el teléfono el registro era una
    sola columna larguísima. */
@@ -133,7 +135,7 @@ export default function ProfessionalRegisterForm({
   const [gender, setGender] = useState("FEMALE");
   const [birthYear, setBirthYear] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
-  const [primaryCategory, setPrimaryCategory] = useState("");
+  const [serviceCategories, setServiceCategories] = useState<string[]>([]);
 
   // Paso 4
   const [quickReplies, setQuickReplies] = useState<QuickReplies>({});
@@ -188,7 +190,7 @@ export default function ProfessionalRegisterForm({
       const mDiff = now.getMonth() - (bMonth - 1);
       if (mDiff < 0) age -= 1;
       if (age < 18) return "Debes ser mayor de 18 años.";
-      if (!primaryCategory) return "Elige cómo te defines.";
+      if (!serviceCategories.length) return "Elige al menos un tipo de servicio.";
     }
     if (step === 3) {
       if (galleryFiles.length < minPhotos)
@@ -250,7 +252,8 @@ export default function ProfessionalRegisterForm({
       displayName,
       phone,
       gender,
-      primaryCategory: primaryCategory || undefined,
+      primaryCategory: primaryFromServiceCategories(serviceCategories) || undefined,
+      serviceCategories,
       profileType: "PROFESSIONAL",
       address,
       city: city || undefined,
@@ -415,17 +418,20 @@ export default function ProfessionalRegisterForm({
           {subStep === 2 && (
             <>
               <div className="grid gap-2">
-                <span className="text-sm font-medium text-white/70">¿Cómo te defines?</span>
+                <span className="text-sm font-medium text-white/70">¿Qué ofreces?</span>
+                <span className="-mt-1 text-[11px] text-white/40">Puedes marcar más de una opción.</span>
                 <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((c) => {
-                    const selected = primaryCategory === c.value;
+                    const selected = serviceCategories.includes(c.value);
                     return (
                       <button
                         key={c.value}
                         type="button"
-                        onClick={() => setPrimaryCategory(c.value)}
+                        onClick={() => setServiceCategories((prev) => toggleServiceCategory(prev, c.value))}
                         aria-pressed={selected}
                         className={`relative flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-left transition active:scale-[0.98] ${
+                          c.value === "contenido" ? "col-span-2 " : ""
+                        }${
                           selected
                             ? "border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-500/25 to-violet-500/15 shadow-[0_8px_24px_-10px_rgba(217,70,239,0.6)]"
                             : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
@@ -443,6 +449,11 @@ export default function ProfessionalRegisterForm({
                     );
                   })}
                 </div>
+                {isContentOnly(serviceCategories) && (
+                  <p className="text-[11px] text-white/45">
+                    Tu perfil saldrá en la sección Contenido, no en escorts. Si también atiendes, marca ese servicio.
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-2">

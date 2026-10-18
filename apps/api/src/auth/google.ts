@@ -23,6 +23,7 @@ import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
 import { autoReplyFields } from "../messages/autoReply";
 import { isPanelStaff } from "./twoFactor";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import { parseServiceCategories, primaryFromServiceCategories } from "../lib/serviceCategories";
 
 export const googleAuthRouter = Router();
 
@@ -489,6 +490,9 @@ googleAuthRouter.post(
         .json({ error: "VALIDATION", details: parsed.error.flatten() });
     }
     const data = parsed.data;
+    // Tipos de servicio (puede marcar varios); sin lista, su categoría única.
+    const serviceCategories = parseServiceCategories(b.serviceCategories, data.primaryCategory);
+    const primaryCategory = primaryFromServiceCategories(serviceCategories) || data.primaryCategory;
 
     // Respuestas rápidas: opcionales (el cliente sólo ve las que respondió).
     const quickReplies = normalizeQuickReplies(data.quickReplies);
@@ -600,7 +604,8 @@ googleAuthRouter.post(
           profileType: "PROFESSIONAL",
           address: data.address,
           city: data.city || null,
-          primaryCategory: data.primaryCategory,
+          primaryCategory,
+          ...(serviceCategories.length ? { serviceCategories } : {}),
           serviceCategory: resolvedCategoryName,
           categoryId: resolvedCategoryId,
           latitude: data.latitude,
@@ -683,7 +688,7 @@ googleAuthRouter.post(
       userId: user.id,
       username: user.username,
       displayName: user.displayName || null,
-      primaryCategory: data.primaryCategory,
+      primaryCategory,
     }).catch((error) => {
       console.error("[auth/google] failed to create forum thread", {
         userId: user.id,

@@ -16,6 +16,7 @@ import {
 } from "../lib/promo";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
+import { excludeContentOnly } from "../lib/serviceCategories";
 
 export const promoRouter = Router();
 
@@ -273,7 +274,10 @@ promoRouter.get(
     if (!ids.length) return res.json({ profiles: [] });
 
     const users = await prisma.user.findMany({
-      where: withActivePlan({ id: { in: ids }, isActive: true, profileType: "PROFESSIONAL" as const }),
+      // El inicio es de escorts: las que sólo venden contenido no salen acá.
+      where: withActivePlan(
+        excludeContentOnly({ id: { in: ids }, isActive: true, profileType: "PROFESSIONAL" as const }),
+      ),
       select: {
         id: true,
         username: true,

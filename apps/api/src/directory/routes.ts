@@ -14,6 +14,7 @@ import {
 import { isUUID } from "../lib/validators";
 import { userHasActivePlan, withActivePlan } from "../lib/billingSettings";
 import { boostRank, getActiveBoostSets } from "../lib/promo";
+import { CONTENT_CATEGORY, contentCreatorWhere, notContentOnlyWhere } from "../lib/serviceCategories";
 
 function boostLabel(id: string, sets: { bump: Set<string>; spotlight: Set<string> }) {
   const r = boostRank(id, sets);
@@ -176,6 +177,8 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       isActive: true,
       isVerified: true,
+      // Las que sólo venden contenido no atienden: no salen en el directorio.
+      AND: [notContentOnlyWhere()],
       // DEV: subscription filter removed during development
     };
 
@@ -300,6 +303,8 @@ directoryRouter.get(
           error.code === "P2022") ||
         error instanceof Prisma.PrismaClientValidationError
       ) {
+        // Sin la columna de tipos de servicio no se puede filtrar por ella.
+        delete where.AND;
         users = await prisma.user.findMany({
           where: withActivePlan(where),
           select: {
@@ -572,6 +577,8 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       avatarUrl: { not: null },
       isVerified: true,
+      // El inicio es de escorts: las que sólo venden contenido van a /contenido.
+      AND: [notContentOnlyWhere()],
       ...(genderFilter === "FEMALE"
         ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
         : genderFilter
@@ -1318,9 +1325,20 @@ directoryRouter.get(
     if (outcalls) where.acceptsOutcalls = true;
     if (maxRate != null) where.baseRate = { gt: 0, lte: maxRate };
 
+    /* Creadoras de contenido (/contenido): van por la lista de tipos de
+       servicio, no por la categoría principal, porque muchas además son
+       escorts. En cualquier otra búsqueda de profesionales se sacan las que
+       sólo venden contenido: el cliente que busca escort no tiene que
+       escribirle a quien no atiende. */
+    const wantsContent =
+      profileTypeFilter[0] === "PROFESSIONAL" && categorySlugList.includes(CONTENT_CATEGORY);
+    if (profileTypeFilter[0] === "PROFESSIONAL") {
+      where.AND = [wantsContent ? contentCreatorWhere() : notContentOnlyWhere()];
+    }
+
     /* category filter: match primaryCategory OR serviceCategory
        Skip for ESTABLISHMENT/SHOP — profileType alone is enough */
-    if (categoryVariantsList.length && profileTypeFilter[0] === "PROFESSIONAL") {
+    if (categoryVariantsList.length && profileTypeFilter[0] === "PROFESSIONAL" && !wantsContent) {
       const catConditions = allCategoryVariants.flatMap((v) => [
         { primaryCategory: { equals: v, mode: "insensitive" as const } },
         { serviceCategory: { contains: v, mode: "insensitive" as const } },
@@ -1350,11 +1368,12 @@ directoryRouter.get(
     }
     if (q) {
       const textOr = { OR: buildQueryConditions(q) };
+      const prevAnd = (where.AND as unknown[]) ?? [];
       if (where.OR) {
-        where.AND = [{ OR: where.OR }, textOr];
+        where.AND = [...prevAnd, { OR: where.OR }, textOr];
         delete where.OR;
       } else {
-        where.AND = [textOr];
+        where.AND = [...prevAnd, textOr];
       }
     }
 

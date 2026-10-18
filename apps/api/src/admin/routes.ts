@@ -35,6 +35,12 @@ import {
 } from "../profile/nameChange";
 import { safeUploadFilename } from "../lib/uploadFilename";
 import { EXAMS_ENABLED } from "../profile/professionalDocuments";
+import {
+  CONTENT_CATEGORY,
+  isContentOnly,
+  parseServiceCategories,
+  primaryFromServiceCategories,
+} from "../lib/serviceCategories";
 
 export const adminRouter = Router();
 
@@ -432,6 +438,8 @@ adminRouter.get(
           serviceTags: true,
           quickReplies: true,
           birthdate: true,
+          primaryCategory: true,
+          serviceCategories: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -553,9 +561,30 @@ adminRouter.put(
       serviceTags,
       profileTags,
       quickReplies,
+      serviceCategories,
     } = req.body ?? {};
 
     const data: any = {};
+
+    /* Tipos de servicio (escort, masajes, contenido…). El equipo marca a
+       mano a las que venden contenido. La categoría principal sigue a la
+       lista: sólo contenido → "contenido" (sale de escorts); si tiene un
+       servicio presencial y la principal no está en la lista, toma ese. */
+    if (Array.isArray(serviceCategories)) {
+      const cats = parseServiceCategories(serviceCategories);
+      data.serviceCategories = cats;
+      const current = await prisma.user.findUnique({
+        where: { id },
+        select: { primaryCategory: true },
+      });
+      const currentPrimary = (current?.primaryCategory ?? "").toLowerCase();
+      if (isContentOnly(cats)) data.primaryCategory = CONTENT_CATEGORY;
+      else if (
+        cats.length &&
+        (!currentPrimary || currentPrimary === CONTENT_CATEGORY || (!cats.includes(currentPrimary) && currentPrimary !== "trans"))
+      )
+        data.primaryCategory = primaryFromServiceCategories(cats);
+    }
 
     /** Texto opcional: "" borra el dato, undefined lo deja como está. */
     const setText = (field: string, value: unknown, maxLength = 300) => {

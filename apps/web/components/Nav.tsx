@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   Edit3,
   Wallet,
-  ShoppingBag,
   Radio,
   HelpCircle,
   ShieldCheck,
@@ -37,7 +36,7 @@ const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/south-american-cams/female/";
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: "/cerca", label: "Cerca tuyo", icon: MapPin, protected: false },
-  { href: "/marketplace", label: "Marketplace", icon: ShoppingBag, protected: false },
+  { href: "/contenido", label: "Contenido", icon: Camera, protected: false },
   { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
