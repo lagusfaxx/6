@@ -34,20 +34,6 @@ type Creator = {
 
 const PAGE_SIZE = 24;
 
-/* Lo que se elige a primera vista: físico y origen. */
-const LOOKS = [
-  "rubia", "morena", "pelirroja", "trigueña",
-  "tetona", "culona", "delgada", "fitness", "gordita",
-  "tatuada", "natural",
-  "chilena", "colombiana", "venezolana", "argentina",
-] as const;
-
-const GENDERS = [
-  { value: "FEMALE", label: "Ellas" },
-  { value: "OTHER", label: "Trans" },
-  { value: "MALE", label: "Ellos" },
-] as const;
-
 function formatClp(n: number) {
   return `$${n.toLocaleString("es-CL")}`;
 }
@@ -204,15 +190,6 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
   );
 }
 
-/* Mismo estilo que los chips de categorías del inicio. */
-function chip(active: boolean) {
-  return `inline-flex shrink-0 items-center rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${
-    active
-      ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-white"
-      : "border-white/[0.10] text-white/70 hover:border-fuchsia-500/35 hover:text-white"
-  }`;
-}
-
 function SkeletonCard() {
   return <div className="aspect-[3/4] animate-pulse rounded-2xl bg-white/[0.04]" />;
 }
@@ -223,17 +200,14 @@ export default function ContenidoClient() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [look, setLook] = useState<string | null>(null);
-  const [gender, setGender] = useState<string>("FEMALE");
-  const [sort, setSort] = useState<"popular" | "new">("popular");
 
   const buildQuery = useCallback(
     (offset: number) => {
-      const qp = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset), sort, gender });
-      if (look) qp.set("tags", look);
+      /* Sin filtros: todas las mujeres, el cliente elige por la foto. */
+      const qp = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset), gender: "FEMALE" });
       return `/directory/creators?${qp.toString()}`;
     },
-    [look, gender, sort],
+    [],
   );
 
   useEffect(() => {
@@ -276,47 +250,7 @@ export default function ContenidoClient() {
             {loading ? "Cargando…" : `${total} ${total === 1 ? "perfil" : "perfiles"} · fotos y videos`}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
-          {GENDERS.map((g) => (
-            <button
-              key={g.value}
-              type="button"
-              onClick={() => setGender(g.value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                gender === g.value
-                  ? "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white"
-                  : "text-white/55 hover:text-white/80"
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
       </header>
-
-      {/* Físico: lo único que se filtra. Orden al final de la fila. */}
-      <div className="scrollbar-none -mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        <button type="button" onClick={() => setLook(null)} className={chip(look === null)}>
-          Todas
-        </button>
-        {LOOKS.map((t) => (
-          <button key={t} type="button" onClick={() => setLook(look === t ? null : t)} className={chip(look === t)}>
-            {t}
-          </button>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-end gap-3 text-xs">
-        {(["popular", "new"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setSort(s)}
-            className={`transition ${sort === s ? "font-semibold text-white" : "text-white/40 hover:text-white/70"}`}
-          >
-            {s === "popular" ? "Más vendidas" : "Nuevas"}
-          </button>
-        ))}
-      </div>
 
       <div className="mt-3">
         {loading ? (
@@ -327,24 +261,13 @@ export default function ContenidoClient() {
           </div>
         ) : creators.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-sm text-white/55">
-              {look ? `No hay perfiles con “${look}” por ahora.` : "Pronto vas a ver perfiles acá."}
-            </p>
-            {look && (
-              <button
-                type="button"
-                onClick={() => setLook(null)}
-                className="mt-3 text-xs font-semibold text-fuchsia-300 hover:text-fuchsia-200"
-              >
-                Ver todas
-              </button>
-            )}
+            <p className="text-sm text-white/55">Pronto vas a ver perfiles acá.</p>
           </div>
         ) : (
           <>
             <div className="grid grid-flow-dense grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {creators.map((c, i) => (
-                <CreatorCard key={c.id} c={c} featured={i === 0 && sort === "popular" && !look} />
+                <CreatorCard key={c.id} c={c} featured={i === 0} />
               ))}
             </div>
             {hasMore && (
