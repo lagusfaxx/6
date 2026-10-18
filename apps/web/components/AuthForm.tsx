@@ -55,6 +55,8 @@ export type RegisterFormData = {
   phone: string;
   gender?: string;
   primaryCategory?: string;
+  /** Tipos de servicio de la profesional (puede marcar varios). */
+  serviceCategories?: string[];
   profileType: string;
   preferenceGender?: string;
   address?: string;

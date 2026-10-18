@@ -93,6 +93,8 @@ export function categoryLabel(p: HomeProfile): string {
      /escorts?profileTags=trans. La categoría principal no sirve: hay
      perfiles de mujeres con primaryCategory "trans" cargado por error. */
   if (p.profileTags.map(normalize).includes("trans")) return paid ? "Trans VIP" : "Trans";
+  /* Sólo vende contenido (sección /contenido): no es escort. */
+  if (normalize(p.primaryCategory) === "contenido") return "Creadora de contenido";
   if (cat.includes("masaj")) {
     const text = `${cat} ${tags.join(" ")}`;
     if (text.includes("tantr")) return "Tántrico";

@@ -37,6 +37,13 @@ import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import {
+  CONTENT_CATEGORY,
+  isContentOnly,
+  notContentOnlyWhere,
+  parseServiceCategories,
+  primaryFromServiceCategories,
+} from "../lib/serviceCategories";
 
 export const profileRouter = Router();
 
@@ -188,6 +195,8 @@ profileRouter.get(
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
+        // Secciones del inicio (escorts): sin las que sólo venden contenido.
+        AND: [notContentOnlyWhere()],
         ...(genderFilter === "FEMALE"
           ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
           : genderFilter
@@ -617,6 +626,7 @@ async function updateProfile(req: any, res: any) {
     undisclosedFields,
     businessOpen,
     businessPublished,
+    serviceCategories,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -887,6 +897,18 @@ async function updateProfile(req: any, res: any) {
     }
   }
 
+  /* Tipos de servicio (varios). Si sólo vende contenido la categoría
+     principal pasa a "contenido", para que no salga en escorts; si agrega
+     un servicio presencial y la principal era contenido, toma ese servicio. */
+  if (me.profileType === "PROFESSIONAL" && Array.isArray(serviceCategories)) {
+    const cats = parseServiceCategories(serviceCategories);
+    baseData.serviceCategories = cats;
+    const requested = typeof baseData.primaryCategory === "string" ? baseData.primaryCategory : null;
+    if (isContentOnly(cats)) baseData.primaryCategory = CONTENT_CATEGORY;
+    else if (cats.length && (!requested || requested === CONTENT_CATEGORY))
+      baseData.primaryCategory = primaryFromServiceCategories(cats);
+  }
+
   /* Publicación. La ficha incompleta ya no retiene el anuncio: un perfil
      nuevo sale al aire al guardarse, y lo que falte se recuerda en el panel
      como visibilidad, no como bloqueo. `profileCompletedAt` se sigue usando
@@ -918,6 +940,7 @@ async function updateProfile(req: any, res: any) {
     ) {
       // New columns not in DB yet — strip them and retry
       delete baseData.primaryCategory;
+      delete baseData.serviceCategories;
       delete baseData.profileTags;
       delete baseData.serviceTags;
       delete baseData.coverPositionX;
@@ -1193,6 +1216,7 @@ profileRouter.post(
       birthYear,
       birthMonth,
       acceptTerms,
+      serviceCategories: rawServiceCategories,
     } = req.body as Record<string, any>;
 
     const safeDisplayName = normalizeDisplayName(displayName);
@@ -1221,7 +1245,9 @@ profileRouter.post(
       });
     }
 
-    const safePrimaryCategory = String(primaryCategory || "").trim();
+    const upgradeServiceCategories = parseServiceCategories(rawServiceCategories, primaryCategory);
+    const safePrimaryCategory =
+      primaryFromServiceCategories(upgradeServiceCategories) || String(primaryCategory || "").trim();
     if (!safePrimaryCategory) {
       return res.status(400).json({
         error: "CATEGORY_REQUIRED",
@@ -1347,6 +1373,9 @@ profileRouter.post(
         gender: safeGender as any,
         phone: safePhone,
         primaryCategory: safePrimaryCategory,
+        ...(upgradeServiceCategories.length ? { serviceCategories: upgradeServiceCategories } : {}),
+        // Trans va por género + etiqueta, igual que /auth/register.
+        ...(safeGender === "OTHER" ? { profileTags: ["trans"] } : {}),
         serviceCategory: resolvedCategoryName,
         categoryId: resolvedCategoryId,
         address: safeAddress,

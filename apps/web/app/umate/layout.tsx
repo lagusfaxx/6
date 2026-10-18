@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     shortcut: "/brand/umate-icon.svg",
     apple: "/brand/umate-icon.svg",
   },
+  // U-Mate está escondido: no se enlaza desde el sitio ni se indexa. Las
+  // páginas siguen abiertas para quien ya tiene una suscripción.
+  robots: { index: false, follow: false },
 };
 
 export default function UmateLayout({ children }: { children: React.ReactNode }) {

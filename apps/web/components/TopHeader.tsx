@@ -112,7 +112,7 @@ const MEGA_MENU = [
   { label: "Moteles", route: "/moteles", icon: Building2 },
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-  { label: "Marketplace", route: "/marketplace", icon: ShoppingBag },
+  { label: "Contenido", route: "/contenido", icon: Camera },
 ] as const;
 
 export default function TopHeader() {

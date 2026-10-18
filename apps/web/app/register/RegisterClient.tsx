@@ -217,6 +217,7 @@ export default function RegisterClient() {
     if (data.preferenceGender) form.append("preferenceGender", data.preferenceGender);
     if (data.birthdate) form.append("birthdate", data.birthdate);
     if (data.primaryCategory) form.append("primaryCategory", data.primaryCategory);
+    if (data.serviceCategories?.length) form.append("serviceCategories", data.serviceCategories.join(","));
     if (data.city) form.append("city", data.city);
     if (data.bio) form.append("bio", data.bio);
     if (data.referralCode) form.append("referralCode", data.referralCode);
