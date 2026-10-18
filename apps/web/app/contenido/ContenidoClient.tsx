@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BadgeCheck, Camera, Flame, Lock, Sparkles, ShoppingBag } from "lucide-react";
+import { BadgeCheck, Lock, ShoppingBag } from "lucide-react";
+import BackButton from "../../components/BackButton";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { cleanProfileHref } from "../../lib/profileUrl";
 
@@ -87,7 +88,7 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
 
   return (
     <article
-      className={`group relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0910] shadow-[0_20px_50px_-25px_rgba(236,72,153,0.45)] ${
+      className={`group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0e1a] ${
         featured ? "col-span-2 sm:row-span-2" : ""
       }`}
     >
@@ -104,7 +105,7 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
                 alt={i === 0 ? c.displayName : ""}
                 loading={featured && i === 0 ? "eager" : "lazy"}
                 decoding="async"
-                className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                className="h-full w-full object-cover"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png";
                 }}
@@ -122,15 +123,14 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
                 />
               )}
               <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <span className="grid h-14 w-14 place-items-center rounded-full border border-white/20 bg-white/10 backdrop-blur">
-                  <Lock className="h-6 w-6 text-white" />
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-black/40">
+                  <Lock className="h-5 w-5 text-white" />
                 </span>
-                <span className="text-base font-bold text-white">
-                  {c.shop.productCount} {c.shop.productCount === 1 ? "pack exclusivo" : "packs exclusivos"}
+                <span className="text-sm font-semibold text-white">
+                  {c.shop.productCount} {c.shop.productCount === 1 ? "pack a la venta" : "packs a la venta"}
                 </span>
-                <span className="text-xs text-white/70">Lo que no publica en ningún otro lado</span>
-                <span className="rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-bold text-white shadow-lg">
-                  Desbloquear
+                <span className="rounded-full bg-white px-4 py-2 text-xs font-bold text-black">
+                  Ver sus packs
                 </span>
               </span>
             </Link>
@@ -149,11 +149,6 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
               Nueva
             </span>
           )}
-          {c.shop && c.shop.sales >= 5 && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold text-black">
-              <Flame className="h-3 w-3" /> Top ventas
-            </span>
-          )}
         </div>
 
         {/* Puntos de la galería */}
@@ -170,7 +165,7 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
 
         {/* Nombre, físico y precio */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-black via-black/70 to-transparent px-3.5 pb-3.5 pt-16">
-          <h3 className={`flex items-center gap-1.5 font-extrabold text-white ${featured ? "text-2xl" : "text-base"}`}>
+          <h3 className={`flex items-center gap-1.5 font-bold text-white ${featured ? "text-xl" : "text-[15px]"}`}>
             <span className="truncate">{c.displayName}</span>
             {c.age != null && <span className="font-medium text-white/70">{c.age}</span>}
             <BadgeCheck className="h-4 w-4 shrink-0 text-sky-400" aria-label="Verificada" />
@@ -181,13 +176,17 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
           <div className="pointer-events-auto mt-2.5 flex items-center gap-2">
             <Link
               href={target}
-              className="flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500 py-2 text-xs font-bold text-white shadow-[0_8px_20px_-8px_rgba(236,72,153,0.9)] transition active:scale-[0.97]"
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full py-2 text-xs font-bold text-white transition active:scale-[0.97] ${
+                c.shop
+                  ? "bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:brightness-110"
+                  : "border border-white/20 bg-black/40 backdrop-blur hover:bg-black/60"
+              }`}
             >
-              {c.shop ? <ShoppingBag className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+              {c.shop && <ShoppingBag className="h-3.5 w-3.5" />}
               <span className="truncate">
                 {c.shop?.minPriceClp
                   ? `${featured ? "Packs desde" : "Desde"} ${formatClp(c.shop.minPriceClp)}`
-                  : featured ? "Ver su contenido" : "Ver más"}
+                  : "Ver perfil"}
               </span>
             </Link>
             {c.shop && featured && (
@@ -205,8 +204,17 @@ function CreatorCard({ c, featured = false }: { c: Creator; featured?: boolean }
   );
 }
 
+/* Mismo estilo que los chips de categorías del inicio. */
+function chip(active: boolean) {
+  return `inline-flex shrink-0 items-center rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${
+    active
+      ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-white"
+      : "border-white/[0.10] text-white/70 hover:border-fuchsia-500/35 hover:text-white"
+  }`;
+}
+
 function SkeletonCard() {
-  return <div className="aspect-[3/4] animate-pulse rounded-3xl bg-white/[0.04]" />;
+  return <div className="aspect-[3/4] animate-pulse rounded-2xl bg-white/[0.04]" />;
 }
 
 export default function ContenidoClient() {
@@ -257,143 +265,110 @@ export default function ContenidoClient() {
     }
   }
 
-  const chip = (active: boolean) =>
-    `shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold capitalize transition ${
-      active
-        ? "border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/30 to-rose-500/25 text-white shadow-[0_0_18px_rgba(236,72,153,0.25)]"
-        : "border-white/10 bg-white/[0.03] text-white/60 hover:border-fuchsia-400/30 hover:text-white"
-    }`;
-
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16">
-      {/* Hero */}
-      <section className="relative -mx-4 mb-6 overflow-hidden px-4 pb-8 pt-8 text-center sm:mx-0 sm:mt-4 sm:rounded-3xl sm:border sm:border-white/[0.06]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(236,72,153,0.35),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(168,85,247,0.25),transparent_55%)]" />
-        <div className="relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-fuchsia-200">
-            <Sparkles className="h-3.5 w-3.5" /> Contenido exclusivo
-          </span>
-          <h1 className="mx-auto mt-4 max-w-2xl text-3xl font-black leading-[1.05] tracking-tight text-white sm:text-5xl">
-            Elige a la que más{" "}
-            <span className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-rose-400 bg-clip-text text-transparent">
-              te guste
-            </span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-md text-sm text-white/60 sm:text-base">
-            Fotos y videos que no publican en ningún otro lado. Lo compras directo a ella y te llega al instante.
+    <div className="mx-auto w-full max-w-7xl pb-16">
+      {/* Cabecera: la misma de las demás secciones (volver, título, conteo). */}
+      <header className="flex items-center gap-3 py-1">
+        <BackButton inline />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-bold">Contenido</h1>
+          <p className="mt-0.5 truncate text-[11px] text-white/45">
+            {loading ? "Cargando…" : `${total} ${total === 1 ? "perfil" : "perfiles"} · fotos y videos`}
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/50">
-            <span className="flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5 text-sky-400" /> Perfiles verificados</span>
-            <span className="flex items-center gap-1"><Lock className="h-3.5 w-3.5 text-fuchsia-300" /> Compra discreta</span>
-            <span className="flex items-center gap-1"><Flame className="h-3.5 w-3.5 text-amber-300" /> Entrega inmediata</span>
-          </div>
         </div>
-      </section>
-
-      {/* Filtros: a quién quiere ver, no dónde está */}
-      <div className="sticky top-0 z-20 -mx-4 mb-5 space-y-2.5 border-b border-white/[0.05] bg-[#09070d]/85 px-4 py-3 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
-            {GENDERS.map((g) => (
-              <button
-                key={g.value}
-                type="button"
-                onClick={() => setGender(g.value)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                  gender === g.value ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white" : "text-white/55 hover:text-white"
-                }`}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1 text-xs">
-            {(["popular", "new"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSort(s)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 font-semibold transition ${
-                  sort === s ? "bg-white/10 text-white" : "text-white/45 hover:text-white/80"
-                }`}
-              >
-                {s === "popular" ? "Top" : "Nuevas"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-          <button type="button" onClick={() => setLook(null)} className={chip(look === null)}>
-            Todas
-          </button>
-          {LOOKS.map((t) => (
-            <button key={t} type="button" onClick={() => setLook(look === t ? null : t)} className={chip(look === t)}>
-              {t}
+        <div className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
+          {GENDERS.map((g) => (
+            <button
+              key={g.value}
+              type="button"
+              onClick={() => setGender(g.value)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                gender === g.value
+                  ? "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white"
+                  : "text-white/55 hover:text-white/80"
+              }`}
+            >
+              {g.label}
             </button>
           ))}
         </div>
+      </header>
+
+      {/* Físico: lo único que se filtra. Orden al final de la fila. */}
+      <div className="scrollbar-none -mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        <button type="button" onClick={() => setLook(null)} className={chip(look === null)}>
+          Todas
+        </button>
+        {LOOKS.map((t) => (
+          <button key={t} type="button" onClick={() => setLook(look === t ? null : t)} className={chip(look === t)}>
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-3 text-xs">
+        {(["popular", "new"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSort(s)}
+            className={`transition ${sort === s ? "font-semibold text-white" : "text-white/40 hover:text-white/70"}`}
+          >
+            {s === "popular" ? "Más vendidas" : "Nuevas"}
+          </button>
+        ))}
       </div>
 
-      {!loading && total > 0 && (
-        <p className="mb-3 text-xs text-white/40">
-          {total} {total === 1 ? "creadora" : "creadoras"}
-          {look ? ` · ${look}` : ""}
-        </p>
-      )}
-
-      {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : creators.length === 0 ? (
-        <div className="rounded-3xl border border-white/[0.06] bg-white/[0.02] px-6 py-16 text-center">
-          <Camera className="mx-auto h-10 w-10 text-white/20" />
-          <p className="mt-3 text-sm text-white/60">
-            {look ? `Todavía no hay creadoras "${look}".` : "Todavía no hay creadoras publicadas."}
-          </p>
-          {look && (
-            <button type="button" onClick={() => setLook(null)} className="mt-4 text-xs font-semibold text-fuchsia-300 hover:text-fuchsia-200">
-              Ver todas
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-flow-dense grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {creators.map((c, i) => (
-              <CreatorCard key={c.id} c={c} featured={i === 0 && sort === "popular" && !look} />
+      <div className="mt-3">
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
             ))}
           </div>
-          {hasMore && (
-            <div className="mt-8 flex justify-center">
+        ) : creators.length === 0 ? (
+          <div className="py-20 text-center">
+            <p className="text-sm text-white/55">
+              {look ? `No hay perfiles con “${look}” por ahora.` : "Pronto vas a ver perfiles acá."}
+            </p>
+            {look && (
               <button
                 type="button"
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-2.5 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
+                onClick={() => setLook(null)}
+                className="mt-3 text-xs font-semibold text-fuchsia-300 hover:text-fuchsia-200"
               >
-                {loadingMore ? "Cargando…" : "Ver más creadoras"}
+                Ver todas
               </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-flow-dense grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {creators.map((c, i) => (
+                <CreatorCard key={c.id} c={c} featured={i === 0 && sort === "popular" && !look} />
+              ))}
             </div>
-          )}
-        </>
-      )}
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="rounded-full border border-white/10 px-6 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  {loadingMore ? "Cargando…" : "Ver más"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* Lado oferta */}
-      <section className="mt-12 rounded-3xl border border-white/[0.06] bg-gradient-to-br from-fuchsia-500/[0.08] to-transparent p-6 text-center">
-        <h2 className="text-lg font-bold text-white">¿Vendes contenido?</h2>
-        <p className="mx-auto mt-1 max-w-md text-sm text-white/55">
-          Publica tus packs gratis y llega a miles de clientes que buscan justo lo que haces.
-        </p>
-        <Link
-          href="/vender-contenido"
-          className="mt-4 inline-flex rounded-full bg-white px-5 py-2 text-sm font-bold text-black transition hover:bg-white/90"
-        >
-          Empezar a vender
+      <p className="mt-14 text-center text-xs text-white/40">
+        ¿Vendes contenido?{" "}
+        <Link href="/vender-contenido" className="font-semibold text-fuchsia-300 hover:text-fuchsia-200">
+          Publica tus packs gratis
         </Link>
-      </section>
+      </p>
     </div>
   );
 }
