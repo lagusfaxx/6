@@ -18,6 +18,7 @@ import {
   withSegment,
   type Filtros,
 } from "../stats/core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -74,7 +75,7 @@ export function registerTrafficTools(server: McpServer, ctx: McpContext) {
             (SELECT COALESCE(AVG(pages), 0) FROM fs)::float8 AS paginas_por_sesion,
             (SELECT COALESCE(AVG(seconds) FILTER (WHERE pages > 1), 0) FROM fs)::float8 AS duracion_media_s,
             (SELECT COUNT(*) FILTER (WHERE pages = 1) FROM fs)::int AS rebotes,
-            (SELECT COUNT(*) FROM pvf WHERE pvf."path" LIKE '/profesional/%')::int AS vistas_fichas,
+            (SELECT COUNT(*) FROM pvf WHERE ${profilePageSql("pvf")})::int AS vistas_fichas,
             (SELECT COALESCE(AVG(profiles_seen), 0) FROM fs)::float8 AS fichas_por_sesion`);
         out.volumen = {
           visitas: r.visitas,

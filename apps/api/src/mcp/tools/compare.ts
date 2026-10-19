@@ -16,6 +16,7 @@ import {
   yearAgo,
   type Filtros,
 } from "../stats/core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -32,11 +33,11 @@ function dimFilter(dim: (typeof DIMENSIONES)[number], value: string, base: Filtr
 async function profileMetrics(userId: string, range: { from: Date; to: Date }) {
   const rows = await prisma.$queryRaw<Record<string, number>[]>`
     SELECT
-      (SELECT COUNT(*) FROM "PageView" pv WHERE pv."path" LIKE '/profesional/%' AND split_part(pv."path", '/', 3) = ${userId}
+      (SELECT COUNT(*) FROM "PageView" pv WHERE ${profilePageSql("pv")} AND split_part(pv."path", '/', 3) IN (${userId}, (SELECT "username" FROM "User" WHERE "id" = ${userId}::uuid))
         AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to} AND pv."path" NOT LIKE '/admin%'
         AND (pv."userAgent" IS NULL OR pv."userAgent" !~* 'bot|crawl|spider|headless|lighthouse'))::int AS "vistasFichas",
       (SELECT COUNT(DISTINCT COALESCE(pv."visitorId", pv."sessionId", pv."id"::text)) FROM "PageView" pv
-        WHERE pv."path" LIKE '/profesional/%' AND split_part(pv."path", '/', 3) = ${userId}
+        WHERE ${profilePageSql("pv")} AND split_part(pv."path", '/', 3) IN (${userId}, (SELECT "username" FROM "User" WHERE "id" = ${userId}::uuid))
         AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to})::int AS "visitantesFichas",
       (SELECT COUNT(DISTINCT (COALESCE(ua."userId"::text, ua."visitorId", ua."sessionId", ua."id"::text) || to_char((ua."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${TZ}, 'YYYY-MM-DD')))
         FROM "UserAction" ua WHERE ua."action" = 'whatsapp_click' AND ua."targetId" = ${userId}::uuid
@@ -67,10 +68,10 @@ async function peerAverage(userId: string, range: { from: Date; to: Date }) {
     WITH peers AS (SELECT u."id", u."username" FROM "User" u WHERE ${peersWhere})
     SELECT (SELECT COUNT(*) FROM peers)::int AS n,
       (SELECT COUNT(*) FROM "PageView" pv JOIN peers p ON split_part(pv."path", '/', 3) IN (p."id"::text, p."username")
-        WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to})::int AS vistas,
+        WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to})::int AS vistas,
       (SELECT COUNT(DISTINCT (COALESCE(pv."visitorId", pv."sessionId", pv."id"::text) || split_part(pv."path", '/', 3))) FROM "PageView" pv
         JOIN peers p ON split_part(pv."path", '/', 3) IN (p."id"::text, p."username")
-        WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to})::int AS visitantes,
+        WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to})::int AS visitantes,
       (SELECT COUNT(DISTINCT (COALESCE(ua."userId"::text, ua."visitorId", ua."sessionId", ua."id"::text) || ua."targetId"::text || to_char((ua."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${TZ}, 'YYYY-MM-DD')))
         FROM "UserAction" ua JOIN peers p ON p."id" = ua."targetId" WHERE ua."action" = 'whatsapp_click'
         AND ua."createdAt" >= ${range.from} AND ua."createdAt" < ${range.to})::int AS wa,

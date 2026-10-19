@@ -41,6 +41,17 @@ export function realPageViewSql(alias = "pv"): Prisma.Sql {
   )`;
 }
 
+/**
+ * Condición SQL "esta página vista es la ficha pública de un perfil". La
+ * ficha tiene tres direcciones: /profesional/<id> (o el usuario, por enlaces
+ * antiguos), /escort/<usuario> y /masajista/<usuario>; el 3er segmento del
+ * path identifica al perfil por id o por usuario.
+ */
+export function profilePageSql(alias = "pv"): Prisma.Sql {
+  const a = Prisma.raw(`"${alias}"`);
+  return Prisma.sql`(${a}."path" LIKE '/profesional/%' OR ${a}."path" LIKE '/escort/%' OR ${a}."path" LIKE '/masajista/%')`;
+}
+
 /** Condición SQL de acción real (click) de alguien que no es del equipo. */
 export function realActionSql(alias = "ua"): Prisma.Sql {
   const a = Prisma.raw(`"${alias}"`);

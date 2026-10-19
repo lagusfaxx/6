@@ -12,9 +12,10 @@ import { useDiscreet } from "../DiscreetProvider";
  * finge un mensaje ("te escribió"): dice lo que es, contenido de creadoras
  * reales, y lleva a la sección.
  *
- * Para no molestar: sale una vez por visita, a los pocos segundos, nunca
- * encima del aviso de edad ni en modo discreto; se va sola si no la tocan y
- * "Ahora no" la apaga por 24 horas.
+ * Sale cada vez que se entra al inicio (también al volver del chat u otra
+ * sección), a los pocos segundos. Para no molestar: nunca encima del aviso de
+ * edad ni en modo discreto, se va sola si no la tocan y "Ahora no" sólo la
+ * cierra por esta vez.
  */
 
 type Creator = {
@@ -26,21 +27,26 @@ type Creator = {
 };
 
 const AGE_KEY = "uzeed:ageVerified";
-const SESSION_KEY = "uzeed:packToastShown";
-const SNOOZE_KEY = "uzeed:packToastSnoozedUntil";
+const SEEN_KEY = "uzeed:packToastShown";
+/* La primera vez espera a que miren el inicio; al volver sale antes. */
 const APPEAR_MS = 6_000;
+const REAPPEAR_MS = 2_500;
 const VISIBLE_MS = 25_000;
 const ROTATE_MS = 2_600;
-const SNOOZE_MS = 24 * 60 * 60 * 1000;
 
 /* La edad se mira al momento de mostrar: quien la confirma recién entrando
    igual lo ve en esta visita. */
-function canShow(checkAge = true) {
+function ageVerified() {
   try {
-    if (checkAge && !localStorage.getItem(AGE_KEY)) return false;
-    if (sessionStorage.getItem(SESSION_KEY)) return false;
-    const until = Number(localStorage.getItem(SNOOZE_KEY) || 0);
-    return !(until && until > Date.now());
+    return Boolean(localStorage.getItem(AGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+function seenThisVisit() {
+  try {
+    return Boolean(sessionStorage.getItem(SEEN_KEY));
   } catch {
     return false;
   }
@@ -54,25 +60,25 @@ export default function ContentPackToast() {
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    if (discreet || !canShow(false)) return;
+    if (discreet) return;
     const controller = new AbortController();
     let hideTimer: number | undefined;
     const showTimer = window.setTimeout(() => {
       apiFetch<{ creators: Creator[] }>("/directory/creators?limit=10&gender=FEMALE", { signal: controller.signal })
         .then((r) => {
           const list = (r?.creators ?? []).filter((c) => c.photos[0]);
-          if (!list.length || !canShow()) return;
+          if (!list.length || !ageVerified()) return;
           setCreators(list);
           setOpen(true);
           try {
-            sessionStorage.setItem(SESSION_KEY, "1");
+            sessionStorage.setItem(SEEN_KEY, "1");
           } catch {
-            /* sin storage: sale igual, una vez */
+            /* sin storage: sólo cambia la espera */
           }
           hideTimer = window.setTimeout(() => setOpen(false), VISIBLE_MS);
         })
         .catch(() => {});
-    }, APPEAR_MS);
+    }, seenThisVisit() ? REAPPEAR_MS : APPEAR_MS);
     return () => {
       controller.abort();
       window.clearTimeout(showTimer);
@@ -89,11 +95,6 @@ export default function ContentPackToast() {
 
   function dismiss() {
     setOpen(false);
-    try {
-      localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
-    } catch {
-      /* nada que recordar */
-    }
   }
 
   if (!creators.length) return null;

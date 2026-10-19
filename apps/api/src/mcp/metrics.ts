@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
-import { BOT_UA_PATTERN, actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../lib/statsFilters";
+import { BOT_UA_PATTERN, actorKeySql, profilePageSql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../lib/statsFilters";
 import { TZ } from "./helpers";
 
 /**
@@ -40,7 +40,7 @@ export async function trafficSummary({ from, to }: Range) {
       COUNT(*) FILTER (WHERE pv."path" LIKE '/admin%')::int AS panel,
       COUNT(DISTINCT ${visitorKeySql("pv")}) FILTER (WHERE ${clean})::int AS visitantes,
       COUNT(DISTINCT COALESCE(pv."sessionId", pv."id"::text)) FILTER (WHERE ${clean})::int AS sesiones,
-      COUNT(*) FILTER (WHERE ${clean} AND pv."path" LIKE '/profesional/%')::int AS visitas_fichas,
+      COUNT(*) FILTER (WHERE ${clean} AND ${profilePageSql("pv")})::int AS visitas_fichas,
       COUNT(*) FILTER (WHERE ${clean} AND pv."userId" IS NOT NULL)::int AS con_sesion,
       COUNT(*) FILTER (WHERE ${clean} AND pv."visitorId" IS NULL)::int AS sin_visitor
     FROM "PageView" pv
