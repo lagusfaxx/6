@@ -934,6 +934,25 @@ model WhatsAppRelay {
   @@index([waId, createdAt])
 }
 
+/// Lo que llega del WhatsApp de una profesional (Cloud API de Meta), para el
+/// panel /admin/whatsapp: quién respondió, a qué cliente, qué dijo y si se
+/// entregó en el chat. status: SENT, NO_CHAT (no se supo a qué chat iba),
+/// NOT_TEXT (foto/audio), BLOCKED (cuenta inactiva o chat no permitido), TEST.
+model WhatsAppReply {
+  id        String   @id @default(uuid()) @db.Uuid
+  waId      String
+  userId    String?  @db.Uuid
+  peerId    String?  @db.Uuid
+  messageId String?  @db.Uuid
+  kind      String
+  body      String?
+  status    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
 /// Registro de cada aviso enviado (o intentado) por SMS o WhatsApp, para
 /// las estadísticas del panel /admin/whatsapp. No guarda el teléfono ni el texto.
 model NotificationDelivery {

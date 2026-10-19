@@ -293,7 +293,9 @@ function StoryViewer({
 }
 
 /* ─── Stories row ───────────────────────────────────────── */
-export default function Stories() {
+/* `gender` filtra por la sección: /hombres muestra las historias de hombres y
+   el inicio las de mujeres. Sin él salen todas. */
+export default function Stories({ gender }: { gender?: string } = {}) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
   const router = useRouter();
@@ -333,10 +335,10 @@ export default function Stories() {
 
   const loadGroups = useCallback(
     () =>
-      apiFetch<{ stories: StoryGroup[] }>("/stories/active")
+      apiFetch<{ stories: StoryGroup[] }>(`/stories/active${gender ? `?gender=${encodeURIComponent(gender)}` : ""}`)
         .then((d) => setGroups(d.stories ?? []))
         .catch(() => setGroups([])),
-    [],
+    [gender],
   );
 
   useEffect(() => {
@@ -345,7 +347,7 @@ export default function Stories() {
 
     loadGroups().finally(checkDone);
 
-    apiFetch<{ streams: LiveStreamItem[] }>("/live/active")
+    apiFetch<{ streams: LiveStreamItem[] }>(`/live/active${gender ? `?gender=${encodeURIComponent(gender)}` : ""}`)
       .then((d) => setLiveStreams(d.streams ?? []))
       .catch(() => setLiveStreams([]))
       .finally(checkDone);

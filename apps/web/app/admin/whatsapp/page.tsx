@@ -575,6 +575,9 @@ export default function AdminWhatsAppPage() {
         </section>
       )}
 
+      {/* ── Respuestas desde WhatsApp ── */}
+      <WhatsAppReplies />
+
       {/* ── Desvincular ── */}
       {status?.provider === "baileys" && (b?.status === "connected" || b?.connectedAs) && (
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -592,5 +595,148 @@ export default function AdminWhatsAppPage() {
         </section>
       )}
     </div>
+  );
+}
+
+/* ── Respuestas desde WhatsApp ──
+   Lo que las profesionales contestaron desde su WhatsApp: quién, a qué
+   cliente, qué dijo y si llegó al chat de UZEED. */
+
+type WaReply = {
+  id: string;
+  createdAt: string;
+  status: "SENT" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
+  kind: string;
+  body: string | null;
+  messageId: string | null;
+  professional: { name: string; username: string } | null;
+  client: { name: string; username: string } | null;
+};
+
+const REPLY_STATUS: Record<WaReply["status"], { label: string; className: string }> = {
+  SENT: { label: "Entregada", className: "text-emerald-300" },
+  NO_CHAT: { label: "Sin chat", className: "text-amber-300" },
+  NOT_TEXT: { label: "No es texto", className: "text-amber-300" },
+  BLOCKED: { label: "Bloqueada", className: "text-rose-300" },
+  TEST: { label: "Prueba", className: "text-white/45" },
+};
+
+const REPLY_FILTERS: Array<{ value: string; label: string }> = [
+  { value: "", label: "Todas" },
+  { value: "SENT", label: "Entregadas" },
+  { value: "NO_CHAT", label: "Sin chat" },
+  { value: "NOT_TEXT", label: "No es texto" },
+  { value: "BLOCKED", label: "Bloqueadas" },
+];
+
+const KIND_LABEL: Record<string, string> = {
+  image: "Foto",
+  audio: "Audio",
+  video: "Video",
+  sticker: "Sticker",
+  document: "Documento",
+  location: "Ubicación",
+  reaction: "Reacción",
+};
+
+function WhatsAppReplies() {
+  const [status, setStatus] = useState("");
+  const [rows, setRows] = useState<WaReply[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(
+    async (offset: number) => {
+      setLoading(true);
+      try {
+        const r = await apiFetch<{ replies: WaReply[]; total: number; hasMore: boolean }>(
+          `/notifications/whatsapp/replies?limit=50&offset=${offset}${status ? `&status=${status}` : ""}`,
+        );
+        setRows((prev) => (offset ? [...prev, ...r.replies] : r.replies));
+        setTotal(r.total);
+        setHasMore(r.hasMore);
+      } catch {
+        if (!offset) setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [status],
+  );
+
+  useEffect(() => {
+    load(0);
+  }, [load]);
+
+  return (
+    <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Respuestas desde WhatsApp</p>
+        <button
+          type="button"
+          onClick={() => load(0)}
+          className="inline-flex items-center gap-1 text-[11px] text-white/45 transition hover:text-white"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Actualizar
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-white/45">
+        Lo que las profesionales contestan desde su WhatsApp y a qué cliente le llegó en el chat. {total > 0 && `${total} en total.`}
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {REPLY_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setStatus(f.value)}
+            className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+              status === f.value
+                ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-100"
+                : "border-white/10 bg-white/5 text-white/55 hover:text-white/80"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {rows.length === 0 && !loading && <p className="text-xs text-white/35">Todavía no hay respuestas desde WhatsApp.</p>}
+        {rows.map((r) => {
+          const st = REPLY_STATUS[r.status] ?? { label: r.status, className: "text-white/45" };
+          return (
+            <div key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                <span className="tabular-nums text-white/40">{formatWhen(r.createdAt)}</span>
+                <span className="font-semibold text-white/85">{r.professional?.name ?? "Número sin perfil"}</span>
+                {r.client && (
+                  <>
+                    <span className="text-white/30">→</span>
+                    <span className="text-white/70">{r.client.name}</span>
+                  </>
+                )}
+                <span className={`ml-auto font-semibold ${st.className}`}>{st.label}</span>
+              </div>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-white/80">
+                {r.body ?? <span className="italic text-white/40">{KIND_LABEL[r.kind] || r.kind}</span>}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {hasMore && (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => load(rows.length)}
+          className="mt-3 w-full rounded-xl border border-white/10 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/5 disabled:opacity-40"
+        >
+          {loading ? "Cargando…" : "Ver más"}
+        </button>
+      )}
+    </section>
   );
 }

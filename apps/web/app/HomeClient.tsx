@@ -693,7 +693,8 @@ export default function HomeClient() {
 
         {/* ═══ STORIES ═══ */}
         <section className="mb-6">
-          <Stories />
+          {/* El inicio lista mujeres: las historias, también. */}
+          <Stories gender="FEMALE" />
         </section>
 
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}

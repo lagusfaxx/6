@@ -77,6 +77,22 @@ function alreadySeen(id: string): boolean {
   return false;
 }
 
+/* Registro para /admin/whatsapp: qué llegó, de quién y en qué terminó. Un
+   fallo al guardarlo no puede frenar la respuesta. */
+async function logReply(data: {
+  waId: string;
+  userId?: string | null;
+  peerId?: string | null;
+  messageId?: string | null;
+  kind: string;
+  body?: string | null;
+  status: "SENT" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
+}) {
+  await prisma.whatsAppReply
+    .create({ data: { ...data, body: data.body?.slice(0, 2000) ?? null } })
+    .catch((err) => console.error("[whatsapp:webhook] reply log failed:", err?.message || err));
+}
+
 async function handleIncoming(message: any): Promise<void> {
   const from = String(message?.from || "");
   const wamid = String(message?.id || "");
@@ -98,8 +114,19 @@ async function handleIncoming(message: any): Promise<void> {
         orderBy: { createdAt: "desc" },
       });
 
+  const kind = String(message?.type || "unknown");
+  const textBody = typeof message?.text?.body === "string" ? message.text.body.trim() : null;
+
   // El aviso citado tiene que haber sido enviado a este mismo número.
   if (!relay || relay.waId !== from || !relay.peerId) {
+    /* Sin chat no hay destinatario, pero sí se sabe quién escribió: el último
+       aviso que se le mandó a ese número. */
+    const owner = await prisma.whatsAppRelay.findFirst({
+      where: { waId: from },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true },
+    });
+    await logReply({ waId: from, userId: owner?.userId ?? null, kind, body: textBody, status: "NO_CHAT" });
     await sendCloudText(
       from,
       `No encontré a qué chat corresponde tu respuesta. Para contestar, desliza el mensaje del cliente y responde, o entra a ${CHAT_URL}`,
@@ -108,6 +135,7 @@ async function handleIncoming(message: any): Promise<void> {
   }
 
   if (message?.type !== "text" || typeof message?.text?.body !== "string") {
+    await logReply({ waId: from, userId: relay.userId, peerId: relay.peerId, kind, status: "NOT_TEXT" });
     await sendCloudText(from, `Por ahora solo puedo enviar mensajes de texto. Para fotos o audios entra a ${CHAT_URL}`);
     return;
   }
@@ -118,6 +146,7 @@ async function handleIncoming(message: any): Promise<void> {
   // Aviso de prueba del admin (/admin/whatsapp → "Probar chat completo"):
   // se confirma la respuesta sin crear ningún mensaje real.
   if (relay.peerId === relay.userId) {
+    await logReply({ waId: from, userId: relay.userId, kind, body, status: "TEST" });
     await sendCloudText(
       from,
       `✅ Prueba correcta: recibimos tu respuesta "${body.slice(0, 200)}". En un chat real le habría llegado al cliente en UZEED.`,
@@ -133,11 +162,13 @@ async function handleIncoming(message: any): Promise<void> {
     select: { id: true, isActive: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true },
   });
   if (!user?.isActive || !(await canMessage(me, other))) {
+    await logReply({ waId: from, userId: me, peerId: other, kind, body, status: "BLOCKED" });
     await sendCloudText(from, `No se pudo enviar tu respuesta. Entra a ${CHAT_URL}`);
     return;
   }
 
   const created = await prisma.message.create({ data: { fromId: me, toId: other, body } });
+  await logReply({ waId: from, userId: me, peerId: other, messageId: created.id, kind, body, status: "SENT" });
   // Respondió: lo que el cliente le había escrito queda leído.
   await prisma.message.updateMany({
     where: { fromId: other, toId: me, readAt: null, createdAt: { lte: created.createdAt } },

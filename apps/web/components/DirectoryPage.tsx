@@ -769,7 +769,7 @@ export default function DirectoryPage({
 
       {/* ── Stories ── */}
       <div className="max-w-7xl mx-auto px-4 pt-4">
-        <Stories />
+        <Stories gender={genderFilter || undefined} />
       </div>
 
       {/* ── Map (filtered by current category only) ── */}
