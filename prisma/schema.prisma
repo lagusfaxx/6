@@ -540,6 +540,9 @@ model User {
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
+  /// La profesional eliminó su cuenta desde /cuenta: sus datos personales se
+  /// borraron y el perfil ya no aparece. El motivo queda en AccountDeletion.
+  deletedAt           DateTime?
   adminManaged        Boolean           @default(false)
   adminQualityScore   Float?
   passwordSetToken          String?
@@ -932,6 +935,21 @@ model WhatsAppRelay {
   createdAt DateTime @default(now())
 
   @@index([waId, createdAt])
+}
+
+/// Cuentas que la propia profesional eliminó desde /cuenta, con el motivo
+/// que escribió (obligatorio). Guarda nombre y usuario porque la cuenta queda
+/// anonimizada.
+model AccountDeletion {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  username    String
+  displayName String?
+  profileType String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// Lo que llega del WhatsApp de una profesional (Cloud API de Meta), para el
