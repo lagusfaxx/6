@@ -20,7 +20,8 @@ novedadesOrderRouter.get(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const gender = genderOf(req.query.gender);
-    return res.json({ gender, slots: NOVEDADES_SLOTS, pins: await getNovedadesPins(gender) });
+    const set = await getNovedadesPins(gender);
+    return res.json({ gender, slots: NOVEDADES_SLOTS, pins: set.pins, savedAt: set.savedAt });
   }),
 );
 
@@ -29,7 +30,7 @@ novedadesOrderRouter.put(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const gender = genderOf(req.body?.gender);
-    const pins = await setNovedadesPins(gender, req.body?.pins);
-    return res.json({ gender, slots: NOVEDADES_SLOTS, pins });
+    const set = await setNovedadesPins(gender, req.body?.pins);
+    return res.json({ gender, slots: NOVEDADES_SLOTS, pins: set.pins, savedAt: set.savedAt });
   }),
 );
