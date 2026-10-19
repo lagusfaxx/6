@@ -52,6 +52,7 @@ import {
   Heart,
   Phone,
   Signature,
+  Zap,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -177,6 +178,7 @@ const NAV_ITEMS = [
   { href: "/admin/banners", label: "Banners", icon: BookImage },
   { href: "/admin/home-stories", label: "Historias Home", icon: Video },
   { href: "/admin/cobros", label: "Cobros", icon: CircleDollarSign },
+  { href: "/admin/destacar", label: "Destacar", icon: Zap },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },

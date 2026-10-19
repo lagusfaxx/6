@@ -41,7 +41,6 @@ import {
   parseServiceCategories,
   primaryFromServiceCategories,
 } from "../lib/serviceCategories";
-import { getActiveBoostSets, spotlightEndsAt } from "../lib/promo";
 
 export const adminRouter = Router();
 
@@ -451,12 +450,7 @@ adminRouter.get(
       prisma.user.count({ where }),
     ]);
 
-    /* Destacada vigente: el panel muestra el contador y el botón de quitar. */
-    const boostSets = await getActiveBoostSets();
-    return res.json({
-      profiles: profiles.map((p) => ({ ...p, boostEndsAt: spotlightEndsAt(p.id, boostSets) })),
-      total,
-    });
+    return res.json({ profiles, total });
   }),
 );
 
