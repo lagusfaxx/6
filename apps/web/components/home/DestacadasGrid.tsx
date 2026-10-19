@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Zap } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import ProfileCard, { type CardStoryMedia, type HomeProfile } from "./ProfileCard";
 import RowScroller from "./RowScroller";
@@ -40,6 +41,12 @@ type Props = {
    * quede a la vista al entrar, así que esta sección no puede ocupar alto.
    */
   compact?: boolean;
+  /**
+   * Fila de las Destacadas (boost con contador), bajo Novedades: tarjetas
+   * más chicas que las del listado, para que se lea como un extra y no
+   * compita con Novedades, y que con una sola igual se vea ordenada.
+   */
+  mini?: boolean;
 };
 
 type FeaturedResponse = {
@@ -51,6 +58,7 @@ export default function DestacadasGrid({
   tier,
   title,
   compact = false,
+  mini = false,
 }: Props) {
   const userIds = useMemo(() => profiles.map((p) => p.id), [profiles]);
   const [byUser, setByUser] = useState<Record<string, CardStoryMedia[]>>({});
@@ -80,6 +88,24 @@ export default function DestacadasGrid({
   const theme = tier ? TIER_THEMES[tier] : null;
   const headingClass = theme?.titleClass ?? "text-white";
   const heading = title ?? theme?.title ?? "Destacadas";
+
+  if (mini) {
+    return (
+      <section className="mb-8">
+        <h2 className="mb-2.5 flex items-center gap-1.5 text-lg font-extrabold tracking-tight text-amber-300">
+          <Zap className="h-4 w-4 fill-amber-300" />
+          {heading}
+        </h2>
+        <RowScroller className="-mx-4 gap-2.5 px-4 pb-1 sm:mx-0 sm:px-0">
+          {profiles.map((p) => (
+            <div key={p.id} className="w-[128px] shrink-0 sm:w-[148px]">
+              <ProfileCard profile={p} stories={byUser[p.id] || []} aspect="aspect-[3/4]" mini />
+            </div>
+          ))}
+        </RowScroller>
+      </section>
+    );
+  }
 
   if (compact) {
     return (
