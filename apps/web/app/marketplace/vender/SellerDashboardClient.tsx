@@ -47,6 +47,12 @@ type SellerState = {
   holdDays: number;
   minPriceClp: number;
   maxPriceClp: number;
+  /* Primeras ventas sin comisión: sólo se descuenta el IVA. */
+  freeSalesCount: number;
+  freeSalesLeft: number;
+  ivaPercent: number;
+  ivaShareOfPrice: number;
+  bankComplete: boolean;
 };
 
 type Earnings = {
@@ -141,8 +147,8 @@ export default function SellerDashboardClient() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-4 sm:py-10">
-      <Link href="/marketplace" className="mb-4 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-white">
-        <ArrowLeft className="h-4 w-4" /> Marketplace
+      <Link href="/cuenta" className="mb-4 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-white">
+        <ArrowLeft className="h-4 w-4" /> Mi cuenta
       </Link>
 
       <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-white/[0.07] pb-4">
@@ -196,6 +202,7 @@ export default function SellerDashboardClient() {
           <ProductsTab
             products={products}
             state={state!}
+            onGo={setTab}
             busy={busy}
             setBusy={setBusy}
             onError={setError}
@@ -203,7 +210,7 @@ export default function SellerDashboardClient() {
             reload={loadAll}
           />
         )}
-        {tab === "pedidos" && <OrdersTab orders={orders} busy={busy} setBusy={setBusy} onError={setError} onNotice={flash} reload={loadAll} />}
+        {tab === "pedidos" && <OrdersTab orders={orders} ivaShare={state!.ivaShareOfPrice} busy={busy} setBusy={setBusy} onError={setError} onNotice={flash} reload={loadAll} />}
         {tab === "ganancias" && <EarningsTab earnings={earnings} seller={seller} onError={setError} onNotice={flash} reload={loadAll} />}
         {tab === "config" && <SettingsTab seller={seller} onError={setError} onNotice={flash} reload={loadAll} />}
       </div>
@@ -253,18 +260,22 @@ function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Abre tu tienda</h1>
+        <h1 className="text-2xl font-semibold text-white">Gana más con tus packs</h1>
         <p className="mt-2 text-sm text-white/50">
-          Publica packs de fotos, videos, ropa o lo que quieras ofrecer. Te pagan dentro de UZEED y el contenido digital
-          se entrega solo.
+          Los clientes que entran a UZEED buscando contenido ven tus packs en la sección Contenido y en el inicio.
+          Subes tus fotos y videos una vez y se venden solos, aunque no estés conectada.
         </p>
+
+        {state.freeSalesCount > 0 && (
+          <FreeSalesNote count={state.freeSalesCount} left={state.freeSalesLeft} className="mt-4" />
+        )}
 
         <ul className="mt-4 space-y-2 text-sm text-white/65">
           <Bullet icon={Zap}>Entrega automática de fotos y videos apenas se confirma el pago.</Bullet>
           <Bullet icon={ShieldCheck}>El contenido se ve protegido: sin descargas y con marca de agua del comprador.</Bullet>
           <Bullet icon={Truck}>Envíos con tarifa por región o entrega acordada por chat.</Bullet>
           <Bullet icon={Wallet}>
-            Recibes {100 - state.commissionPercent}% de cada venta; el pago se libera al confirmar la entrega o a los {state.holdDays} días.
+            Después recibes {100 - state.commissionPercent}% de cada venta. El pago se libera al confirmar la entrega o a los {state.holdDays} días y te lo transferimos a tu cuenta.
           </Bullet>
         </ul>
 
@@ -302,10 +313,35 @@ function Overview({
   onGo: (tab: Tab) => void;
 }) {
   const pending = orders.filter((o) => ["PAID", "PREPARING"].includes(o.status));
-  const bankMissing = !seller.bankName || !seller.bankAccountNumber;
+  const bankMissing = !state.bankComplete;
+  const forSale = products.filter((p) => p.publishStatus === "published").length;
 
   return (
     <div className="space-y-4">
+      {/* Lo que la anima a subir más: dónde se ven sus packs y la promoción. */}
+      <div className="rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/[0.10] to-violet-500/[0.04] p-4">
+        <div className="flex items-start gap-3">
+          <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-fuchsia-300" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">
+              {forSale > 0 ? "Más packs, más ventas" : "Sube tu primer pack y empieza a ganar"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-white/60">
+              Tus packs aparecen en la sección Contenido y en el inicio, frente a clientes que entran a comprar. Cada
+              pack nuevo te vuelve a mostrar: las que suben seguido venden más.
+            </p>
+            {state.freeSalesCount > 0 && <FreeSalesNote count={state.freeSalesCount} left={state.freeSalesLeft} className="mt-3" />}
+            <button
+              type="button"
+              onClick={() => onGo(bankMissing ? "config" : "productos")}
+              className="mt-3 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white"
+            >
+              {bankMissing ? "Agregar mi cuenta bancaria" : "Subir un pack"}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <StatRow
         items={[
           { label: "Disponible", value: formatClp(earnings?.balance.availableClp), accent: "positive" },
@@ -322,8 +358,8 @@ function Overview({
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
           <div>
-            <p className="text-sm font-semibold text-amber-100">Carga tus datos bancarios</p>
-            <p className="text-xs text-amber-100/60">Sin ellos no podemos transferirte lo que ganes.</p>
+            <p className="text-sm font-semibold text-amber-100">Agrega tu cuenta bancaria</p>
+            <p className="text-xs text-amber-100/60">Es necesaria para publicar packs: ahí te transferimos lo que vendas.</p>
           </div>
         </button>
       )}
@@ -355,13 +391,14 @@ function Overview({
         </div>
         <p className="mt-1 text-xs text-white/45">
           {products.length === 0
-            ? "Aún no publicas nada. Sube tu primer pack y empieza a vender."
-            : `${products.length} publicado${products.length === 1 ? "" : "s"} · ${products.filter((p) => p.isActive).length} activo${products.filter((p) => p.isActive).length === 1 ? "" : "s"}`}
+            ? "Aún no subes nada. Sube tu primer pack y empieza a vender."
+            : `${products.length} pack${products.length === 1 ? "" : "s"} · ${forSale} a la venta`}
         </p>
       </div>
 
       <p className="border-t border-white/[0.07] pt-5 text-xs leading-relaxed text-white/35">
-        UZEED cobra {state.commissionPercent}% de comisión por venta y el envío se te paga íntegro. El dinero queda
+        {state.freeSalesCount > 0 && `Tus primeras ${state.freeSalesCount} ventas no pagan comisión: sólo se descuenta el IVA (${state.ivaPercent}%). `}
+        Después, UZEED cobra {state.commissionPercent}% de comisión por venta y el envío se te paga íntegro. El dinero queda
         retenido hasta que la clienta confirma o pasan {state.holdDays} días; cuando se libera lo pides a retiro y lo
         transferimos a tu cuenta.
       </p>
@@ -372,10 +409,11 @@ function Overview({
 /* ══════════════════════ Artículos ══════════════════════ */
 
 function ProductsTab({
-  products, state, busy, setBusy, onError, onNotice, reload,
+  products, state, onGo, busy, setBusy, onError, onNotice, reload,
 }: {
   products: MarketProduct[];
   state: SellerState;
+  onGo: (tab: Tab) => void;
   busy: boolean;
   setBusy: (v: boolean) => void;
   onError: (v: string | null) => void;
@@ -387,25 +425,40 @@ function ProductsTab({
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => setCreating((v) => !v)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white"
-      >
-        <Plus className="h-4 w-4" /> {creating ? "Cerrar" : "Publicar un artículo"}
-      </button>
+      {!state.bankComplete ? (
+        /* Sin cuenta bancaria no se puede publicar: no habría dónde pagarle. */
+        <button
+          type="button"
+          onClick={() => onGo("config")}
+          className="flex w-full items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-left"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <div>
+            <p className="text-sm font-semibold text-amber-100">Primero agrega tu cuenta bancaria</p>
+            <p className="text-xs text-amber-100/60">Banco, número de cuenta, titular y RUT. Ahí te transferimos tus ventas.</p>
+          </div>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setCreating((v) => !v)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white"
+        >
+          <Plus className="h-4 w-4" /> {creating ? "Cerrar" : "Subir un pack"}
+        </button>
+      )}
 
       {creating && (
         <ProductForm
           state={state}
           onCancel={() => setCreating(false)}
-          onCreated={async () => { setCreating(false); await reload(); onNotice("Artículo publicado"); }}
+          onCreated={async () => { setCreating(false); await reload(); onNotice("Pack creado. Ábrelo y sube tu contenido: al menos 1 foto y 1 video."); }}
           onError={onError}
         />
       )}
 
       {products.length === 0 ? (
-        <p className="py-14 text-center text-sm text-white/45">Todavía no publicaste artículos.</p>
+        <p className="py-14 text-center text-sm text-white/45">Todavía no subes packs.</p>
       ) : (
         products.map((product) => (
           <ProductRow
@@ -523,6 +576,13 @@ function ProductForm({
 
       {!isDigital && <Input label="Stock (vacío = ilimitado)" value={stock} onChange={setStock} type="number" placeholder="1" />}
 
+      {isDigital && (
+        <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/60">
+          Cada pack lleva <strong className="text-white">al menos 1 foto y 1 video</strong> de contenido. Después de
+          crearlo lo abres y subes los archivos.
+        </p>
+      )}
+
       {methods.includes("DIGITAL") && (
         <label className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <input type="checkbox" checked={autoDeliver} onChange={(e) => setAutoDeliver(e.target.checked)} className="mt-0.5 accent-fuchsia-500" />
@@ -543,7 +603,7 @@ function ProductForm({
           onClick={submit}
           className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
         >
-          {busy ? "Publicando..." : "Publicar"}
+          {busy ? "Creando..." : "Crear pack"}
         </button>
       </div>
     </div>
@@ -634,7 +694,7 @@ function ProductRow({
     }
   };
 
-  const needsAssets = product.deliveryMethods.includes("DIGITAL") && (product.assetCount ?? 0) === 0;
+  const status = product.publishStatus ? PUBLISH_STATUS_UI[product.publishStatus] : null;
   const cover = productCoverMedia(product);
 
   return (
@@ -651,13 +711,9 @@ function ProductRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-white">{product.title}</p>
           <p className="text-[11px] text-white/40">
-            {formatClp(product.priceClp)} · {product.salesCount} vendidos {product.isActive ? "" : "· pausado"}
+            {formatClp(product.priceClp)} · {product.salesCount} vendidos
           </p>
-          {needsAssets && (
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-amber-300">
-              <AlertCircle className="h-3 w-3" /> Falta subir el contenido
-            </p>
-          )}
+          {status && <p className={`mt-0.5 text-[11px] font-medium ${status.className}`}>{status.label}</p>}
         </div>
       </button>
 
@@ -723,8 +779,9 @@ function ProductRow({
 /* ══════════════════════ Pedidos ══════════════════════ */
 
 function OrdersTab({
-  orders, busy, setBusy, onError, onNotice, reload,
+  orders, ivaShare, busy, setBusy, onError, onNotice, reload,
 }: {
+  ivaShare: number;
   orders: MarketOrder[];
   busy: boolean;
   setBusy: (v: boolean) => void;
@@ -766,7 +823,10 @@ function OrdersTab({
 
             <div className="mt-3 grid gap-1.5 text-xs sm:grid-cols-2">
               <Detail label="Recibes" value={formatClp(order.sellerNetClp)} strong />
-              <Detail label="Comisión UZEED" value={formatClp(order.commissionClp)} />
+              <Detail
+                label={order.commissionPercent === ivaShare ? "IVA (venta sin comisión)" : "Comisión UZEED"}
+                value={formatClp(order.commissionClp)}
+              />
               <Detail label="Entrega" value={DELIVERY_LABEL[order.deliveryMethod]} />
               <Detail label="Compradora" value={order.buyer?.displayName || order.buyer?.username || "—"} />
             </div>
@@ -1036,7 +1096,7 @@ function SettingsTab({
 
       <div className="space-y-3 border-t border-white/[0.07] pt-6">
         <h2 className="text-sm font-semibold text-white/70">Dónde te transferimos</h2>
-        <p className="text-xs text-white/45">Estos datos los usa administración para pagarte lo que retires. No se muestran a los clientes.</p>
+        <p className="text-xs text-white/45">Ahí te transferimos lo que vendas. Banco, número de cuenta, titular y RUT son obligatorios para publicar packs. No se muestran a los clientes.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Banco" value={bankName} onChange={setBankName} />
           <Input label="Tipo de cuenta" value={bankAccountType} onChange={setBankAccountType} />
@@ -1143,5 +1203,29 @@ function EmptyState({ title, text, action }: { title: string; text: string; acti
       <p className="mt-2 text-sm text-white/55">{text}</p>
       <div className="mt-5">{action}</div>
     </div>
+  );
+}
+
+/* Estados del pack para la vendedora. "Procesando" cubre la revisión. */
+const PUBLISH_STATUS_UI: Record<NonNullable<MarketProduct["publishStatus"]>, { label: string; className: string }> = {
+  incomplete: { label: "Falta subir al menos 1 foto y 1 video", className: "text-amber-300" },
+  processing: { label: "Procesando · se publica en breve", className: "text-sky-300" },
+  published: { label: "A la venta", className: "text-emerald-300" },
+  not_published: { label: "No se pudo publicar · escríbenos si tienes dudas", className: "text-rose-300" },
+  paused: { label: "Pausado", className: "text-white/45" },
+};
+
+function FreeSalesNote({ count, left, className = "" }: { count: number; left: number; className?: string }) {
+  return (
+    <p className={`rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-2 text-xs text-emerald-100 ${className}`}>
+      {left > 0 ? (
+        <>
+          <strong>Tus primeras {count} ventas sin comisión</strong> (sólo IVA).{" "}
+          {left < count ? `Te quedan ${left}.` : "Empieza a vender y aprovéchalas."}
+        </>
+      ) : (
+        <>Ya usaste tus {count} ventas sin comisión.</>
+      )}
+    </p>
   );
 }

@@ -25,6 +25,7 @@ const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection
 const HomeMapSection = dynamic(() => import("../components/home/HomeMapSection"), { ssr: false });
 const NovedadesCarousel = dynamic(() => import("../components/home/NovedadesCarousel"), { ssr: false });
 const DestacadasGrid = dynamic(() => import("../components/home/DestacadasGrid"), { ssr: false });
+const ContentPackToast = dynamic(() => import("../components/home/ContentPackToast"), { ssr: false });
 
 import {
   buildChatHref,
@@ -832,6 +833,9 @@ export default function HomeClient() {
 
         {/* ═══ CAMS EN VIVO ═══ */}
         <LiveCamsSection />
+
+        {/* Aviso de packs nuevos: entrada a /contenido sin pasar por el menú. */}
+        <ContentPackToast />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
 

@@ -2019,6 +2019,10 @@ model MarketSettings {
   id                 String   @id @default("default")
   isEnabled          Boolean  @default(true)
   commissionPercent  Float    @default(15)   // comisión UZEED por venta
+  /// Ventas iniciales de cada vendedora sin comisión: sólo se descuenta el IVA.
+  freeSalesCount     Int      @default(5)
+  /// IVA incluido en el precio, que se descuenta en las ventas sin comisión.
+  ivaPercent         Float    @default(19)
   holdDays           Int      @default(4)    // días de retención tras el pago
   minPriceClp        Int      @default(1000)
   maxPriceClp        Int      @default(2000000)
@@ -2096,6 +2100,11 @@ model MarketProduct {
   stock           Int?              // null = ilimitado (contenido digital)
   isActive        Boolean           @default(true)
   isHidden        Boolean           @default(false) // ocultado por admin
+  /// Revisión del contenido antes de salir a la venta: "PENDING" (nuevo o
+  /// con fotos/videos cambiados), "APPROVED" o "REJECTED". La vendedora no ve
+  /// que hay una revisión: para ella el pack está "procesando".
+  reviewStatus    String            @default("APPROVED")
+  reviewedAt      DateTime?
   tags            String[]          @default([])
   coverUrl        String?           // portada pública (preview)
   viewCount       Int               @default(0)
@@ -2116,6 +2125,7 @@ model MarketProduct {
   @@index([userId])
   @@index([isActive, createdAt])
   @@index([type])
+  @@index([reviewStatus])
 }
 
 /// Previews públicos del artículo (con marca de agua o censurados).
