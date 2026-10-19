@@ -181,26 +181,49 @@ export async function applyPromoPurchase(tx: Tx, input: ApplyInput): Promise<{ s
 
 /* ── Boosts vigentes (caché corto: se consultan en cada listado) ── */
 
-let boostCache: { at: number; bump: Set<string>; spotlight: Set<string> } | null = null;
+type BoostSets = {
+  bump: Set<string>;
+  spotlight: Set<string>;
+  /** Hasta cuándo sigue destacada cada perfil (ms), contando los boosts
+   *  encadenados: es lo que muestra el contador de la tarjeta. */
+  spotlightEnds: Map<string, number>;
+};
+
+let boostCache: (BoostSets & { at: number }) | null = null;
 const BOOST_CACHE_MS = 60_000;
 
-export async function getActiveBoostSets(): Promise<{ bump: Set<string>; spotlight: Set<string> }> {
+export async function getActiveBoostSets(): Promise<BoostSets> {
   if (boostCache && Date.now() - boostCache.at < BOOST_CACHE_MS) return boostCache;
   const now = new Date();
   const rows = await prisma.profileBoost
     .findMany({
-      where: { startsAt: { lte: now }, endsAt: { gt: now } },
-      select: { userId: true, code: true },
+      where: { endsAt: { gt: now } },
+      select: { userId: true, code: true, startsAt: true, endsAt: true },
     })
-    .catch(() => [] as { userId: string; code: PromoCode }[]);
+    .catch(() => [] as { userId: string; code: PromoCode; startsAt: Date; endsAt: Date }[]);
   const bump = new Set<string>();
   const spotlight = new Set<string>();
+  const spotlightEnds = new Map<string, number>();
   for (const r of rows) {
-    if (r.code === "SPOTLIGHT") spotlight.add(r.userId);
-    else bump.add(r.userId);
+    if (r.startsAt <= now) {
+      if (r.code === "SPOTLIGHT") spotlight.add(r.userId);
+      else bump.add(r.userId);
+    }
+    if (r.code === "SPOTLIGHT") {
+      spotlightEnds.set(r.userId, Math.max(spotlightEnds.get(r.userId) ?? 0, r.endsAt.getTime()));
+    }
   }
-  boostCache = { at: Date.now(), bump, spotlight };
+  /* Sólo cuenta el fin de quien ya está destacada (un boost a futuro no
+     destaca todavía). */
+  for (const id of [...spotlightEnds.keys()]) if (!spotlight.has(id)) spotlightEnds.delete(id);
+  boostCache = { at: Date.now(), bump, spotlight, spotlightEnds };
   return boostCache;
+}
+
+/** ISO de fin del destacado, o null si no está destacada. */
+export function spotlightEndsAt(id: string, sets: BoostSets): string | null {
+  const ms = sets.spotlightEnds.get(id);
+  return ms ? new Date(ms).toISOString() : null;
 }
 
 export function invalidateBoostCache() {

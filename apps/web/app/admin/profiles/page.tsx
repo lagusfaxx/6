@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import FlashBadge from "../../../components/FlashBadge";
 import {
   SERVICE_CATEGORY_OPTIONS,
   SERVICE_CATEGORY_VALUES,
@@ -85,6 +86,8 @@ type Profile = {
   birthdate: string | null;
   primaryCategory?: string | null;
   serviceCategories?: string[] | null;
+  /** Fin del boost Destacada vigente. */
+  boostEndsAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -188,6 +191,13 @@ const PAGE_SIZE = 30;
 
 // El inicio muestra como mujeres a los perfiles sin género, por eso se puede
 // corregir desde aquí cuando alguien se registró con el género equivocado.
+/* Duraciones del destacado de regalo. */
+const SPOTLIGHT_OPTIONS = [
+  { hours: 24, label: "24 h" },
+  { hours: 72, label: "3 días" },
+  { hours: 168, label: "7 días" },
+];
+
 const GENDERS = [
   { value: "FEMALE", label: "Mujer" },
   { value: "MALE", label: "Hombre" },
@@ -484,6 +494,43 @@ export default function AdminProfilesPage() {
     } catch {
       setProfiles(prevProfiles);
       setError("No se pudieron actualizar los tipos de servicio.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Destacada de regalo: sello con contador en sus tarjetas y primer lugar.
+     Se encadena si ya tenía; "Quitar" la termina ahora. */
+  async function grantSpotlight(profile: Profile, hours: number) {
+    setBusy(profile.id);
+    setError(null);
+    try {
+      const r = await apiFetch<{ summary: string }>("/admin/promo/grant", {
+        method: "POST",
+        body: JSON.stringify({ username: profile.username, code: "SPOTLIGHT", hours }),
+      });
+      setSuccess(`Destacada regalada · ${r.summary}`);
+      await loadProfiles();
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudo destacar el perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function stopSpotlight(profile: Profile) {
+    if (!window.confirm(`¿Quitar el destacado de ${profile.displayName || profile.username}?`)) return;
+    setBusy(profile.id);
+    setError(null);
+    try {
+      await apiFetch("/admin/promo/stop", {
+        method: "POST",
+        body: JSON.stringify({ username: profile.username, code: "SPOTLIGHT" }),
+      });
+      setSuccess(`Destacado quitado a ${profile.displayName || profile.username}.`);
+      await loadProfiles();
+    } catch {
+      setError("No se pudo quitar el destacado.");
     } finally {
       setBusy(null);
     }
@@ -955,6 +1002,32 @@ export default function AdminProfilesPage() {
                   </span>
                 )}
               </div>
+
+              {p.profileType === "PROFESSIONAL" && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-white/40">Destacar:</span>
+                  {p.boostEndsAt && <FlashBadge endsAt={p.boostEndsAt} />}
+                  {SPOTLIGHT_OPTIONS.map((o) => (
+                    <button
+                      key={o.hours}
+                      disabled={busy === p.id}
+                      onClick={() => grantSpotlight(p, o.hours)}
+                      className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:opacity-50"
+                    >
+                      {p.boostEndsAt ? `+${o.label}` : `⚡ ${o.label}`}
+                    </button>
+                  ))}
+                  {p.boostEndsAt && (
+                    <button
+                      disabled={busy === p.id}
+                      onClick={() => stopSpotlight(p)}
+                      className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] text-white/55 hover:bg-white/10 disabled:opacity-50"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              )}
 
               {p.profileType === "PROFESSIONAL" && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">

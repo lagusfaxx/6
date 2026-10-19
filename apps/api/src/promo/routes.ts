@@ -9,9 +9,11 @@ import { getBillingSettings, withActivePlan } from "../lib/billingSettings";
 import {
   applyPromoPurchase,
   checkPurchase,
+  getActiveBoostSets,
   getActiveCatalog,
   getTokenRate,
   invalidateBoostCache,
+  spotlightEndsAt,
   tokensFor,
 } from "../lib/promo";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
@@ -265,12 +267,8 @@ promoRouter.get(
     const lat = req.query.lat !== undefined ? Number(req.query.lat) : null;
     const lng = req.query.lng !== undefined ? Number(req.query.lng) : null;
 
-    const boosts = await prisma.profileBoost.findMany({
-      where: { code: "SPOTLIGHT", startsAt: { lte: now }, endsAt: { gt: now } },
-      select: { userId: true },
-      distinct: ["userId"],
-    });
-    const ids = boosts.map((b) => b.userId);
+    const boostSets = await getActiveBoostSets();
+    const ids = [...boostSets.spotlight];
     if (!ids.length) return res.json({ profiles: [] });
 
     const users = await prisma.user.findMany({
@@ -326,6 +324,7 @@ promoRouter.get(
           adminTier: u.tier,
         }),
         boost: "SPOTLIGHT" as const,
+        boostEndsAt: spotlightEndsAt(u.id, boostSets),
       }))
       .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
       .slice(0, limit);
@@ -460,6 +459,37 @@ promoRouter.get(
   })
 );
 
+/* Quitar el destacado (o el "subir al top") antes de tiempo: los boosts
+   vigentes y encadenados terminan ahora. */
+promoRouter.post(
+  "/admin/promo/stop",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const username = String(req.body?.username || "").trim().replace(/^@/, "");
+    const code = String(req.body?.code || "SPOTLIGHT").toUpperCase();
+    if (!username || !(BOOST_CODES as readonly string[]).includes(code)) {
+      return res.status(400).json({ error: "VALIDATION" });
+    }
+    const user = await prisma.user.findFirst({
+      where: { username: { equals: username, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const now = new Date();
+    const stopped = await prisma.$transaction([
+      prisma.profileBoost.deleteMany({
+        where: { userId: user.id, code: code as (typeof BOOST_CODES)[number], startsAt: { gt: now } },
+      }),
+      prisma.profileBoost.updateMany({
+        where: { userId: user.id, code: code as (typeof BOOST_CODES)[number], endsAt: { gt: now } },
+        data: { endsAt: now },
+      }),
+    ]);
+    invalidateBoostCache();
+    return res.json({ ok: true, stopped: stopped[0].count + stopped[1].count });
+  })
+);
+
 // Regalo del equipo: no es un cobro, así que no depende del interruptor.
 promoRouter.post(
   "/admin/promo/grant",
@@ -467,17 +497,36 @@ promoRouter.post(
   asyncHandler(async (req, res) => {
     const username = String(req.body?.username || "").trim().replace(/^@/, "");
     const productId = String(req.body?.productId || "");
-    if (!username || !productId) return res.status(400).json({ error: "VALIDATION", message: "Indica el @usuario y el producto." });
+    /* Atajo desde Admin → Perfiles: el boost por su código (BUMP/SPOTLIGHT)
+       y las horas que elija el equipo, sin pasar por el catálogo. */
+    const code = String(req.body?.code || "").toUpperCase();
+    const hoursRaw = Number(req.body?.hours);
+    const hours = Number.isFinite(hoursRaw) && hoursRaw >= 1 && hoursRaw <= 24 * 30 ? Math.round(hoursRaw) : null;
+    if (!username || (!productId && !code)) {
+      return res.status(400).json({ error: "VALIDATION", message: "Indica el @usuario y el producto." });
+    }
 
-    const [user, product] = await Promise.all([
+    const [user, found] = await Promise.all([
       prisma.user.findFirst({
         where: { username: { equals: username, mode: "insensitive" } },
         select: { id: true, username: true, profileType: true, tier: true, tierExpiresAt: true, membershipExpiresAt: true },
       }),
-      isUUID(productId) ? prisma.promoProduct.findUnique({ where: { id: productId } }) : null,
+      productId
+        ? isUUID(productId) ? prisma.promoProduct.findUnique({ where: { id: productId } }) : null
+        : (BOOST_CODES as readonly string[]).includes(code)
+          ? prisma.promoProduct.findFirst({
+              where: { kind: "BOOST", code: code as (typeof BOOST_CODES)[number] },
+              orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }],
+            })
+          : null,
     ]);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND", message: "No existe ese usuario." });
-    if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND", message: "Producto no encontrado." });
+    if (!found) return res.status(404).json({ error: "PRODUCT_NOT_FOUND", message: "Producto no encontrado." });
+    /* Las horas sólo cambian la duración de este regalo, no el catálogo. */
+    const product =
+      hours && found.kind === "BOOST"
+        ? { ...found, duration: hours, name: found.code === "SPOTLIGHT" ? "Destacada" : "Subir al top" }
+        : found;
 
     const check = checkPurchase(user, { ...product, isActive: true }, { billingEnabled: true });
     if (!check.ok) return res.status(check.status).json({ error: check.error, message: check.message });

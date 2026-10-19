@@ -14,6 +14,7 @@ import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
 import { useState, type ReactNode } from "react";
 import DeleteAccountDialog from "../../components/DeleteAccountDialog";
+import SpotlightPromoCard from "../../components/SpotlightPromoCard";
 import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
@@ -497,6 +498,9 @@ export default function AccountPage() {
               )}
             </Card>
           )}
+
+          {/* ── Destacada (boost con contador) ── */}
+          {isProfessional && <SpotlightPromoCard />}
 
           {/* ── Visibilidad ── */}
           {isProfessional && (
