@@ -724,7 +724,6 @@ export default function HomeClient() {
 
         {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
              el mapa siga entrando en pantalla al abrir el home ═══ */}
-        {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" compact />}
         {diamondCompact.length > 0 && (
           <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
         )}
@@ -770,6 +769,9 @@ export default function HomeClient() {
             ctaLabel="Ver todas las nuevas"
           />
         )}
+
+        {/* ═══ DESTACADAS — perfiles con la Destacada vigente, en chico ═══ */}
+        {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" mini />}
 
         {/* ═══ CTA PUBLÍCATE ═══ */}
         {!isAuthed && (

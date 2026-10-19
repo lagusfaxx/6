@@ -30,8 +30,9 @@ export default function FlashBadge({
   className = "",
 }: {
   endsAt: string | null | undefined;
-  /** band: franja de lado a lado para el borde superior de una tarjeta. */
-  size?: "sm" | "md" | "band";
+  /** band: franja de lado a lado para el borde superior de una tarjeta.
+      bandMini: la misma franja para tarjetas angostas, sólo rayo y contador. */
+  size?: "sm" | "md" | "band" | "bandMini";
   className?: string;
 }) {
   const [left, setLeft] = useState(() => (endsAt ? remaining(endsAt) : 0));
@@ -44,6 +45,18 @@ export default function FlashBadge({
   }, [endsAt]);
 
   if (!endsAt || left <= 0) return null;
+
+  if (size === "bandMini") {
+    return (
+      <span
+        className={`uzeed-flash relative flex w-full items-center justify-center gap-1 overflow-hidden whitespace-nowrap bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 px-2 py-[4px] text-[10px] font-extrabold leading-none tabular-nums tracking-wide text-black ${className}`}
+        aria-label={`Destacada, termina en ${format(left)}`}
+      >
+        <Zap className="h-3 w-3 fill-black" />
+        {format(left)}
+      </span>
+    );
+  }
 
   if (size === "band") {
     return (

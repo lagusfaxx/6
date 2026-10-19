@@ -153,6 +153,9 @@ type Props = {
   large?: boolean;
   /** La primera fila se pide con prioridad; el resto espera al scroll. */
   eager?: boolean;
+  /** Tarjeta chica (fila de Destacadas): texto menor, sin flechas, franja
+      del contador reducida. */
+  mini?: boolean;
 };
 
 export default function ProfileCard({
@@ -161,6 +164,7 @@ export default function ProfileCard({
   aspect = "aspect-[2/3]",
   large = false,
   eager = false,
+  mini = false,
 }: Props) {
   const { favorites, toggle } = useFavorites();
   const isFavorite = favorites.has(p.id);
@@ -256,12 +260,12 @@ export default function ProfileCard({
       {/* Destacada: franja con contador de lado a lado; lo demás baja. */}
       {banded && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[4]">
-          <FlashBadge endsAt={p.boostEndsAt} size="band" />
+          <FlashBadge endsAt={p.boostEndsAt} size={mini ? "bandMini" : "band"} />
         </div>
       )}
 
       {slides.length > 1 && (
-        <div className={`pointer-events-none absolute left-1/2 ${banded ? "top-8" : "top-2"} z-[3] flex -translate-x-1/2 gap-[3px]`}>
+        <div className={`pointer-events-none absolute left-1/2 ${banded ? (mini ? "top-7" : "top-8") : "top-2"} z-[3] flex -translate-x-1/2 gap-[3px]`}>
           {slides.map((_, i) => (
             <i
               key={i}
@@ -271,7 +275,7 @@ export default function ProfileCard({
         </div>
       )}
 
-      <div className={`pointer-events-none absolute left-2 ${banded ? "top-9" : "top-4"} z-[3] flex items-center gap-[5px]`}>
+      <div className={`pointer-events-none absolute left-2 ${banded ? (mini ? "top-8" : "top-9") : "top-4"} z-[3] flex items-center gap-[5px]`}>
         {p.availableNow && (
           <span
             title="Disponible ahora"
@@ -290,7 +294,7 @@ export default function ProfileCard({
         }}
         aria-label={isFavorite ? "Quitar de favoritas" : "Guardar en favoritas"}
         aria-pressed={isFavorite}
-        className={`absolute right-1.5 ${banded ? "top-8" : "top-1.5"} z-[3] grid h-7 w-7 place-items-center rounded-full bg-black/40 transition hover:bg-black/60`}
+        className={`absolute right-1.5 ${banded ? (mini ? "top-7" : "top-8") : "top-1.5"} z-[3] grid ${mini ? "h-6 w-6" : "h-7 w-7"} place-items-center rounded-full bg-black/40 transition hover:bg-black/60`}
       >
         <Star
           className={`h-[15px] w-[15px] ${isFavorite ? "fill-tier-gold text-tier-gold" : "text-white"}`}
@@ -298,7 +302,7 @@ export default function ProfileCard({
         />
       </button>
 
-      {slides.length > 1 && (
+      {slides.length > 1 && !mini && (
         <>
           <button
             type="button"
@@ -323,7 +327,7 @@ export default function ProfileCard({
         <div className="flex items-center gap-1">
           <span
             className={`truncate font-display font-bold uppercase leading-none tracking-[0.02em] [text-shadow:0_1px_6px_rgba(0,0,0,0.6)] ${
-              large ? "text-[19px]" : "text-[15px]"
+              large ? "text-[19px]" : mini ? "text-[13px]" : "text-[15px]"
             }`}
           >
             {p.displayName}
