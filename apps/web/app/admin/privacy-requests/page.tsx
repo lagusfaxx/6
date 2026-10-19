@@ -15,8 +15,23 @@ type AdminNotification = {
   user?: string | null;
 };
 
+type AccountDeletion = {
+  id: string;
+  username: string;
+  displayName: string | null;
+  reason: string;
+  createdAt: string;
+};
+
 export default function PrivacyRequestsPage() {
   const [items, setItems] = useState<AdminNotification[]>([]);
+  const [deletions, setDeletions] = useState<AccountDeletion[]>([]);
+
+  useEffect(() => {
+    apiFetch<{ deletions: AccountDeletion[] }>("/admin/account-deletions?limit=100")
+      .then((res) => setDeletions(res.deletions || []))
+      .catch(() => setDeletions([]));
+  }, []);
 
   useEffect(() => {
     apiFetch<{ notifications: AdminNotification[] }>("/admin/control-center")
@@ -73,6 +88,32 @@ export default function PrivacyRequestsPage() {
                   {new Date(n.timestamp).toLocaleString("es-CL")}
                 </span>
               </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Las eliminó la propia profesional desde /cuenta: ya están hechas, el
+          motivo es para entender por qué se van. */}
+      <h2 className="mt-8 text-lg font-semibold">Cuentas eliminadas por la profesional</h2>
+      <p className="mt-1 text-sm text-white/60">
+        Se eliminaron desde su cuenta, escribiendo el motivo. Sus datos personales ya se borraron.
+      </p>
+      <div className="mt-3 space-y-2">
+        {deletions.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+            Ninguna profesional ha eliminado su cuenta.
+          </div>
+        ) : (
+          deletions.map((d) => (
+            <div key={d.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium">
+                  {d.displayName || d.username} <span className="text-xs font-normal text-white/45">@{d.username}</span>
+                </p>
+                <span className="shrink-0 text-[10px] text-white/40">{new Date(d.createdAt).toLocaleString("es-CL")}</span>
+              </div>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-white/75">“{d.reason}”</p>
             </div>
           ))
         )}

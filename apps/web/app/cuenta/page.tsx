@@ -13,12 +13,13 @@ import AutoReplySettings from "../../components/AutoReplySettings";
 import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
 import { useState, type ReactNode } from "react";
+import DeleteAccountDialog from "../../components/DeleteAccountDialog";
 import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, Wallet, RefreshCw,
-  VenetianMask, ArrowRight, Bell, BadgeCheck,
+  VenetianMask, ArrowRight, Bell, BadgeCheck, Trash2,
   Settings, BedDouble, CalendarDays, Package, ClipboardList,
 } from "lucide-react";
 
@@ -104,6 +105,7 @@ export default function AccountPage() {
   const role = (user?.role || "").toUpperCase();
   const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const isProfessional = profileType === "PROFESSIONAL";
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const isShop = profileType === "SHOP";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
@@ -542,10 +544,20 @@ export default function AccountPage() {
                 <LogOut className="h-4 w-4" />
                 Cerrar sesión
               </button>
+              {isProfessional && (
+                <button
+                  onClick={() => setDeleteOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs text-white/35 transition hover:bg-white/[0.04] hover:text-white/60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar mi cuenta
+                </button>
+              )}
             </div>
           </Card>
         </motion.div>
       </div>
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }

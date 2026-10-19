@@ -854,6 +854,20 @@ adminRouter.delete(
   }),
 );
 
+/* Cuentas que la propia profesional eliminó desde /cuenta, con su motivo. */
+adminRouter.get(
+  "/account-deletions",
+  asyncHandler(async (req, res) => {
+    const take = Math.min(Number(req.query.limit) || 50, 200);
+    const skip = Math.max(0, Number(req.query.offset) || 0);
+    const [deletions, total] = await Promise.all([
+      prisma.accountDeletion.findMany({ orderBy: { createdAt: "desc" }, take, skip }),
+      prisma.accountDeletion.count(),
+    ]);
+    return res.json({ deletions, total, hasMore: skip + deletions.length < total });
+  }),
+);
+
 /* ══════════════════════════════════════════════════════════════
    VERIFICATION (Pending Profiles)
    ══════════════════════════════════════════════════════════════ */
