@@ -15,6 +15,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { applyNovedadesPins, getNovedadesPins } from "../lib/novedadesPins";
 import { PROFESSIONAL_PHONE_REGEX, samePhone } from "./phoneChange";
 import {
   displayNameError,
@@ -191,8 +192,7 @@ profileRouter.get(
       sort = "featured";
     }
 
-    const profiles = await prisma.user.findMany({
-      where: {
+    const discoverWhere = {
         profileType: "PROFESSIONAL",
         isActive: true,
         // Secciones del inicio (escorts): sin las que sólo venden contenido.
@@ -202,10 +202,8 @@ profileRouter.get(
           : genderFilter
             ? { gender: genderFilter }
             : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: Math.max(limit * 3, 48),
-      select: {
+      } satisfies Prisma.UserWhereInput;
+    const discoverSelect = {
         id: true,
         username: true,
         displayName: true,
@@ -230,12 +228,15 @@ profileRouter.get(
         serviceTags: true,
         serviceCategory: true,
         tier: true,
-      },
+      } satisfies Prisma.UserSelect;
+    const profiles = await prisma.user.findMany({
+      where: discoverWhere,
+      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 3, 48),
+      select: discoverSelect,
     });
 
-    const enriched = profiles
-      .filter((p) => isBusinessPlanActive(p))
-      .map((p) => {
+    const enrich = (p: (typeof profiles)[number]) => {
         const distanceKm =
           lat !== null &&
           lng !== null &&
@@ -277,7 +278,10 @@ profileRouter.get(
           serviceCategory: (p as any).serviceCategory ?? null,
           createdAt: p.createdAt,
         };
-      })
+      };
+    const enriched = profiles
+      .filter((p) => isBusinessPlanActive(p))
+      .map(enrich)
       .filter((p) =>
         radiusKm !== null && p.distanceKm !== null
           ? p.distanceKm <= radiusKm
@@ -317,8 +321,22 @@ profileRouter.get(
           : byNewest
               .filter((p) => new Date(p.createdAt).getTime() >= Date.now() - 60 * DAY_MS)
               .slice(0, MIN_NEW);
+      /* Orden manual del admin (/admin/novedades): las tarjetas que movió
+         quedan fijas en su lugar y el resto sigue el orden de arriba. */
+      const pins = await getNovedadesPins(genderFilter ?? "ALL");
+      let ordered: Array<(typeof selected)[number]> = selected;
+      if (pins.length) {
+        const pinnedRows = await prisma.user.findMany({
+          where: { ...discoverWhere, id: { in: pins.map((x) => x.id) } },
+          select: discoverSelect,
+        });
+        const pinned = new Map(
+          pinnedRows.filter((p) => isBusinessPlanActive(p)).map((p) => [p.id, enrich(p)] as const),
+        );
+        ordered = applyNovedadesPins(selected, pinned, pins, limit);
+      }
       return res.json({
-        profiles: selected
+        profiles: ordered
           .slice(0, limit)
           .map(({ createdAt, ...row }) => row),
       });

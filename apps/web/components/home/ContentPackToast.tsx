@@ -110,11 +110,11 @@ export default function ContentPackToast() {
       aria-label="Contenido exclusivo"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`fixed right-3 top-[76px] z-40 w-[calc(100vw-24px)] max-w-[360px] transition-all duration-500 ease-out md:right-6 md:top-[92px] ${
+      className={`fixed right-3 top-[76px] z-40 w-[calc(100vw-24px)] max-w-[330px] transition-all duration-500 ease-out md:right-6 md:top-[92px] ${
         open ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-3 opacity-0"
       }`}
     >
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.10] bg-[#14101f]/90 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#14101f]/45 shadow-[0_12px_32px_-14px_rgba(0,0,0,0.55)] backdrop-blur-md">
         <button
           type="button"
           onClick={dismiss}
@@ -126,7 +126,7 @@ export default function ContentPackToast() {
 
         <Link href="/contenido" onClick={() => setOpen(false)} className="flex gap-3 p-3 pr-9">
           {/* Fotos apiladas: se ve una y cambia con un fundido. */}
-          <div className="relative h-[84px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-white/5">
+          <div className="relative h-[72px] w-[62px] shrink-0 overflow-hidden rounded-xl bg-white/5">
             {creators.map((c, i) => (
               <img
                 key={c.id}
@@ -168,14 +168,14 @@ export default function ContentPackToast() {
           <Link
             href="/contenido"
             onClick={() => setOpen(false)}
-            className="flex-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2 text-center text-xs font-bold text-white transition hover:brightness-110"
+            className="flex-1 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/20 py-2 text-center text-xs font-semibold text-white/90 transition hover:bg-fuchsia-500/30"
           >
             {minPrice ? `Ver contenido · desde $${minPrice.toLocaleString("es-CL")}` : "Ver contenido"}
           </Link>
           <button
             type="button"
             onClick={dismiss}
-            className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/5 hover:text-white"
+            className="rounded-full border border-white/[0.08] px-4 py-2 text-xs font-semibold text-white/55 transition hover:bg-white/5 hover:text-white"
           >
             Ahora no
           </button>

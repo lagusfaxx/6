@@ -213,9 +213,7 @@ export default function ProfileCard({
     <article
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect} ${
-        p.spotlight ? "uzeed-flash-card" : ""
-      }`}
+      className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect}`}
     >
       {current.kind === "video" ? (
         <video

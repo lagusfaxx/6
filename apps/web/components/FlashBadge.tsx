@@ -31,7 +31,7 @@ export default function FlashBadge({
 }: {
   endsAt: string | null | undefined;
   /** band: franja de lado a lado para el borde superior de una tarjeta.
-      bandMini: la misma franja para tarjetas angostas, sólo rayo y contador. */
+      bandMini: la misma franja, más apretada, para tarjetas angostas. */
   size?: "sm" | "md" | "band" | "bandMini";
   className?: string;
 }) {
@@ -49,11 +49,14 @@ export default function FlashBadge({
   if (size === "bandMini") {
     return (
       <span
-        className={`uzeed-flash relative flex w-full items-center justify-center gap-1 overflow-hidden whitespace-nowrap bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 px-2 py-[4px] text-[10px] font-extrabold leading-none tabular-nums tracking-wide text-black ${className}`}
+        className={`uzeed-flash relative flex w-full items-center justify-between gap-1 overflow-hidden whitespace-nowrap bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 px-1.5 py-[4px] font-extrabold leading-none text-black ${className}`}
         aria-label={`Destacada, termina en ${format(left)}`}
       >
-        <Zap className="h-3 w-3 fill-black" />
-        {format(left)}
+        <span className="flex items-center gap-0.5 text-[8.5px] uppercase">
+          <Zap className="h-2.5 w-2.5 fill-black" />
+          Destacada
+        </span>
+        <span className="text-[9.5px] tabular-nums">{format(left)}</span>
       </span>
     );
   }
