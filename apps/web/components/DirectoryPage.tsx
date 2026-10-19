@@ -194,9 +194,7 @@ function ProfileCard({
     <div
       ref={cardRef}
       onClick={handleCardClick}
-      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass} ${
-        p.boost === "SPOTLIGHT" ? "uzeed-flash-card" : ""
-      }`}
+      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass}`}
     >
       {/* Cover / hero photo with shimmer effect */}
       <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
