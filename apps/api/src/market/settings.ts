@@ -51,3 +51,20 @@ export function splitAmounts(itemTotalClp: number, shippingClp: number, commissi
     totalClp: itemTotalClp + shippingClp,
   };
 }
+
+/** Pedidos que cuentan como venta (pagados, en curso o cerrados). */
+export const SALE_STATUSES = ["PAYMENT_REVIEW", "PAID", "PREPARING", "DELIVERED", "COMPLETED", "DISPUTED"] as const;
+
+/** Ventas que le quedan sin comisión a una vendedora. */
+export async function freeSalesLeft(sellerUserId: string, freeSalesCount: number) {
+  if (freeSalesCount <= 0) return 0;
+  const sold = await prisma.marketOrder.count({
+    where: { sellerId: sellerUserId, status: { in: [...SALE_STATUSES] } },
+  });
+  return Math.max(0, freeSalesCount - sold);
+}
+
+/** Parte del precio que es IVA, como porcentaje del total (19% → 15,97%). */
+export function ivaShareOfPrice(ivaPercent: number) {
+  return ivaPercent > 0 ? Math.round(((ivaPercent / (100 + ivaPercent)) * 100) * 100) / 100 : 0;
+}

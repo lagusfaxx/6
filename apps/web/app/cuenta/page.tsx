@@ -162,6 +162,7 @@ export default function AccountPage() {
     quickActions.push(
       { label: "Subir historia", description: "Foto o video de 20 días", href: "/dashboard/stories?nueva=1", icon: Camera, tone: "pink" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, tone: "violet" },
+      { label: "Mis packs", description: "Vende fotos y videos", href: "/marketplace/vender", icon: ShoppingBag, tone: "fuchsia" },
     );
   }
   if (!canManageProfile) {

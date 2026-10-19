@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Edit3,
   Wallet,
+  ShoppingBag,
   Radio,
   HelpCircle,
   ShieldCheck,
@@ -109,6 +110,9 @@ export default function Nav() {
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
         ...(isProfessional ? [
           { href: "/dashboard/stories?nueva=1", label: "Subir historia", icon: Camera, protected: true },
+          /* Packs de fotos y videos: salen en /contenido. Antes se llegaba
+             por el Marketplace del menú, que ya no está. */
+          { href: "/marketplace/vender", label: "Mis packs", icon: ShoppingBag, protected: true },
         ] : []),
         { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]
