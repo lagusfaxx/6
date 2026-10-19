@@ -668,59 +668,6 @@ directoryRouter.get(
   }),
 );
 
-/* GET /directory/creators/latest-packs — últimos packs a la venta de
-   creadoras publicadas, para el aviso del inicio. Siempre un pack real con
-   su precio real: el aviso lleva a comprarlo, no a un chat. */
-directoryRouter.get(
-  "/directory/creators/latest-packs",
-  asyncHandler(async (_req, res) => {
-    const products = await prisma.marketProduct.findMany({
-      where: {
-        ...sellableProductWhere(),
-        seller: { isActive: true, isBanned: false },
-        user: withActivePlan<Prisma.UserWhereInput>({
-          profileType: "PROFESSIONAL",
-          isActive: true,
-          isVerified: true,
-          avatarUrl: { not: null },
-          OR: [{ gender: "FEMALE" }, { gender: null }],
-        }),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      select: {
-        id: true,
-        title: true,
-        priceClp: true,
-        createdAt: true,
-        user: { select: { id: true, username: true, displayName: true, avatarUrl: true, birthdate: true, bio: true } },
-      },
-    });
-    /* Uno por creadora: que el aviso no repita a la misma. */
-    const seen = new Set<string>();
-    const packs = [];
-    for (const p of products) {
-      if (seen.has(p.user.id)) continue;
-      seen.add(p.user.id);
-      packs.push({
-        id: p.id,
-        title: p.title,
-        priceClp: p.priceClp,
-        createdAt: p.createdAt.toISOString(),
-        creator: {
-          username: p.user.username,
-          displayName: p.user.displayName || p.user.username,
-          avatarUrl: p.user.avatarUrl,
-          age: resolveAge(p.user.birthdate, p.user.bio),
-        },
-      });
-      if (packs.length >= 10) break;
-    }
-    res.set("Cache-Control", "public, max-age=60");
-    return res.json({ packs });
-  }),
-);
-
 directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {
