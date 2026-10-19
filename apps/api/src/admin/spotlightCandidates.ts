@@ -5,9 +5,9 @@ import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getActiveBoostSets, spotlightEndsAt } from "../lib/promo";
 import {
+  BOT_UA_PATTERN,
   actorKeySql,
   realActionSql,
-  realPageViewSql,
   realUserSql,
   staffIdsSql,
   visitorKeySql,
@@ -55,54 +55,77 @@ spotlightCandidatesRouter.get(
         ? Prisma.sql`u."gender"::text = ${gender}`
         : Prisma.sql`(u."gender" = 'FEMALE' OR u."gender" IS NULL)`;
 
-    const rows = await prisma.$queryRaw<Row[]>`
-      WITH pros AS (
-        SELECT u."id", u."username"
-        FROM "User" u
-        WHERE u."profileType" = 'PROFESSIONAL' AND u."isActive" AND u."isVerified"
-          AND u."deletedAt" IS NULL AND ${realUserSql("u")} AND ${genderSql}
-      ),
-      pv AS (
-        SELECT p."id", pv."createdAt", ${visitorKeySql("pv")} AS vkey
-        FROM "PageView" pv
-        JOIN pros p ON split_part(pv."path", '/', 3) IN (p."id"::text, p."username")
-        WHERE pv."createdAt" >= ${from}
-          AND split_part(pv."path", '/', 2) IN ('profesional', 'escort', 'masajista')
-          AND ${realPageViewSql("pv")}
-      ),
-      v AS (
-        SELECT "id", COUNT(*)::int AS visits,
-               COUNT(*) FILTER (WHERE "createdAt" >= ${recentFrom})::int AS "visitsRecent",
-               COUNT(DISTINCT vkey)::int AS visitors
-        FROM pv GROUP BY "id"
-      ),
-      wa AS (
-        SELECT ua."targetId" AS id,
-               (${actorKeySql("ua")} || ':' || to_char(ua."createdAt", 'YYYY-MM-DD')) AS k,
-               ua."createdAt"
-        FROM "UserAction" ua
-        JOIN pros p ON p."id" = ua."targetId"
-        WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${from} AND ${realActionSql("ua")}
-      ),
-      ch AS (
-        SELECT m."toId" AS id, (m."fromId"::text || ':' || to_char(m."createdAt", 'YYYY-MM-DD')) AS k, m."createdAt"
-        FROM "Message" m
-        JOIN pros p ON p."id" = m."toId"
-        WHERE m."createdAt" >= ${from} AND m."fromId" NOT IN ${staffIdsSql()}
-      ),
-      c AS (
-        SELECT id, COUNT(DISTINCT k)::int AS contacts,
-               COUNT(DISTINCT k) FILTER (WHERE "createdAt" >= ${recentFrom})::int AS "contactsRecent"
-        FROM (SELECT * FROM wa UNION ALL SELECT * FROM ch) x
-        GROUP BY id
-      )
-      SELECT p."id",
-             COALESCE(v.visits, 0) AS visits, COALESCE(v."visitsRecent", 0) AS "visitsRecent",
-             COALESCE(v.visitors, 0) AS visitors,
-             COALESCE(c.contacts, 0) AS contacts, COALESCE(c."contactsRecent", 0) AS "contactsRecent"
-      FROM pros p
-      LEFT JOIN v ON v."id" = p."id"
-      LEFT JOIN c ON c."id" = p."id"`;
+    const pros = await prisma.$queryRaw<{ id: string; username: string }[]>`
+      SELECT u."id"::text AS id, u."username"
+      FROM "User" u
+      WHERE u."profileType" = 'PROFESSIONAL' AND u."isActive" AND u."isVerified"
+        AND u."deletedAt" IS NULL AND ${realUserSql("u")} AND ${genderSql}`;
+    const proBySeg = new Map<string, string>();
+    for (const p of pros) {
+      proBySeg.set(p.id, p.id);
+      proBySeg.set(p.username, p.id);
+    }
+
+    /* Visitas a fichas. El filtro de bots (regex sobre el user agent) se
+       aplica acá y no en SQL: en la base de producción esa condición sobre
+       90 días de PageView tardaba 15-30 s y la pantalla se quedaba cargando;
+       sin ella la consulta tarda décimas. */
+    const views = await prisma.$queryRaw<{ seg: string; createdAt: Date; vkey: string; userAgent: string | null }[]>`
+      SELECT split_part(pv."path", '/', 3) AS seg, pv."createdAt", ${visitorKeySql("pv")} AS vkey, pv."userAgent"
+      FROM "PageView" pv
+      WHERE pv."createdAt" >= ${from}
+        AND (pv."path" LIKE '/profesional/%' OR pv."path" LIKE '/escort/%' OR pv."path" LIKE '/masajista/%')
+        AND (pv."userId" IS NULL OR pv."userId" NOT IN ${staffIdsSql()})`;
+    const bot = new RegExp(BOT_UA_PATTERN, "i");
+    const visitAgg = new Map<string, { visits: number; recent: number; visitors: Set<string> }>();
+    for (const v of views) {
+      const id = proBySeg.get(v.seg);
+      if (!id || (v.userAgent && bot.test(v.userAgent))) continue;
+      const a = visitAgg.get(id) ?? { visits: 0, recent: 0, visitors: new Set<string>() };
+      a.visits++;
+      if (v.createdAt >= recentFrom) a.recent++;
+      a.visitors.add(v.vkey);
+      visitAgg.set(id, a);
+    }
+
+    /* Contactos: WhatsApp (una vez por persona y día) + clientes que le
+       escribieron por el chat (una vez por persona y día). */
+    const proIds = pros.map((p) => p.id);
+    const contactRows = proIds.length
+      ? await prisma.$queryRaw<{ id: string; contacts: number; contactsRecent: number }[]>`
+          WITH wa AS (
+            SELECT ua."targetId"::text AS id,
+                   (${actorKeySql("ua")} || ':' || to_char(ua."createdAt", 'YYYY-MM-DD')) AS k,
+                   ua."createdAt"
+            FROM "UserAction" ua
+            WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${from}
+              AND ua."targetId" = ANY(${proIds}::uuid[]) AND ${realActionSql("ua")}
+          ),
+          ch AS (
+            SELECT m."toId"::text AS id, (m."fromId"::text || ':' || to_char(m."createdAt", 'YYYY-MM-DD')) AS k, m."createdAt"
+            FROM "Message" m
+            WHERE m."createdAt" >= ${from} AND m."toId" = ANY(${proIds}::uuid[])
+              AND m."fromId" NOT IN ${staffIdsSql()}
+          )
+          SELECT id, COUNT(DISTINCT k)::int AS contacts,
+                 COUNT(DISTINCT k) FILTER (WHERE "createdAt" >= ${recentFrom})::int AS "contactsRecent"
+          FROM (SELECT * FROM wa UNION ALL SELECT * FROM ch) x
+          GROUP BY id`
+      : [];
+    const contactsById = new Map(contactRows.map((c) => [c.id, c]));
+
+    const rows: Row[] = pros.map((p) => {
+      const v = visitAgg.get(p.id);
+      const c = contactsById.get(p.id);
+      return {
+        id: p.id,
+        visits: v?.visits ?? 0,
+        visitsRecent: v?.recent ?? 0,
+        visitors: v?.visitors.size ?? 0,
+        contacts: c?.contacts ?? 0,
+        contactsRecent: c?.contactsRecent ?? 0,
+      };
+    });
 
     const ids = rows.map((r) => r.id);
     const [users, boosts] = await Promise.all([
