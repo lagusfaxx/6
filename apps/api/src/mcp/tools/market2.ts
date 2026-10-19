@@ -8,6 +8,7 @@ import { normalizeCity } from "../../lib/chileGeo";
 import { guarded, type McpContext } from "../audit";
 import { TZ, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
 import { describeFiltros, filtrosShape, pickFiltros, profileSql, withSegment, type Filtros } from "../stats/core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -36,9 +37,9 @@ export function registerMarketTools(server: McpServer, ctx: McpContext) {
                       FROM "User" u WHERE ${pf} AND u."profileType" IN ('PROFESSIONAL','ESTABLISHMENT','SHOP') AND u."isActive" AND u."isVerified")
         SELECT b."city", b.categoria, COUNT(DISTINCT b."id")::int AS anuncios,
           (SELECT COUNT(*) FROM "PageView" pv JOIN base b2 ON split_part(pv."path", '/', 3) IN (b2."id"::text, b2."username") AND b2."city" IS NOT DISTINCT FROM b."city" AND b2.categoria = b.categoria
-             WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} AND pv."path" NOT LIKE '/admin%')::int AS vistas,
+             WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} AND pv."path" NOT LIKE '/admin%')::int AS vistas,
           (SELECT COUNT(DISTINCT COALESCE(pv."visitorId", pv."sessionId", pv."id"::text)) FROM "PageView" pv JOIN base b2 ON split_part(pv."path", '/', 3) IN (b2."id"::text, b2."username") AND b2."city" IS NOT DISTINCT FROM b."city" AND b2.categoria = b.categoria
-             WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to})::int AS visitantes,
+             WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to})::int AS visitantes,
           (SELECT COUNT(DISTINCT (COALESCE(ua."userId"::text, ua."visitorId", ua."sessionId", ua."id"::text) || ua."targetId"::text || to_char((ua."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${TZ}, 'YYYY-MM-DD')))
              FROM "UserAction" ua JOIN base b2 ON b2."id" = ua."targetId" AND b2."city" IS NOT DISTINCT FROM b."city" AND b2.categoria = b.categoria
              WHERE ua."action" IN ('whatsapp_click','phone_click') AND ua."createdAt" >= ${period.from} AND ua."createdAt" < ${period.to})::int AS contactos

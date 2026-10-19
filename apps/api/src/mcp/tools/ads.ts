@@ -6,6 +6,7 @@ import { MIN_PROFILE_PHOTOS, REQUIRED_PROFILE_FIELDS, missingProfileFields } fro
 import { guarded, type McpContext } from "../audit";
 import { TZ, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
 import { describeFiltros, filtrosShape, pickFiltros, profileSql, withSegment, type Filtros } from "../stats/core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -35,7 +36,7 @@ async function exposureRows(range: { from: Date; to: Date }, f: Filtros) {
             FROM "ProfileDailyStats" d WHERE d."date" >= ${dFrom} AND d."date" <= ${dTo} GROUP BY 1),
     views AS (SELECT b."id", COUNT(*)::int AS vistas, COUNT(DISTINCT COALESCE(pv."visitorId", pv."sessionId", pv."id"::text))::int AS visitantes
               FROM "PageView" pv JOIN base b ON split_part(pv."path", '/', 3) IN (b."id"::text, b."username")
-              WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to} AND ${real} GROUP BY 1),
+              WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to} AND ${real} GROUP BY 1),
     acts AS (SELECT ua."targetId" AS id,
                COUNT(DISTINCT (COALESCE(ua."userId"::text, ua."visitorId", ua."sessionId", ua."id"::text) || to_char((ua."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${TZ}, 'YYYY-MM-DD'))) FILTER (WHERE ua."action" = 'whatsapp_click')::int AS whatsapp,
                COUNT(DISTINCT (COALESCE(ua."userId"::text, ua."visitorId", ua."sessionId", ua."id"::text) || to_char((ua."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${TZ}, 'YYYY-MM-DD'))) FILTER (WHERE ua."action" = 'phone_click')::int AS telefono
