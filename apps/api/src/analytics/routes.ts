@@ -237,7 +237,8 @@ analyticsRouter.get(
       // Top user actions
       prisma.userAction.groupBy({
         by: ["action"],
-        where: { createdAt: { gte: periodStart } },
+        // Los eventos del embudo de registro (reg_*) tienen su propia pantalla.
+        where: { createdAt: { gte: periodStart }, NOT: { action: { startsWith: "reg_" } } },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 15,

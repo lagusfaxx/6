@@ -103,12 +103,16 @@ export function normalizeQuickReplies(input: unknown): QuickReplies {
 
 export const registerInputSchema = z
   .object({
+    /* Opcional para clientes: no se usa y pedirlo espanta (temen que se
+       filtre). Profesionales, locales y tiendas lo siguen necesitando: se
+       exige más abajo, en superRefine. */
     phone: z
       .string()
       .regex(
         /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/,
         "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
-      ),
+      )
+      .optional(),
     email: z.string().email(),
     password: z.string().min(8).max(128),
     displayName: displayNameSchema,
@@ -153,6 +157,14 @@ export const registerInputSchema = z
         });
       }
       // Bio is optional at registration; professionals complete it later
+    }
+
+    if (isBusiness && !data.phone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phone"],
+        message: "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
+      });
     }
 
     // Address/geolocation required for all business profiles (used for distance search)

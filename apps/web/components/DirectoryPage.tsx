@@ -12,6 +12,7 @@ import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/system
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import BackButton from "./BackButton";
+import FlashBadge from "./FlashBadge";
 import VerifiedBand from "./VerifiedBand";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
@@ -36,6 +37,8 @@ export type DirectoryResult = {
   userLevel: string;
   /** Boost pagado vigente: "Destacada" o "Subir al top". */
   boost?: "SPOTLIGHT" | "BUMP" | null;
+  /** Fin del destacado (contador del sello). */
+  boostEndsAt?: string | null;
   completedServices: number;
   profileViews: number;
   lastSeen: string | null;
@@ -191,7 +194,9 @@ function ProfileCard({
     <div
       ref={cardRef}
       onClick={handleCardClick}
-      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass}`}
+      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass} ${
+        p.boost === "SPOTLIGHT" ? "uzeed-flash-card" : ""
+      }`}
     >
       {/* Cover / hero photo with shimmer effect */}
       <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
@@ -217,21 +222,28 @@ function ProfileCard({
         <div className="uzeed-card-gradient absolute inset-0 pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/[0.04] via-transparent to-violet-600/[0.04] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
+        {/* Destacada: franja con contador de lado a lado; lo demás baja. */}
+        {p.boost === "SPOTLIGHT" && p.boostEndsAt && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[4]">
+            <FlashBadge endsAt={p.boostEndsAt} size="band" />
+          </div>
+        )}
+
         {/* Top-left: status badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-[3]">
+        <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} left-2.5 flex flex-col gap-1.5 z-[3]`}>
           {p.availableNow && (
             <span className="uzeed-badge-pill uzeed-badge-online">
               <span className="uzeed-badge-dot" />
               Online
             </span>
           )}
-          {p.boost === "SPOTLIGHT" && (
+          {p.boost === "SPOTLIGHT" && !p.boostEndsAt && (
             <span className="uzeed-badge-pill bg-fuchsia-600/85 text-white">🔥 Destacada</span>
           )}
         </div>
 
         {/* Top-right: level badge */}
-        <div className="absolute top-2.5 right-2.5 z-[3]">
+        <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} right-2.5 z-[3]`}>
           <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
         </div>
 

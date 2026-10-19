@@ -21,6 +21,7 @@ import { resolveMediaUrl } from "../../lib/api";
 import { hasVerifiedBadge } from "../../lib/systemBadges";
 import VerifiedTick from "../VerifiedTick";
 import useFavorites from "../../hooks/useFavorites";
+import FlashBadge from "../FlashBadge";
 
 export type HomeLevel = "DIAMOND" | "GOLD" | "SILVER";
 
@@ -42,6 +43,8 @@ export type HomeProfile = {
   isNew: boolean;
   /** Boost "Destacada" vigente. */
   spotlight?: boolean;
+  /** Hasta cuándo sigue destacada (contador del sello). */
+  boostEndsAt?: string | null;
 };
 
 export type CardStoryMedia = {
@@ -71,6 +74,7 @@ export function toHomeProfile(r: any, overrides: Partial<HomeProfile> = {}): Hom
     primaryCategory: r.primaryCategory ?? null,
     isNew: Boolean(r.isNew),
     spotlight: r?.boost === "SPOTLIGHT",
+    boostEndsAt: typeof r?.boostEndsAt === "string" ? r.boostEndsAt : null,
     ...overrides,
   };
 }
@@ -189,8 +193,9 @@ export default function ProfileCard({
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   };
 
+  const banded = Boolean(p.spotlight && p.boostEndsAt);
   const tag =
-    p.spotlight ? (
+    banded ? null : p.spotlight ? (
       <span className={`${TAG_CLASS} text-fuchsia-200`}>🔥 Destacada</span>
     ) : p.userLevel === "DIAMOND" ? (
       <span className={`${TAG_CLASS} text-tier-diamond`}>◆ Diamond</span>
@@ -204,7 +209,9 @@ export default function ProfileCard({
     <article
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect}`}
+      className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect} ${
+        p.spotlight ? "uzeed-flash-card" : ""
+      }`}
     >
       {current.kind === "video" ? (
         <video
@@ -246,8 +253,15 @@ export default function ProfileCard({
         className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-fuchsia-500"
       />
 
+      {/* Destacada: franja con contador de lado a lado; lo demás baja. */}
+      {banded && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[4]">
+          <FlashBadge endsAt={p.boostEndsAt} size="band" />
+        </div>
+      )}
+
       {slides.length > 1 && (
-        <div className="pointer-events-none absolute left-1/2 top-2 z-[3] flex -translate-x-1/2 gap-[3px]">
+        <div className={`pointer-events-none absolute left-1/2 ${banded ? "top-8" : "top-2"} z-[3] flex -translate-x-1/2 gap-[3px]`}>
           {slides.map((_, i) => (
             <i
               key={i}
@@ -257,7 +271,7 @@ export default function ProfileCard({
         </div>
       )}
 
-      <div className="pointer-events-none absolute left-2 top-4 z-[3] flex items-center gap-[5px]">
+      <div className={`pointer-events-none absolute left-2 ${banded ? "top-9" : "top-4"} z-[3] flex items-center gap-[5px]`}>
         {p.availableNow && (
           <span
             title="Disponible ahora"
@@ -276,7 +290,7 @@ export default function ProfileCard({
         }}
         aria-label={isFavorite ? "Quitar de favoritas" : "Guardar en favoritas"}
         aria-pressed={isFavorite}
-        className="absolute right-1.5 top-1.5 z-[3] grid h-7 w-7 place-items-center rounded-full bg-black/40 transition hover:bg-black/60"
+        className={`absolute right-1.5 ${banded ? "top-8" : "top-1.5"} z-[3] grid h-7 w-7 place-items-center rounded-full bg-black/40 transition hover:bg-black/60`}
       >
         <Star
           className={`h-[15px] w-[15px] ${isFavorite ? "fill-tier-gold text-tier-gold" : "text-white"}`}

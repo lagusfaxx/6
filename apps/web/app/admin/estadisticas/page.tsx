@@ -14,6 +14,7 @@ import {
   BookImage,
   Clock,
   Eye,
+  Filter,
   Globe,
   Heart,
   LayoutGrid,
@@ -121,6 +122,7 @@ const ACTION_ICONS: Record<string, any> = {
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
+  { href: "/admin/embudo-registro", label: "Embudo registro", icon: Filter },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
   { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },

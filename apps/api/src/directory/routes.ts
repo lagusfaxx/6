@@ -13,7 +13,7 @@ import {
 } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
 import { userHasActivePlan, withActivePlan } from "../lib/billingSettings";
-import { boostRank, getActiveBoostSets } from "../lib/promo";
+import { boostRank, getActiveBoostSets, spotlightEndsAt } from "../lib/promo";
 import { CONTENT_CATEGORY, contentCreatorWhere, notContentOnlyWhere } from "../lib/serviceCategories";
 import { sellableProductWhere } from "../market/review";
 
@@ -462,7 +462,7 @@ directoryRouter.get(
           boostRank(a.id, boostSets) - boostRank(b.id, boostSets) ||
           (a.distance ?? 1e9) - (b.distance ?? 1e9),
       )
-      .map((u) => ({ ...u, boost: boostLabel(u.id, boostSets) }));
+      .map((u) => ({ ...u, boost: boostLabel(u.id, boostSets), boostEndsAt: spotlightEndsAt(u.id, boostSets) }));
 
     return res.json({
       professionals: filtered,
@@ -829,11 +829,17 @@ directoryRouter.get(
       ...ranked.filter((u) => u.userLevel === "GOLD").slice(0, limit),
     ];
 
-    const gallery = await galleryByOwner(highlighted.map((u) => u.id)).catch(
-      () => new Map<string, string[]>(),
-    );
+    const [gallery, recentBoosts] = await Promise.all([
+      galleryByOwner(highlighted.map((u) => u.id)).catch(() => new Map<string, string[]>()),
+      getActiveBoostSets(),
+    ]);
     return res.json({
-      professionals: highlighted.map((u) => ({ ...u, galleryUrls: gallery.get(u.id) ?? [] })),
+      professionals: highlighted.map((u) => ({
+        ...u,
+        galleryUrls: gallery.get(u.id) ?? [],
+        boost: boostLabel(u.id, recentBoosts),
+        boostEndsAt: spotlightEndsAt(u.id, recentBoosts),
+      })),
     });
   }),
 );
@@ -1033,10 +1039,13 @@ directoryRouter.get(
         : null,
     }));
 
+    const detailBoosts = await getActiveBoostSets();
     return res.json({
       professional: {
         id: u.id,
         name: u.displayName || u.username,
+        /* Destacada: la ficha muestra el sello con el contador. */
+        boostEndsAt: spotlightEndsAt(u.id, detailBoosts),
         // Expuesto para que el front construya la URL limpia por username
         // (/escort/{username}) y redirija las URLs antiguas /profesional/{id}.
         username: u.username,
@@ -1778,7 +1787,11 @@ directoryRouter.get(
     }
 
     const merged = [
-      ...sorted.map(({ createdAt, isMadura, ...r }) => ({ ...r, boost: boostLabel(r.id, boostSets) })),
+      ...sorted.map(({ createdAt, isMadura, ...r }) => ({
+        ...r,
+        boost: boostLabel(r.id, boostSets),
+        boostEndsAt: spotlightEndsAt(r.id, boostSets),
+      })),
       ...quickResults.map((r) => ({ ...r, boost: null as "SPOTLIGHT" | "BUMP" | null })),
     ];
     if (sort === "near") {
