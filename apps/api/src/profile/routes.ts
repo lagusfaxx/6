@@ -322,18 +322,19 @@ profileRouter.get(
               .filter((p) => new Date(p.createdAt).getTime() >= Date.now() - 60 * DAY_MS)
               .slice(0, MIN_NEW);
       /* Orden manual del admin (/admin/novedades): las tarjetas que movió
-         quedan fijas en su lugar y el resto sigue el orden de arriba. */
-      const pins = await getNovedadesPins(genderFilter ?? "ALL");
+         quedan en su lugar, bajando uno por cada perfil publicado después,
+         y el resto sigue el orden de arriba. */
+      const pinSet = await getNovedadesPins(genderFilter ?? "ALL");
       let ordered: Array<(typeof selected)[number]> = selected;
-      if (pins.length) {
+      if (pinSet.pins.length) {
         const pinnedRows = await prisma.user.findMany({
-          where: { ...discoverWhere, id: { in: pins.map((x) => x.id) } },
+          where: { ...discoverWhere, id: { in: pinSet.pins.map((x) => x.id) } },
           select: discoverSelect,
         });
         const pinned = new Map(
           pinnedRows.filter((p) => isBusinessPlanActive(p)).map((p) => [p.id, enrich(p)] as const),
         );
-        ordered = applyNovedadesPins(selected, pinned, pins, limit);
+        ordered = applyNovedadesPins(selected, pinned, pinSet, limit);
       }
       return res.json({
         profiles: ordered

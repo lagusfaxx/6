@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   AlertCircle, ArrowLeft, Banknote, BarChart3, Building2, CheckCircle2, Clock,
   ImagePlus, Lock, Package, PackageOpen, Plus, Send, Settings, ShieldCheck,
-  Store, Trash2, TrendingUp, Truck, Wallet, Zap,
+  Store, Trash2, TrendingUp, Wallet, Zap,
 } from "lucide-react";
 
 import useMe from "../../../hooks/useMe";
@@ -14,8 +14,8 @@ import { MediaThumb, StatRow } from "../../../components/marketplace/ui";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { appendVideoPosters } from "../../../lib/videoPoster";
 import {
-  DELIVERY_LABEL, ORDER_STATUS_UI, PRODUCT_TYPE_LABEL, formatClp, formatDate, productCoverMedia,
-  type MarketDeliveryMethod, type MarketOrder, type MarketProduct, type MarketProductType,
+  ORDER_STATUS_UI, formatClp, formatDate, productCoverMedia,
+  type MarketOrder, type MarketProduct, type MarketProductType,
 } from "../../../lib/marketplace";
 
 type Seller = {
@@ -68,14 +68,18 @@ type Tab = "resumen" | "productos" | "pedidos" | "ganancias" | "config";
 
 const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
   { key: "resumen", label: "Resumen", icon: BarChart3 },
-  { key: "productos", label: "Artículos", icon: Package },
-  { key: "pedidos", label: "Pedidos", icon: PackageOpen },
+  { key: "productos", label: "Packs", icon: Package },
+  { key: "pedidos", label: "Ventas", icon: PackageOpen },
   { key: "ganancias", label: "Ganancias", icon: Wallet },
-  { key: "config", label: "Mi tienda", icon: Settings },
+  { key: "config", label: "Banco", icon: Settings },
 ];
 
-const TYPES: MarketProductType[] = ["PHOTO_SET", "VIDEO", "CLOTHING", "FETISH", "CUSTOM", "OTHER"];
-const DIGITAL_TYPES: MarketProductType[] = ["PHOTO_SET", "VIDEO"];
+/* Se venden packs digitales (fotos y videos) que se ven en /contenido. El
+   tipo sólo dice qué predomina: todo pack lleva al menos 1 foto y 1 video. */
+const PACK_TYPES: Array<{ value: MarketProductType; label: string }> = [
+  { value: "PHOTO_SET", label: "Más fotos" },
+  { value: "VIDEO", label: "Más video" },
+];
 
 export default function SellerDashboardClient() {
   const searchParams = useSearchParams();
@@ -126,14 +130,14 @@ export default function SellerDashboardClient() {
   };
 
   if (meLoading || loading) {
-    return <div className="flex min-h-[60vh] items-center justify-center text-white/50">Cargando tu tienda...</div>;
+    return <div className="flex min-h-[60vh] items-center justify-center text-white/50">Cargando tus packs...</div>;
   }
 
   if (!me?.user?.id) {
     return (
       <EmptyState
-        title="Inicia sesión para vender"
-        text="Necesitas tu cuenta profesional para publicar artículos en el marketplace."
+        title="Inicia sesión para vender tus packs"
+        text="Entra con tu cuenta de creadora para subir packs de fotos y videos."
         action={<Link href="/login?next=/marketplace/vender" className="rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white">Iniciar sesión</Link>}
       />
     );
@@ -156,27 +160,25 @@ export default function SellerDashboardClient() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={resolveMediaUrl(me.user.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-11 w-11 rounded-xl object-cover" />
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold text-white sm:text-2xl">
-              {seller.storeName || me.user.displayName || me.user.username}
-            </h1>
-            <p className="truncate text-sm text-white/45">{seller.tagline || "Tu tienda en el marketplace"}</p>
+            <h1 className="truncate text-xl font-semibold text-white sm:text-2xl">Mis packs</h1>
+            <p className="truncate text-sm text-white/45">Se venden en la sección Contenido</p>
           </div>
         </div>
         <Link
           href={`/marketplace/tienda/${me.user.username}`}
           className="rounded-lg px-3 py-2 text-sm text-white/55 transition hover:bg-white/[0.06] hover:text-white"
         >
-          Ver mi vitrina
+          Ver cómo me ven
         </Link>
       </header>
 
       {seller.isBanned && (
         <p className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
-          Tu tienda está suspendida. Escríbenos para revisarlo.
+          Tus ventas de packs están suspendidas. Escríbenos para revisarlo.
         </p>
       )}
 
-      <nav className="-mb-px mt-5 flex gap-5 overflow-x-auto border-b border-white/[0.07]">
+      <nav className="-mb-px mt-5 flex gap-4 overflow-x-auto border-b border-white/[0.07] sm:gap-5">
         {TABS.map((item) => (
           <button
             key={item.key}
@@ -221,17 +223,14 @@ export default function SellerDashboardClient() {
 /* ══════════════════════ Alta de tienda ══════════════════════ */
 
 function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void }) {
-  const [storeName, setStoreName] = useState("");
-  const [tagline, setTagline] = useState("");
-  const [bio, setBio] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!state.canSell) {
     return (
       <EmptyState
-        title="El marketplace es para perfiles profesionales"
-        text="Convierte tu cuenta en perfil profesional y podrás vender packs, videos y artículos personales con pago protegido."
+        title="Vender packs es para creadoras"
+        text="Convierte tu cuenta en perfil profesional y podrás vender packs de fotos y videos en la sección Contenido."
         action={
           <Link href="/cuenta/convertir-profesional" className="rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white">
             Convertir mi cuenta
@@ -241,13 +240,14 @@ function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void 
     );
   }
 
+  /* Ya no hay "tienda" que nombrar: la vitrina es su perfil de creadora. */
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       await apiFetch("/market/seller/onboard", {
         method: "POST",
-        body: JSON.stringify({ storeName, tagline, bio }),
+        body: JSON.stringify({ autoDeliverDigital: true, acceptsShipping: false, acceptsMeet: false }),
       });
       onDone();
     } catch (err: any) {
@@ -271,19 +271,17 @@ function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void 
         )}
 
         <ul className="mt-4 space-y-2 text-sm text-white/65">
-          <Bullet icon={Zap}>Entrega automática de fotos y videos apenas se confirma el pago.</Bullet>
+          <Bullet icon={Zap}>Entrega automática: apenas se confirma el pago, el cliente recibe tus fotos y videos.</Bullet>
           <Bullet icon={ShieldCheck}>El contenido se ve protegido: sin descargas y con marca de agua del comprador.</Bullet>
-          <Bullet icon={Truck}>Envíos con tarifa por región o entrega acordada por chat.</Bullet>
+          <Bullet icon={TrendingUp}>Cada pack nuevo te vuelve a mostrar en Contenido: las que suben seguido venden más.</Bullet>
           <Bullet icon={Wallet}>
-            Después recibes {100 - state.commissionPercent}% de cada venta. El pago se libera al confirmar la entrega o a los {state.holdDays} días y te lo transferimos a tu cuenta.
+            Después recibes {100 - state.commissionPercent}% de cada venta. El pago se libera a los {state.holdDays} días y te lo transferimos a tu cuenta.
           </Bullet>
         </ul>
 
-        <div className="mt-5 space-y-3">
-          <Input label="Nombre de tu tienda" value={storeName} onChange={setStoreName} placeholder="Ej: El clóset de Sofía" />
-          <Input label="Frase corta" value={tagline} onChange={setTagline} placeholder="Packs exclusivos y envíos discretos" />
-          <TextArea label="Descripción" value={bio} onChange={setBio} rows={3} placeholder="Cuéntale a tus clientes qué vendes" />
-        </div>
+        <p className="mt-4 text-xs text-white/40">
+          Para publicar vas a necesitar tu cuenta bancaria (ahí te transferimos) y, en cada pack, al menos 1 foto y 1 video.
+        </p>
 
         {error && <p className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-200">{error}</p>}
 
@@ -291,9 +289,9 @@ function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void 
           type="button"
           disabled={busy}
           onClick={submit}
-          className="mt-4 w-full rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40"
+          className="mt-5 w-full rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40"
         >
-          {busy ? "Abriendo..." : "Abrir mi tienda"}
+          {busy ? "Un momento..." : "Empezar a vender packs"}
         </button>
       </div>
     </div>
@@ -367,7 +365,7 @@ function Overview({
       {pending.length > 0 && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white/70">Pedidos por atender</h2>
+            <h2 className="text-sm font-semibold text-white/70">Ventas por entregar</h2>
             <button type="button" onClick={() => onGo("pedidos")} className="text-xs text-fuchsia-300">Ver todos</button>
           </div>
           <div className="divide-y divide-white/[0.06]">
@@ -375,7 +373,7 @@ function Overview({
               <div key={order.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm text-white">{order.productTitle}</p>
-                  <p className="text-[11px] text-white/40">{order.code} · {DELIVERY_LABEL[order.deliveryMethod]}</p>
+                  <p className="text-[11px] text-white/40">{order.code} · {formatDate(order.createdAt)}</p>
                 </div>
                 <span className="shrink-0 text-sm font-bold text-emerald-300">{formatClp(order.sellerNetClp)}</span>
               </div>
@@ -386,7 +384,7 @@ function Overview({
 
       <div className="border-t border-white/[0.07] pt-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white/70">Tus artículos</h2>
+          <h2 className="text-sm font-semibold text-white/70">Tus packs</h2>
           <button type="button" onClick={() => onGo("productos")} className="text-xs text-fuchsia-300">Administrar</button>
         </div>
         <p className="mt-1 text-xs text-white/45">
@@ -398,9 +396,8 @@ function Overview({
 
       <p className="border-t border-white/[0.07] pt-5 text-xs leading-relaxed text-white/35">
         {state.freeSalesCount > 0 && `Tus primeras ${state.freeSalesCount} ventas no pagan comisión: sólo se descuenta el IVA (${state.ivaPercent}%). `}
-        Después, UZEED cobra {state.commissionPercent}% de comisión por venta y el envío se te paga íntegro. El dinero queda
-        retenido hasta que la clienta confirma o pasan {state.holdDays} días; cuando se libera lo pides a retiro y lo
-        transferimos a tu cuenta.
+        Después, UZEED cobra {state.commissionPercent}% de comisión por venta. El dinero queda retenido{" "}
+        {state.holdDays} días; cuando se libera lo pides a retiro y lo transferimos a tu cuenta.
       </p>
     </div>
   );
@@ -490,16 +487,7 @@ function ProductForm({
   const [description, setDescription] = useState("");
   const [priceClp, setPriceClp] = useState("");
   const [type, setType] = useState<MarketProductType>("PHOTO_SET");
-  const [methods, setMethods] = useState<MarketDeliveryMethod[]>(["DIGITAL"]);
-  const [autoDeliver, setAutoDeliver] = useState(true);
-  const [stock, setStock] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const isDigital = DIGITAL_TYPES.includes(type);
-
-  const toggleMethod = (method: MarketDeliveryMethod) => {
-    setMethods((prev) => (prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]));
-  };
 
   const submit = async () => {
     setBusy(true);
@@ -512,9 +500,9 @@ function ProductForm({
           description,
           priceClp: Number(priceClp) || 0,
           type,
-          deliveryMethods: methods,
-          autoDeliver,
-          stock: isDigital ? null : stock === "" ? null : Number(stock),
+          deliveryMethods: ["DIGITAL"],
+          autoDeliver: true,
+          stock: null,
         }),
       });
       await onCreated();
@@ -531,22 +519,23 @@ function ProductForm({
       <TextArea label="Descripción" value={description} onChange={setDescription} rows={3} placeholder="Qué incluye, cuántas fotos, duración..." />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-white/50">Tipo</span>
-          <select
-            value={type}
-            onChange={(e) => {
-              const next = e.target.value as MarketProductType;
-              setType(next);
-              setMethods(DIGITAL_TYPES.includes(next) ? ["DIGITAL"] : ["SHIPPING", "MEET"]);
-            }}
-            className="w-full rounded-xl border border-white/10 bg-[#12101f] px-3 py-3 text-sm text-white outline-none focus:border-fuchsia-500/40"
-          >
-            {TYPES.map((value) => (
-              <option key={value} value={value}>{PRODUCT_TYPE_LABEL[value]}</option>
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-white/50">¿Qué tiene más?</span>
+          <div className="flex gap-2">
+            {PACK_TYPES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setType(t.value)}
+                className={`flex-1 rounded-xl border px-3 py-3 text-sm transition ${
+                  type === t.value ? "border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-100" : "border-white/10 bg-white/[0.03] text-white/55"
+                }`}
+              >
+                {t.label}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
         <Input
           label={`Precio (${formatClp(state.minPriceClp)} - ${formatClp(state.maxPriceClp)})`}
           value={priceClp}
@@ -556,42 +545,10 @@ function ProductForm({
         />
       </div>
 
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-white/50">Formas de entrega</p>
-        <div className="flex flex-wrap gap-2">
-          {(["DIGITAL", "SHIPPING", "MEET"] as MarketDeliveryMethod[]).map((method) => (
-            <button
-              key={method}
-              type="button"
-              onClick={() => toggleMethod(method)}
-              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                methods.includes(method) ? "border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-200" : "border-white/10 bg-white/[0.03] text-white/55"
-              }`}
-            >
-              {DELIVERY_LABEL[method]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {!isDigital && <Input label="Stock (vacío = ilimitado)" value={stock} onChange={setStock} type="number" placeholder="1" />}
-
-      {isDigital && (
-        <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/60">
-          Cada pack lleva <strong className="text-white">al menos 1 foto y 1 video</strong> de contenido. Después de
-          crearlo lo abres y subes los archivos.
-        </p>
-      )}
-
-      {methods.includes("DIGITAL") && (
-        <label className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-          <input type="checkbox" checked={autoDeliver} onChange={(e) => setAutoDeliver(e.target.checked)} className="mt-0.5 accent-fuchsia-500" />
-          <span className="text-xs text-white/60">
-            <strong className="text-white">Entrega automática.</strong> Apenas se confirma el pago, la clienta recibe los archivos sin que
-            tengas que hacer nada.
-          </span>
-        </label>
-      )}
+      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/60">
+        Cada pack lleva <strong className="text-white">al menos 1 foto y 1 video</strong>. Después de crearlo lo abres y subes
+        las fotos de portada (las que ven todos) y el contenido del pack (lo que recibe quien paga, apenas paga).
+      </p>
 
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60">
@@ -599,7 +556,7 @@ function ProductForm({
         </button>
         <button
           type="button"
-          disabled={busy || !title || !priceClp || methods.length === 0}
+          disabled={busy || !title || !priceClp}
           onClick={submit}
           className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
         >
@@ -655,7 +612,7 @@ function ProductRow({
         body: form,
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "UPLOAD_FAILED");
-      onNotice(kind === "media" ? "Vitrina actualizada" : "Contenido cargado");
+      onNotice(kind === "media" ? "Portada actualizada" : "Contenido cargado");
       if (kind === "assets") await loadAssets();
       await reload();
     } catch (err: any) {
@@ -681,12 +638,12 @@ function ProductRow({
   };
 
   const remove = async () => {
-    if (!window.confirm("¿Quitar este artículo del marketplace?")) return;
+    if (!window.confirm("¿Eliminar este pack? Deja de venderse en Contenido.")) return;
     setBusy(true);
     try {
       await apiFetch(`/market/seller/products/${product.id}`, { method: "DELETE" });
       await reload();
-      onNotice("Artículo retirado");
+      onNotice("Pack eliminado");
     } catch (err: any) {
       onError(friendlyErrorMessage(err));
     } finally {
@@ -727,7 +684,7 @@ function ProductRow({
               onClick={() => previewRef.current?.click()}
               className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
             >
-              <ImagePlus className="h-4 w-4" /> Fotos de vitrina ({product.media.length})
+              <ImagePlus className="h-4 w-4" /> Portada, pública ({product.media.length})
             </button>
 
             <input ref={assetRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files, "assets"); e.target.value = ""; }} />
@@ -737,7 +694,7 @@ function ProductRow({
               onClick={() => assetRef.current?.click()}
               className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-xs font-semibold text-emerald-200 disabled:opacity-40"
             >
-              <Lock className="h-4 w-4" /> Contenido a entregar ({assets.length || product.assetCount || 0})
+              <Lock className="h-4 w-4" /> Contenido del pack ({assets.length || product.assetCount || 0})
             </button>
           </div>
 
@@ -755,8 +712,8 @@ function ProductRow({
           )}
 
           <p className="text-[11px] leading-relaxed text-white/40">
-            Las fotos de vitrina son públicas y sirven de anzuelo. El contenido a entregar queda guardado en privado y solo lo
-            ve quien pagó, dentro de UZEED, sin poder descargarlo.
+            La portada es pública y es lo que hace que te compren: usa tus mejores fotos. El contenido del pack queda
+            guardado en privado y sólo lo ve quien pagó, dentro de UZEED, sin poder descargarlo.
           </p>
 
           <div className="flex gap-2">
@@ -764,7 +721,7 @@ function ProductRow({
               {product.isActive ? "Pausar" : "Activar"}
             </button>
             <Link href={`/marketplace/producto/${product.id}`} className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white/70">
-              Ver ficha
+              Ver pack
             </Link>
             <button type="button" disabled={busy} onClick={remove} className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2.5 text-rose-200">
               <Trash2 className="h-4 w-4" />
@@ -795,7 +752,7 @@ function OrdersTab({
     try {
       await apiFetch(`/market/seller/orders/${orderId}/${action}`, { method: "POST", body: JSON.stringify(body || {}) });
       await reload();
-      onNotice("Pedido actualizado");
+      onNotice("Venta actualizada");
     } catch (err: any) {
       onError(friendlyErrorMessage(err));
     } finally {
@@ -804,7 +761,7 @@ function OrdersTab({
   };
 
   if (orders.length === 0) {
-    return <p className="py-14 text-center text-sm text-white/45">Todavía no tienes ventas.</p>;
+    return <p className="py-14 text-center text-sm text-white/45">Todavía no vendes packs. Cuando alguien compre, aparece aquí.</p>;
   }
 
   return (
@@ -827,33 +784,10 @@ function OrdersTab({
                 label={order.commissionPercent === ivaShare ? "IVA (venta sin comisión)" : "Comisión UZEED"}
                 value={formatClp(order.commissionClp)}
               />
-              <Detail label="Entrega" value={DELIVERY_LABEL[order.deliveryMethod]} />
-              <Detail label="Compradora" value={order.buyer?.displayName || order.buyer?.username || "—"} />
+              <Detail label="Comprador" value={order.buyer?.displayName || order.buyer?.username || "—"} />
             </div>
 
-            {order.deliveryMethod === "SHIPPING" && order.shipAddress && (
-              <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.06] p-3 text-xs text-sky-100/80">
-                <p className="font-semibold text-sky-100">Enviar a</p>
-                <p>{order.shipName} · {order.shipPhone}</p>
-                <p>{order.shipAddress}{order.shipCity ? `, ${order.shipCity}` : ""}</p>
-                <p className="text-sky-200/60">{order.shippingRegion} · envío {formatClp(order.shippingClp)}</p>
-              </div>
-            )}
-
-            {order.deliveryMethod === "MEET" && (
-              <p className="mt-3 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] p-3 text-xs text-fuchsia-100/80">
-                Entrega acordada: coordina con la clienta desde el chat del pedido.
-              </p>
-            )}
-
-            {order.shipNotes && <p className="mt-2 text-xs text-white/50">Nota: {order.shipNotes}</p>}
-
             <div className="mt-3 flex flex-wrap gap-2">
-              {order.status === "PAID" && (
-                <button type="button" disabled={busy} onClick={() => act(order.id, "accept")} className="rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white">
-                  Estoy preparándolo
-                </button>
-              )}
               {["PAID", "PREPARING"].includes(order.status) && order.deliveryMethod === "DIGITAL" && order.assetCount === 0 && (
                 <button
                   type="button"
@@ -868,10 +802,7 @@ function OrdersTab({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => {
-                    const tracking = order.deliveryMethod === "SHIPPING" ? window.prompt("Código de seguimiento (opcional)") : null;
-                    act(order.id, "deliver", tracking ? { trackingCode: tracking } : {});
-                  }}
+                  onClick={() => act(order.id, "deliver")}
                   className="rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-3 py-2 text-xs font-bold text-white"
                 >
                   Marcar entregado
@@ -884,13 +815,13 @@ function OrdersTab({
 
             {order.status === "DISPUTED" && (
               <p className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/[0.07] p-2.5 text-[11px] text-orange-100/80">
-                La clienta abrió un reclamo{order.disputeReason ? `: ${order.disputeReason}` : ""}. El pago queda retenido
-                hasta que administración resuelva; responde por el chat del pedido.
+                El cliente abrió un reclamo{order.disputeReason ? `: ${order.disputeReason}` : ""}. El pago queda retenido
+                hasta que lo resolvamos; responde por el chat de la venta.
               </p>
             )}
             {order.status === "DELIVERED" && (
               <p className="mt-2 flex items-center gap-1.5 text-[11px] text-white/40">
-                <Clock className="h-3 w-3" /> Esperando que la clienta confirme para liberar tu pago.
+                <Clock className="h-3 w-3" /> Entregado. Tu pago se libera cuando el cliente confirma o al cumplirse el plazo.
               </p>
             )}
             {order.status === "COMPLETED" && (
@@ -952,7 +883,7 @@ function EarningsTab({
       <div>
         <h2 className="text-sm font-semibold text-white/70">Solicitar retiro</h2>
         {!bankReady ? (
-          <p className="mt-2 text-xs text-amber-200">Carga tus datos bancarios en "Mi tienda" para poder retirar.</p>
+          <p className="mt-2 text-xs text-amber-200">Carga tu cuenta bancaria en "Banco" para poder retirar.</p>
         ) : (
           <>
             <div className="mt-3 flex gap-2">
@@ -1025,13 +956,8 @@ function SettingsTab({
   onNotice: (v: string) => void;
   reload: () => Promise<void> | void;
 }) {
-  const [storeName, setStoreName] = useState(seller.storeName || "");
   const [tagline, setTagline] = useState(seller.tagline || "");
   const [bio, setBio] = useState(seller.bio || "");
-  const [region, setRegion] = useState(seller.region || "");
-  const [autoDeliver, setAutoDeliver] = useState(seller.autoDeliverDigital);
-  const [acceptsShipping, setAcceptsShipping] = useState(seller.acceptsShipping);
-  const [acceptsMeet, setAcceptsMeet] = useState(seller.acceptsMeet);
 
   const [bankName, setBankName] = useState(seller.bankName || "");
   const [bankAccountType, setBankAccountType] = useState(seller.bankAccountType || "");
@@ -1047,10 +973,17 @@ function SettingsTab({
     try {
       await apiFetch("/market/seller/onboard", {
         method: "POST",
-        body: JSON.stringify({ storeName, tagline, bio, region, autoDeliverDigital: autoDeliver, acceptsShipping, acceptsMeet }),
+        body: JSON.stringify({
+          storeName: seller.storeName,
+          tagline,
+          bio,
+          autoDeliverDigital: true,
+          acceptsShipping: false,
+          acceptsMeet: false,
+        }),
       });
       await reload();
-      onNotice("Tienda actualizada");
+      onNotice("Presentación guardada");
     } catch (err: any) {
       onError(friendlyErrorMessage(err));
     } finally {
@@ -1078,23 +1011,6 @@ function SettingsTab({
   return (
     <div className="space-y-4">
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-white/70">Mi tienda</h2>
-        <Input label="Nombre de la tienda" value={storeName} onChange={setStoreName} />
-        <Input label="Frase corta" value={tagline} onChange={setTagline} />
-        <TextArea label="Descripción" value={bio} onChange={setBio} rows={3} />
-        <Input label="Región desde donde envías" value={region} onChange={setRegion} />
-
-        <Toggle checked={autoDeliver} onChange={setAutoDeliver} title="Entrega automática de contenido digital"
-          text="Las fotos y videos se envían solos apenas se confirma el pago." />
-        <Toggle checked={acceptsShipping} onChange={setAcceptsShipping} title="Acepto envíos" text="Los artículos físicos se despachan a domicilio." />
-        <Toggle checked={acceptsMeet} onChange={setAcceptsMeet} title="Acepto entrega acordada" text="Coordinas la entrega por el chat del pedido." />
-
-        <button type="button" disabled={busy} onClick={saveStore} className="w-full rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-40">
-          Guardar tienda
-        </button>
-      </div>
-
-      <div className="space-y-3 border-t border-white/[0.07] pt-6">
         <h2 className="text-sm font-semibold text-white/70">Dónde te transferimos</h2>
         <p className="text-xs text-white/45">Ahí te transferimos lo que vendas. Banco, número de cuenta, titular y RUT son obligatorios para publicar packs. No se muestran a los clientes.</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -1107,6 +1023,15 @@ function SettingsTab({
         </div>
         <button type="button" disabled={busy} onClick={saveBank} className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200 disabled:opacity-40">
           Guardar datos bancarios
+        </button>
+      </div>
+      <div className="space-y-3 border-t border-white/[0.07] pt-6">
+        <h2 className="text-sm font-semibold text-white/70">Tu presentación</h2>
+        <p className="text-xs text-white/45">Sale junto a tus packs. Opcional.</p>
+        <Input label="Frase corta" value={tagline} onChange={setTagline} placeholder="Fotos y videos exclusivos" />
+        <TextArea label="Descripción" value={bio} onChange={setBio} rows={3} placeholder="Cuéntales qué encuentran en tus packs" />
+        <button type="button" disabled={busy} onClick={saveStore} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/80 disabled:opacity-40">
+          Guardar presentación
         </button>
       </div>
     </div>
@@ -1170,18 +1095,6 @@ function TextArea({
         onChange={(e) => onChange(e.target.value)}
         className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:border-fuchsia-500/40"
       />
-    </label>
-  );
-}
-
-function Toggle({ checked, onChange, title, text }: { checked: boolean; onChange: (v: boolean) => void; title: string; text: string }) {
-  return (
-    <label className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-fuchsia-500" />
-      <span className="text-xs text-white/60">
-        <strong className="block text-white">{title}</strong>
-        {text}
-      </span>
     </label>
   );
 }

@@ -8,8 +8,9 @@ import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 /*
  * Orden de "Novedades" del inicio. Mover una tarjeta la deja fija en ese
  * lugar; las demás siguen saliendo solas, las más nuevas primero, en los
- * lugares libres. Así una profesional recién publicada aparece sin que nadie
- * haga nada, y sólo cambia de lugar si alguien la mueve.
+ * lugares libres. Una profesional que se publica después entra arriba y
+ * corre a todas un lugar (la 1ª pasa a 2ª, la 2ª a 3ª…), sin que nadie
+ * haga nada.
  */
 
 type Card = {
@@ -33,7 +34,6 @@ const GENDERS = [
 export default function AdminNovedadesPage() {
   const [gender, setGender] = useState<string>("FEMALE");
   const [cards, setCards] = useState<Card[]>([]);
-  const [pins, setPins] = useState<Pin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,12 +42,8 @@ export default function AdminNovedadesPage() {
     setLoading(true);
     setError(null);
     try {
-      const [list, p] = await Promise.all([
-        apiFetch<{ profiles: Card[] }>(`/profiles/discover?sort=new&limit=12&gender=${gender}`),
-        apiFetch<{ pins: Pin[] }>(`/admin/home/novedades/pins?gender=${gender}`),
-      ]);
+      const list = await apiFetch<{ profiles: Card[] }>(`/profiles/discover?sort=new&limit=12&gender=${gender}`);
       setCards(list.profiles || []);
-      setPins(p.pins || []);
     } catch {
       setError("No se pudo cargar Novedades.");
     } finally {
@@ -75,13 +71,18 @@ export default function AdminNovedadesPage() {
     }
   }
 
+  /* Las fijadas tal como se ven ahora (ya corridas por las nuevas): al
+     guardar, ese orden pasa a ser el punto de partida. */
+  const currentPins = (): Pin[] =>
+    cards.flatMap((c, i) => (c.pinnedPos != null ? [{ id: c.id, pos: i }] : []));
+
   /* La que se mueve queda fija en su nuevo lugar. Si ahí había otra fijada,
      esa pasa al lugar que se dejó libre (sigue fijada). */
   function move(from: number, to: number) {
     if (to < 0 || to >= cards.length) return;
     const moved = cards[from];
     const other = cards[to];
-    const next = pins.filter((p) => p.id !== moved.id && p.id !== other.id);
+    const next = currentPins().filter((p) => p.id !== moved.id && p.id !== other.id);
     next.push({ id: moved.id, pos: to });
     if (other.pinnedPos != null) next.push({ id: other.id, pos: from });
     save(next);
@@ -89,11 +90,11 @@ export default function AdminNovedadesPage() {
 
   function pinHere(index: number) {
     const c = cards[index];
-    save([...pins.filter((p) => p.id !== c.id && p.pos !== index), { id: c.id, pos: index }]);
+    save([...currentPins().filter((p) => p.id !== c.id && p.pos !== index), { id: c.id, pos: index }]);
   }
 
   function release(id: string) {
-    save(pins.filter((p) => p.id !== id));
+    save(currentPins().filter((p) => p.id !== id));
   }
 
   const pinnedCount = cards.filter((c) => c.pinnedPos != null).length;
@@ -109,8 +110,8 @@ export default function AdminNovedadesPage() {
         </h1>
       </div>
       <p className="text-sm text-white/55">
-        Mueve una tarjeta y queda fija en ese lugar. Las demás siguen saliendo solas, las más nuevas primero: una
-        profesional recién publicada aparece en el primer lugar libre sin que hagas nada.
+        Mueve una tarjeta y queda fija en ese lugar. Las demás siguen saliendo solas, las más nuevas primero. Cuando
+        se publica una profesional nueva entra arriba y las que acomodaste bajan un lugar, sin perder su orden.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
