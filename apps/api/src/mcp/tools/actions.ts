@@ -90,9 +90,11 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
             bio: true,
             serviceTags: true,
             undisclosedFields: true,
+            deletedAt: true,
           },
         });
         if (!user) return errorResult("Usuario no encontrado.");
+        if (user.deletedAt) return errorResult("La cuenta fue eliminada por su dueña; no se puede aprobar.");
 
         let missing: { key: string; label: string; tab: string }[] = [];
         if (user.profileType === "PROFESSIONAL") {

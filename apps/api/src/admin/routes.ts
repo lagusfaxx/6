@@ -118,6 +118,8 @@ adminRouter.get(
         where: {
           isVerified: false,
           verificationRejectedAt: null,
+          // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+          deletedAt: null,
           profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
         },
       }),
@@ -888,6 +890,8 @@ adminRouter.get(
     const where: any = {
       isVerified: false,
       verificationRejectedAt: rejected ? { not: null } : null,
+      // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+      deletedAt: null,
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
     };
     if (q) {
@@ -938,6 +942,7 @@ adminRouter.put(
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
+        deletedAt: true,
         isVerified: true,
         profileType: true,
         isActive: true,
@@ -956,6 +961,8 @@ adminRouter.put(
       },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    /* Aprobarla la volvería a publicar: una cuenta eliminada no vuelve. */
+    if (user.deletedAt) return res.status(409).json({ error: "ACCOUNT_DELETED", message: "La cuenta fue eliminada por su dueña." });
 
     /* Aprobar la verificación publica el perfil, tenga la ficha completa o
        no: retenerlo dejaba a la profesional verificada pero invisible por
