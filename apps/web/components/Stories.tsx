@@ -2,8 +2,7 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio, Heart } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Heart } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
@@ -27,13 +26,6 @@ type StoryGroup = {
   avatarUrl: string | null;
   profileHref: string;
   stories: StoryItem[];
-};
-
-type LiveStreamItem = {
-  id: string;
-  title: string | null;
-  viewerCount: number;
-  host: { id: string; displayName: string; username: string; avatarUrl: string | null };
 };
 
 const STORY_DURATION_MS = 5000;
@@ -298,14 +290,12 @@ function StoryViewer({
 export default function Stories({ gender }: { gender?: string } = {}) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
-  const router = useRouter();
   const { me } = useMe();
 
   const isProfessional = (me?.user?.profileType ?? "").toUpperCase() === "PROFESSIONAL";
   const canUpload = isProfessional;
 
   const [groups, setGroups] = useState<StoryGroup[]>([]);
-  const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
   // Publicar abre el composer encima del inicio: la profesional no sale de la
@@ -342,15 +332,7 @@ export default function Stories({ gender }: { gender?: string } = {}) {
   );
 
   useEffect(() => {
-    let done = 0;
-    const checkDone = () => { done++; if (done >= 2) setLoading(false); };
-
-    loadGroups().finally(checkDone);
-
-    apiFetch<{ streams: LiveStreamItem[] }>(`/live/active${gender ? `?gender=${encodeURIComponent(gender)}` : ""}`)
-      .then((d) => setLiveStreams(d.streams ?? []))
-      .catch(() => setLiveStreams([]))
-      .finally(checkDone);
+    loadGroups().finally(() => setLoading(false));
   }, [loadGroups]);
 
   useEffect(() => {
@@ -363,12 +345,7 @@ export default function Stories({ gender }: { gender?: string } = {}) {
     updateScrollHints();
     window.addEventListener("resize", updateScrollHints);
     return () => window.removeEventListener("resize", updateScrollHints);
-  }, [updateScrollHints, loading, groups.length, liveStreams.length]);
-
-  const handleGoLive = () => {
-    // Navigate to the live panel — the professional starts from there
-    router.push("/live");
-  };
+  }, [updateScrollHints, loading, groups.length]);
 
   if (loading) {
     return (
@@ -389,7 +366,7 @@ export default function Stories({ gender }: { gender?: string } = {}) {
     );
   }
 
-  const totalActive = groups.length + liveStreams.length;
+  const totalActive = groups.length;
   if (totalActive === 0 && !canUpload) return null;
 
   return (
@@ -402,23 +379,8 @@ export default function Stories({ gender }: { gender?: string } = {}) {
               {totalActive} activas
             </span>
           )}
-          {liveStreams.length > 0 && (
-            <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-300 flex items-center gap-1">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
-              {liveStreams.length} en vivo
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-3">
-          {isProfessional && (
-            <button
-              onClick={handleGoLive}
-              className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium"
-            >
-              <Radio className="h-3 w-3" />
-              Ir en vivo
-            </button>
-          )}
           {isProfessional && (
             <button
               type="button"
@@ -437,19 +399,6 @@ export default function Stories({ gender }: { gender?: string } = {}) {
           onScroll={updateScrollHints}
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-1"
         >
-          {/* Go Live button for professionals — navigates to live panel */}
-          {isProfessional && (
-            <div className="flex-shrink-0 flex flex-col items-center gap-2">
-              <button
-                onClick={handleGoLive}
-                className="relative h-16 w-16 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
-              >
-                <Radio className="h-6 w-6" />
-              </button>
-              <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
-            </div>
-          )}
-
           {/* Upload story button for professionals */}
           {canUpload && (
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
@@ -464,40 +413,6 @@ export default function Stories({ gender }: { gender?: string } = {}) {
               <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu historia</span>
             </div>
           )}
-
-          {/* Active live streams — shown first with red ring */}
-          {liveStreams.map((s) => (
-            <Link
-              key={`live-${s.id}`}
-              href={`/live/${s.id}`}
-              className="flex-shrink-0 flex flex-col items-center gap-2 group"
-            >
-              <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                  {s.host.avatarUrl ? (
-                    <img
-                      src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                      alt={s.host.displayName}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
-                      {s.host.displayName[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
-                  <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
-                  LIVE
-                </span>
-              </div>
-              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
-                {s.host.displayName.split(" ")[0]}
-              </span>
-            </Link>
-          ))}
 
           {/* Stories */}
           {groups.map((g, i) => (

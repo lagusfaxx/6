@@ -555,9 +555,8 @@ export default function AdminIndex() {
                 </div>
 
                 {/* Engagement */}
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                   <MiniMetric icon={MessageSquare} label="Mensajes 7d" value={overview.engagement.messagesWeek} delta={overview.engagement.messagesGrowthPct} color="blue" />
-                  <MiniMetric icon={Video} label="Videollamadas 7d" value={overview.engagement.videocallsWeek} color="fuchsia" />
                   <MiniMetric icon={Users} label="Encuentros 7d" value={overview.engagement.serviceRequestsWeek} sub={`${overview.engagement.serviceRequestsCompletedWeek} cerrados`} color="violet" />
                   <MiniMetric icon={Heart} label="Favoritos 7d" value={overview.engagement.favoritesWeek} color="pink" />
                   <MiniMetric icon={Phone} label="WhatsApp 7d" value={overview.engagement.whatsappClicksWeek} color="emerald" />

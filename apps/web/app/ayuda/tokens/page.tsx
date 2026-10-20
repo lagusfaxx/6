@@ -16,7 +16,7 @@ export default function AyudaTokensPage() {
       <TopicHeader
         icon={Coins}
         title="Tokens"
-        subtitle="Los tokens son la moneda virtual de UZEED. Con ellos pagas videollamadas, propinas, contenido exclusivo y más."
+        subtitle="Los tokens son la moneda virtual de UZEED. Con ellos pagas propinas, contenido exclusivo y más."
       />
 
       <Section title="¿Qué son los tokens?">
@@ -36,7 +36,7 @@ export default function AyudaTokensPage() {
           una promoción o compras paquetes grandes con descuento.
         </p>
         <Callout tone="info">
-          Los precios de videollamadas, propinas, contenido y planes siempre se
+          Los precios de propinas, contenido y planes siempre se
           muestran en tokens, para que sepas de inmediato el costo final.
         </Callout>
       </Section>
@@ -46,7 +46,7 @@ export default function AyudaTokensPage() {
           items={[
             "Recargando tu billetera con tarjeta de crédito o débito.",
             "Realizando una transferencia bancaria y subiendo el comprobante.",
-            "Como creador: recibiendo propinas, cobrando videollamadas o vendiendo contenido exclusivo.",
+            "Como creador: recibiendo propinas o vendiendo contenido exclusivo.",
             "Participando en promociones puntuales que regalan tokens.",
           ]}
         />
@@ -55,8 +55,6 @@ export default function AyudaTokensPage() {
       <Section title="En qué puedes usar tus tokens">
         <BulletList
           items={[
-            <><strong>Videollamadas:</strong> reservar sesiones privadas con profesionales.</>,
-            <><strong>Transmisiones en vivo:</strong> enviar propinas y regalos virtuales en streams.</>,
             <><strong>U-Mate:</strong> suscribirte a creadores premium y acceder a contenido exclusivo.</>,
             <><strong>Chat:</strong> enviar mensajes premium o contenido pagado (cuando el profesional lo habilita).</>,
             <><strong>Visibilidad:</strong> impulsar tu perfil profesional para aparecer destacado en las búsquedas.</>,
@@ -78,7 +76,7 @@ export default function AyudaTokensPage() {
       <Section title="¿Puedo transferir tokens a otro usuario?">
         <p>
           No de forma directa entre billeteras. Los tokens solo se transfieren
-          al usar un servicio (videollamada, propina, suscripción, contenido),
+          al usar un servicio (propina, suscripción, contenido),
           lo cual asegura que cada movimiento quede trazado y seguro para ambas
           partes.
         </p>
@@ -88,7 +86,7 @@ export default function AyudaTokensPage() {
         <p>
           Por ser una moneda virtual, los tokens no se devuelven una vez
           gastados en un servicio consumido. Si hubo un problema con el servicio
-          (por ejemplo, una videollamada que nunca ocurrió), puedes reportarlo y
+          (por ejemplo, un contenido que nunca llegó), puedes reportarlo y
           evaluaremos un reembolso caso a caso.
         </p>
       </Section>
@@ -97,7 +95,6 @@ export default function AyudaTokensPage() {
         links={[
           { href: "/ayuda/billetera", label: "Billetera" },
           { href: "/ayuda/marketplace", label: "Marketplace" },
-          { href: "/ayuda/live", label: "Transmisiones en vivo" },
           { href: "/ayuda/tiers", label: "Tiers y planes" },
         ]}
       />

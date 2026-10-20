@@ -65,8 +65,6 @@ export default function AyudaBilleteraPage() {
       <Section title="En qué puedes gastar los tokens">
         <BulletList
           items={[
-            "Videollamadas privadas con profesionales.",
-            "Propinas durante transmisiones en vivo.",
             "Acceso a contenido exclusivo de creadoras en U-Mate.",
             "Regalos virtuales para demostrar apoyo a tus creadores favoritos.",
             "Funciones destacadas como impulsar visibilidad de tu perfil (para profesionales).",
@@ -76,7 +74,7 @@ export default function AyudaBilleteraPage() {
 
       <Section title="Retiros (para creadores y profesionales)">
         <p>
-          Si recibes tokens como propinas, videollamadas o ventas de contenido,
+          Si recibes tokens como propinas o ventas de contenido,
           puedes convertirlos nuevamente en dinero y retirarlos a tu cuenta
           bancaria.
         </p>
@@ -106,7 +104,7 @@ export default function AyudaBilleteraPage() {
       <Section title="Historial de movimientos">
         <p>
           En tu billetera verás un listado cronológico con todos los movimientos:
-          recargas, compras, propinas enviadas y recibidas, videollamadas y
+          recargas, compras, propinas enviadas y recibidas y
           retiros. Usa este historial para llevar un control claro de tus
           finanzas dentro de la plataforma.
         </p>
