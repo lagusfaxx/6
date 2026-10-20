@@ -16,6 +16,14 @@ const storageProvider = new LocalStorageProvider(
 
 export const livestreamRouter = Router();
 
+/* Bots y enlaces rotos piden /live/<cualquier cosa>: con un id que no es UUID
+   Prisma falla al convertirlo y quedaba como error 500 en el log. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+livestreamRouter.param("id", (req, res, next, id) => {
+  if (!UUID_RE.test(String(id))) return res.status(404).json({ error: "Not found" });
+  next();
+});
+
 /* ── Rate limiters for financial live endpoints ── */
 const tipLimiter = rateLimit({
   windowMs: 60 * 1000,
