@@ -25,9 +25,8 @@ import {
 } from "../../../lib/serviceCategories";
 import MapboxAddressAutocomplete from "../../../components/MapboxAddressAutocomplete";
 import TermsModal from "../../../components/TermsModal";
+import { PHONE_ERROR, formatPhone, isValidPhone, normalizePhone } from "../../../lib/phone";
 
-const phoneRegex =
-  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
 const MIN_PHOTOS = 3;
 const MAX_PHOTOS = 6;
@@ -148,8 +147,7 @@ export default function UpgradeToProfessionalPage() {
     if (step === 1) {
       if (displayName.trim().length < 2)
         return "Tu nombre público debe tener al menos 2 caracteres.";
-      if (!phoneRegex.test(phone.trim()))
-        return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
+      if (!isValidPhone(phone)) return PHONE_ERROR;
       if (!birthYear || !birthMonth)
         return "Ingresa tu fecha de nacimiento.";
       const now = new Date();
@@ -246,7 +244,7 @@ export default function UpgradeToProfessionalPage() {
         body: JSON.stringify({
           displayName: displayName.trim(),
           gender,
-          phone: phone.trim(),
+          phone: normalizePhone(phone),
           primaryCategory: primaryFromServiceCategories(serviceCategories),
           serviceCategories,
           address,
@@ -441,7 +439,11 @@ export default function UpgradeToProfessionalPage() {
                   className="input"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+56 9 1234 5678 / +57 3..."
+                  onBlur={() => setPhone((v) => formatPhone(v))}
+                  placeholder="+56 9 1234 5678"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   required
                 />
               </div>

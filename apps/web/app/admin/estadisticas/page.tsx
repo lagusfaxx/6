@@ -335,9 +335,8 @@ export default function AdminEstadisticas() {
                 {/* ── Interaction Breakdown ── */}
                 <div>
                   <SectionHeader icon={Activity} label="Interacciones" />
-                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                     <MiniCard icon={MessageSquare} label="Mensajes" value={data.interactions.messages} color="blue" />
-                    <MiniCard icon={Video} label="Videollamadas" value={data.interactions.videocallBookings} color="fuchsia" />
                     <MiniCard icon={Users} label="Encuentros" value={data.interactions.serviceRequests} color="violet" />
                     <MiniCard icon={Heart} label="Favoritos" value={data.interactions.favorites} color="pink" />
                     <MiniCard icon={Phone} label="WhatsApp" value={data.interactions.whatsappClicks} color="emerald" />

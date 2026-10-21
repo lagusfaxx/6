@@ -33,6 +33,7 @@ import {
 } from "./registerHelpers";
 import { safeUploadFilename } from "../lib/uploadFilename";
 import { parseServiceCategories, primaryFromServiceCategories } from "../lib/serviceCategories";
+import { findUserWithPhone } from "../profile/phoneChange";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -601,7 +602,7 @@ authRouter.post(
       return res.status(409).json({ error: "EMAIL_IN_USE", message: "Este correo ya está registrado." });
     }
 
-    const existingPhone = await prisma.user.findFirst({ where: { phone } });
+    const existingPhone = await findUserWithPhone(phone);
     if (existingPhone) {
       return res.status(409).json({ error: "PHONE_IN_USE", message: "Este teléfono ya está registrado." });
     }

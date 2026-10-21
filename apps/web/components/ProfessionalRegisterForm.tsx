@@ -27,6 +27,7 @@ import {
   MessageSquare,
   ChevronDown,
 } from "lucide-react";
+import { PHONE_ERROR, formatPhone, isValidPhone, normalizePhone } from "../lib/phone";
 
 /* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared).
    Se repite aquí para no arrastrar el paquete compartido —y zod con él— al
@@ -34,8 +35,6 @@ import {
 const DISPLAY_NAME_MIN_LENGTH = 2;
 const DISPLAY_NAME_MAX_LENGTH = 20;
 
-const phoneRegex =
-  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
 const MONTHS = [
   "Enero",
@@ -182,8 +181,7 @@ export default function ProfessionalRegisterForm({
         return `El nombre público no puede superar los ${DISPLAY_NAME_MAX_LENGTH} caracteres.`;
       if (!email.trim()) return "Ingresa tu email.";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Revisa tu email: no parece válido.";
-      if (!phoneRegex.test(phone.trim()))
-        return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
+      if (!isValidPhone(phone)) return PHONE_ERROR;
       if (!skipPassword && password.length < 8)
         return "La contraseña debe tener al menos 8 caracteres.";
     }
@@ -257,7 +255,7 @@ export default function ProfessionalRegisterForm({
       email,
       password,
       displayName,
-      phone,
+      phone: normalizePhone(phone),
       gender,
       primaryCategory: primaryFromServiceCategories(serviceCategories) || undefined,
       serviceCategories,
@@ -386,6 +384,7 @@ export default function ProfessionalRegisterForm({
                   className="input"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone((v) => formatPhone(v))}
                   placeholder="+56 9 1234 5678"
                   type="tel"
                   inputMode="tel"

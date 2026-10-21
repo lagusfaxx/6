@@ -4,6 +4,7 @@ import { prisma } from "../db";
 import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { emitAdminEvent } from "../lib/adminEvents";
+import { normalizePhone } from "@uzeed/shared";
 
 /**
  * Cambio de teléfono de las profesionales.
@@ -21,9 +22,29 @@ export const phoneChangeRouter = Router();
 export const PROFESSIONAL_PHONE_REGEX =
   /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
+/**
+ * Otra cuenta con este mismo número, como sea que esté guardado ("+56 9 1234
+ * 5678", "+56912345678"…): se comparan sólo los dígitos.
+ */
+export async function findUserWithPhone(
+  phone: string | null | undefined,
+  excludeUserId?: string,
+): Promise<{ id: string; username: string } | null> {
+  const digits = normalizePhone(phone).replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  const rows = excludeUserId
+    ? await prisma.$queryRaw<{ id: string; username: string }[]>`
+        SELECT "id"::text AS id, "username" FROM "User"
+        WHERE regexp_replace("phone", '\D', '', 'g') = ${digits} AND "id" <> ${excludeUserId}::uuid LIMIT 1`
+    : await prisma.$queryRaw<{ id: string; username: string }[]>`
+        SELECT "id"::text AS id, "username" FROM "User"
+        WHERE regexp_replace("phone", '\D', '', 'g') = ${digits} LIMIT 1`;
+  return rows[0] ?? null;
+}
+
 /** Dos números son el mismo aunque estén escritos con distintos espacios. */
 export function samePhone(a: string | null | undefined, b: string | null | undefined): boolean {
-  const norm = (v: string | null | undefined) => String(v ?? "").replace(/[\s-]/g, "");
+  const norm = (v: string | null | undefined) => normalizePhone(v).replace(/[\s-]/g, "");
   return norm(a) === norm(b);
 }
 
@@ -88,7 +109,7 @@ phoneChangeRouter.post(
       });
     }
 
-    const requestedPhone = String(phone ?? "").trim();
+    const requestedPhone = normalizePhone(String(phone ?? ""));
     if (!PROFESSIONAL_PHONE_REGEX.test(requestedPhone)) {
       return res.status(400).json({
         error: "PHONE_INVALID",
@@ -102,10 +123,7 @@ phoneChangeRouter.post(
       });
     }
 
-    const taken = await prisma.user.findFirst({
-      where: { phone: requestedPhone, NOT: { id: userId } },
-      select: { id: true },
-    });
+    const taken = await findUserWithPhone(requestedPhone, userId);
     if (taken) {
       return res.status(409).json({
         error: "PHONE_TAKEN",
@@ -232,10 +250,7 @@ phoneChangeRouter.post(
     }
 
     // Entre la solicitud y la aprobación el número puede haberse ocupado.
-    const taken = await prisma.user.findFirst({
-      where: { phone: request.requestedPhone, NOT: { id: request.userId } },
-      select: { id: true, username: true },
-    });
+    const taken = await findUserWithPhone(request.requestedPhone, request.userId);
     if (taken) {
       return res.status(409).json({
         error: "PHONE_TAKEN",

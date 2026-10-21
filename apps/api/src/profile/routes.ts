@@ -16,7 +16,7 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { applyNovedadesPins, getNovedadesPins } from "../lib/novedadesPins";
-import { PROFESSIONAL_PHONE_REGEX, samePhone } from "./phoneChange";
+import { PROFESSIONAL_PHONE_REGEX, findUserWithPhone, samePhone } from "./phoneChange";
 import {
   displayNameError,
   normalizeDisplayName,
@@ -45,6 +45,7 @@ import {
   parseServiceCategories,
   primaryFromServiceCategories,
 } from "../lib/serviceCategories";
+import { normalizePhone } from "@uzeed/shared";
 
 export const profileRouter = Router();
 
@@ -796,7 +797,7 @@ async function updateProfile(req: any, res: any) {
   // silently wiping a professional's number. Enforce a valid number like registration.
   let phoneUpdate: string | null | undefined = undefined;
   if (phone !== undefined) {
-    const trimmedPhone = String(phone ?? "").trim();
+    const trimmedPhone = normalizePhone(String(phone ?? ""));
     if (me.profileType === "PROFESSIONAL") {
       if (!PROFESSIONAL_PHONE_REGEX.test(trimmedPhone)) {
         return res.status(400).json({
@@ -1255,7 +1256,7 @@ profileRouter.post(
       });
     }
 
-    const safePhone = String(phone || "").trim();
+    const safePhone = normalizePhone(String(phone || ""));
     if (!PROFESSIONAL_PHONE_REGEX.test(safePhone)) {
       return res.status(400).json({
         error: "PHONE_INVALID",
@@ -1353,10 +1354,7 @@ profileRouter.post(
       });
     }
 
-    const phoneTaken = await prisma.user.findFirst({
-      where: { phone: safePhone, NOT: { id: me.id } },
-      select: { id: true },
-    });
+    const phoneTaken = await findUserWithPhone(safePhone, me.id);
     if (phoneTaken) {
       return res.status(409).json({
         error: "PHONE_IN_USE",

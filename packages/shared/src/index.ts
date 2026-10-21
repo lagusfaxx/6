@@ -101,18 +101,42 @@ export function normalizeQuickReplies(input: unknown): QuickReplies {
   return out;
 }
 
+/** Celular válido con código de país: Chile, Colombia, Venezuela o Perú. */
+export const PHONE_REGEX =
+  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
+
+/**
+ * Lleva a +56912345678 lo que la gente escribe de verdad en el campo de
+ * teléfono: "9 1234 5678", "912345678", "56912345678", "0056 9…",
+ * "(+56) 9 1234-5678", "+56 09…". Si no lo reconoce lo devuelve tal cual
+ * (sin espacios de más) para que la validación muestre el aviso.
+ * Un número de 9 dígitos que empieza con 9 se toma como chileno.
+ */
+export function normalizePhone(raw: string | null | undefined): string {
+  const input = String(raw ?? "").trim();
+  if (!input) return "";
+  let digits = input.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  // "+56 09…" o "+56 (0)9…": el 0 de discado nacional sobra.
+  digits = digits.replace(/^(56|57|58|51)0+(?=\d)/, "$1");
+  if (/^9\d{8}$/.test(digits)) digits = `56${digits}`;
+  else if (/^09\d{8}$/.test(digits)) digits = `56${digits.slice(1)}`;
+  const candidate = `+${digits}`;
+  return PHONE_REGEX.test(candidate) ? candidate : input.replace(/\s+/g, " ");
+}
+
 export const registerInputSchema = z
   .object({
     /* Opcional para clientes: no se usa y pedirlo espanta (temen que se
        filtre). Profesionales, locales y tiendas lo siguen necesitando: se
        exige más abajo, en superRefine. */
-    phone: z
-      .string()
-      .regex(
-        /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/,
-        "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
-      )
-      .optional(),
+    phone: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() ? normalizePhone(v) : undefined),
+      z
+        .string()
+        .regex(PHONE_REGEX, "Ingresa un número válido con código de país (+56, +57, +58 o +51).")
+        .optional(),
+    ),
     email: z.string().email(),
     password: z.string().min(8).max(128),
     displayName: displayNameSchema,

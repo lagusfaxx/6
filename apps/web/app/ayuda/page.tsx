@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Wallet,
   Coins,
-  Radio,
   ShoppingBag,
   Video,
   Crown,
@@ -38,13 +37,6 @@ const TOPICS: Topic[] = [
     description: "Qué son, cuánto valen y cómo se usan dentro de UZEED.",
     icon: Coins,
     accent: "from-amber-500/20 to-orange-500/10",
-  },
-  {
-    href: "/ayuda/live",
-    title: "Transmisiones en vivo",
-    description: "Mira y realiza streams, envía propinas y disfruta en tiempo real.",
-    icon: Radio,
-    accent: "from-rose-500/20 to-red-500/10",
   },
   {
     href: "/ayuda/marketplace",
@@ -106,8 +98,8 @@ export default function AyudaIndexPage() {
         </h2>
         <p className="mt-2 text-sm text-white/60 leading-relaxed">
           Bienvenido al Centro de Ayuda. Aquí encontrarás guías detalladas sobre cada
-          función de la plataforma: billetera, tokens, transmisiones en vivo,
-          videollamadas, planes premium, chat, foro y más. Elige un tema para empezar.
+          función de la plataforma: billetera, tokens, contenido, planes premium,
+          chat, foro y más. Elige un tema para empezar.
         </p>
       </section>
 

@@ -27,7 +27,7 @@ import { isUUID } from "../lib/validators";
 import { getS3MirrorStatus } from "../storage/s3Mirror";
 import {
   PROFESSIONAL_PHONE_REGEX,
-  samePhone,
+  findUserWithPhone,
 } from "../profile/phoneChange";
 import {
   displayNameError,
@@ -118,6 +118,8 @@ adminRouter.get(
         where: {
           isVerified: false,
           verificationRejectedAt: null,
+          // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+          deletedAt: null,
           profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
         },
       }),
@@ -724,14 +726,10 @@ adminRouter.put(
               "Número inválido. Usa formato internacional, por ejemplo +56 9 1234 5678.",
           });
         }
-        // El mismo número puede estar guardado con o sin espacios, así que se
-        // comparan ambas escrituras antes de dar el número por libre.
-        const compact = trimmed.replace(/[\s-]/g, "");
-        const taken = await prisma.user.findFirst({
-          where: { phone: { in: [trimmed, compact] }, NOT: { id } },
-          select: { id: true, username: true, phone: true },
-        });
-        if (taken && samePhone(taken.phone, trimmed)) {
+        // El mismo número puede estar guardado con o sin espacios: se
+        // comparan sólo los dígitos antes de dar el número por libre.
+        const taken = await findUserWithPhone(trimmed, id);
+        if (taken) {
           return res.status(409).json({
             error: "PHONE_TAKEN",
             message: `Ese número ya está en la cuenta @${taken.username}.`,
@@ -888,6 +886,8 @@ adminRouter.get(
     const where: any = {
       isVerified: false,
       verificationRejectedAt: rejected ? { not: null } : null,
+      // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+      deletedAt: null,
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
     };
     if (q) {
@@ -938,6 +938,7 @@ adminRouter.put(
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
+        deletedAt: true,
         isVerified: true,
         profileType: true,
         isActive: true,
@@ -956,6 +957,8 @@ adminRouter.put(
       },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    /* Aprobarla la volvería a publicar: una cuenta eliminada no vuelve. */
+    if (user.deletedAt) return res.status(409).json({ error: "ACCOUNT_DELETED", message: "La cuenta fue eliminada por su dueña." });
 
     /* Aprobar la verificación publica el perfil, tenga la ficha completa o
        no: retenerlo dejaba a la profesional verificada pero invisible por

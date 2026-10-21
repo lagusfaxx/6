@@ -12,6 +12,7 @@ import { emitAdminEvent } from "../lib/adminEvents";
 import {
   Genders,
   PreferenceGenders,
+  normalizePhone,
   normalizeQuickReplies,
 } from "@uzeed/shared";
 import { createProfessionalForumThread } from "./registerHelpers";
@@ -278,9 +279,10 @@ const phoneRegex =
 const professionalCompleteSchema = z.object({
   profileType: z.literal("PROFESSIONAL"),
   displayName: z.string().min(2).max(50),
-  phone: z
-    .string()
-    .regex(phoneRegex, "Ingresa un número válido con código de país (+56, +57, +58 o +51)."),
+  phone: z.preprocess(
+    (v) => (typeof v === "string" ? normalizePhone(v) : v),
+    z.string().regex(phoneRegex, "Ingresa un número válido con código de país (+56, +57, +58 o +51)."),
+  ),
   gender: Genders,
   preferenceGender: PreferenceGenders.optional(),
   birthdate: z.string().min(1, "required"),
