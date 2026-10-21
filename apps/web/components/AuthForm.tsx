@@ -6,6 +6,7 @@ import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
 import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 import { funnelFieldHandlers, trackRegister } from "../lib/registerFunnel";
+import { PHONE_ERROR, formatPhone, isValidPhone, normalizePhone } from "../lib/phone";
 
 type Mode = "login" | "register";
 
@@ -40,7 +41,7 @@ function flattenValidation(details: any): string | null {
       if (low.includes("too small")) return `${f} es demasiado corto.`;
       if (low.includes("too big")) return `${f} es demasiado largo.`;
       if (low.includes("código de país") || low.includes("+56"))
-        return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
+        return PHONE_ERROR;
       return `${f}: ${msg}`;
     }),
   );
@@ -122,7 +123,6 @@ export default function AuthForm({
     profileType === "ESTABLISHMENT" ||
     profileType === "SHOP";
   const needsPhone = profileType !== "CLIENT";
-  const phoneRegex = /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
   const finalTermsAccepted = externalTermsAccepted ?? acceptTerms;
 
@@ -146,10 +146,8 @@ export default function AuthForm({
           return;
         }
         /* Al cliente no se le pide teléfono: no se usa y pedirlo espanta. */
-        if (needsPhone && !phoneRegex.test(phone.trim())) {
-          showError(
-            "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
-          );
+        if (needsPhone && !isValidPhone(phone)) {
+          showError(PHONE_ERROR);
           setLoading(false);
           return;
         }
@@ -169,7 +167,7 @@ export default function AuthForm({
           email,
           password,
           displayName,
-          phone: needsPhone ? phone : undefined,
+          phone: needsPhone ? normalizePhone(phone) : undefined,
           gender: profileType === "PROFESSIONAL" ? gender : undefined,
           primaryCategory: profileType === "PROFESSIONAL" ? (primaryCategory || undefined) : undefined,
           profileType,
@@ -256,7 +254,11 @@ export default function AuthForm({
             className="input"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+56 9 1234 5678 / +57 3..."
+            onBlur={() => setPhone((v) => formatPhone(v))}
+            placeholder="+56 9 1234 5678"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             required
           />
         </div>

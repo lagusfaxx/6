@@ -27,7 +27,7 @@ import { isUUID } from "../lib/validators";
 import { getS3MirrorStatus } from "../storage/s3Mirror";
 import {
   PROFESSIONAL_PHONE_REGEX,
-  samePhone,
+  findUserWithPhone,
 } from "../profile/phoneChange";
 import {
   displayNameError,
@@ -726,14 +726,10 @@ adminRouter.put(
               "Número inválido. Usa formato internacional, por ejemplo +56 9 1234 5678.",
           });
         }
-        // El mismo número puede estar guardado con o sin espacios, así que se
-        // comparan ambas escrituras antes de dar el número por libre.
-        const compact = trimmed.replace(/[\s-]/g, "");
-        const taken = await prisma.user.findFirst({
-          where: { phone: { in: [trimmed, compact] }, NOT: { id } },
-          select: { id: true, username: true, phone: true },
-        });
-        if (taken && samePhone(taken.phone, trimmed)) {
+        // El mismo número puede estar guardado con o sin espacios: se
+        // comparan sólo los dígitos antes de dar el número por libre.
+        const taken = await findUserWithPhone(trimmed, id);
+        if (taken) {
           return res.status(409).json({
             error: "PHONE_TAKEN",
             message: `Ese número ya está en la cuenta @${taken.username}.`,
