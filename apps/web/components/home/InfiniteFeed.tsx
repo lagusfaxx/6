@@ -84,8 +84,13 @@ export default function InfiniteFeed({
         if (effectiveLoc) {
           params.set("lat", String(effectiveLoc[0]));
           params.set("lng", String(effectiveLoc[1]));
-          // Wide radius so empty regions still show closest profiles.
-          params.set("radiusKm", "2000");
+          /* El inicio muestra a todas: la ubicación sólo ordena (las más
+             cercanas primero). Antes se pedía radiusKm=2000 creyendo que así
+             entraban todas, pero la API topa el radio en 200 km y las de
+             Concepción, Temuco o el norte desaparecían para quien estaba en
+             Santiago. Con expand el radio no filtra. */
+          params.set("radiusKm", "200");
+          params.set("expand", "true");
         }
         // Con una comuna elegida en el chip, la distancia se mide contra su
         // centro: una vecina puede quedar más cerca de ese punto que un perfil
