@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CITY_LANDINGS } from "../../lib/cities";
 import type { EscortLanding } from "../../lib/escortLandings";
+import { cleanProfileHref } from "../../lib/profileUrl";
 
 /*
  * Landing del lado oferta (/creadoras, /trabajar-de-escort, /vender-contenido,
@@ -14,6 +15,9 @@ export type RelatedLanding = { slug: string; eyebrow: string; h1: string };
 
 export type PublicProfile = {
   id: string;
+  /* Para enlazar a la ficha limpia sin pasar por /profesional/<id>, que redirige. */
+  username?: string | null;
+  serviceCategory?: string | null;
   displayName: string;
   city: string | null;
   avatarUrl: string | null;
@@ -590,7 +594,7 @@ function HeroCard({
 }) {
   return (
     <Link
-      href={`/profesional/${profile.id}`}
+      href={cleanProfileHref({ id: profile.id, username: profile.username, serviceCategory: profile.serviceCategory, name: profile.displayName, city: profile.city })}
       className={`absolute block aspect-[3/4] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-studio-card transition-transform duration-300 hover:scale-[1.03] ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -616,7 +620,7 @@ function HeroCard({
 function ProfileTile({ profile }: { profile: PublicProfile }) {
   return (
     <Link
-      href={`/profesional/${profile.id}`}
+      href={cleanProfileHref({ id: profile.id, username: profile.username, serviceCategory: profile.serviceCategory, name: profile.displayName, city: profile.city })}
       className="group relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.04]"
     >
       {profile.avatarUrl ? (

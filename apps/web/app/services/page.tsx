@@ -42,6 +42,7 @@ import {
   Heart,
   CircleUser,
 } from "lucide-react";
+import { cleanProfileHref } from "../../lib/profileUrl";
 
 type ProfileResult = {
   id: string;
@@ -119,7 +120,9 @@ function ownerHref(profile: ProfileResult) {
   if (profile.externalOnly && profile.websiteUrl) return profile.websiteUrl;
   if (profile.profileType === "ESTABLISHMENT") return `/motel/${profile.username || profile.id}`;
   if (profile.profileType === "SHOP") return `/sexshop/${profile.username}`;
-  return `/profesional/${profile.id}`;
+  /* Directo a la ficha limpia: /profesional/<id> redirige y Google la cuenta
+     como "página con redirección". */
+  return cleanProfileHref({ id: profile.id, username: profile.username, serviceCategory: profile.serviceCategory, name: profile.displayName, city: profile.city });
 }
 
 function resolveCardImage(profile: ProfileResult) {

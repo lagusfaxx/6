@@ -4,7 +4,7 @@ import MotelDirectory from "./MotelDirectory";
 import MotelCard from "./MotelCard";
 import { Breadcrumbs, ComunaLinks, Faq, JsonLd, breadcrumbLd, motelFaq } from "./MotelSeo";
 import { COMUNAS, type Comuna } from "../../lib/comunas";
-import { countByComuna, motelHref, priceFrom, siteUrl, type MotelWithComuna } from "../../lib/motels";
+import { countByComuna, motelHref, motelsForComuna, priceFrom, siteUrl, type MotelWithComuna } from "../../lib/motels";
 
 /**
  * Vista común de /moteles y /moteles/{comuna}. Todo lo que ve Google (título,
@@ -24,6 +24,13 @@ export default function MotelLandingView({
 }) {
   const place = comuna ? comuna.name : "Chile";
   const counts = countByComuna(all);
+  /* Mismo criterio que el robots de /moteles/[comuna] y el sitemap. */
+  const indexable = new Set(
+    COMUNAS.filter((c) => {
+      const { inside, nearby } = motelsForComuna(all, c);
+      return c.isMetro || inside.length > 0 || nearby.length > 0;
+    }).map((c) => c.slug),
+  );
   const prices = motels.map((m) => priceFrom(m, "3H")?.price).filter((p): p is number => Boolean(p));
   const minPrice = prices.length ? Math.min(...prices) : null;
   const bookable = motels.filter((m) => m.kind === "profile" && m.roomsCount > 0).length;
@@ -140,7 +147,7 @@ export default function MotelLandingView({
 
       <Faq items={motelFaq(place, { count: motels.length, minPrice }).map((f) => ({ q: f.q, a: f.a }))} />
 
-      <ComunaLinks counts={counts} current={comuna?.slug} />
+      <ComunaLinks counts={counts} current={comuna?.slug} indexable={indexable} />
 
       <JsonLd data={breadcrumbLd(crumbs)} />
       {motels.length > 0 && (

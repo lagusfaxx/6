@@ -22,11 +22,14 @@ import { hasVerifiedBadge } from "../../lib/systemBadges";
 import VerifiedTick from "../VerifiedTick";
 import useFavorites from "../../hooks/useFavorites";
 import FlashBadge from "../FlashBadge";
+import { cleanProfileHref } from "../../lib/profileUrl";
 
 export type HomeLevel = "DIAMOND" | "GOLD" | "SILVER";
 
 export type HomeProfile = {
   id: string;
+  /** Para enlazar a la ficha limpia (/escort/<usuario>) sin pasar por un redirect. */
+  username?: string | null;
   displayName: string;
   age: number | null;
   city: string | null;
@@ -59,6 +62,7 @@ export function toHomeProfile(r: any, overrides: Partial<HomeProfile> = {}): Hom
     r?.userLevel === "DIAMOND" || r?.userLevel === "GOLD" ? r.userLevel : "SILVER";
   return {
     id: String(r.id),
+    username: typeof r.username === "string" ? r.username : null,
     displayName: r.displayName || r.name || r.username || "Perfil",
     age: typeof r.age === "number" ? r.age : null,
     city: r.city ?? null,
@@ -250,7 +254,7 @@ export default function ProfileCard({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0.15)_28%,transparent_45%)]" />
 
       <Link
-        href={`/profesional/${p.id}`}
+        href={cleanProfileHref({ id: p.id, username: p.username, serviceCategory: p.serviceCategory, name: p.displayName, city: p.city })}
         aria-label={`Ver perfil de ${p.displayName}`}
         className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-fuchsia-500"
       />

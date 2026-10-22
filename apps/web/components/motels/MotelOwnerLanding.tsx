@@ -16,7 +16,7 @@ import {
 import MotelCard from "./MotelCard";
 import { Faq, JsonLd, breadcrumbLd } from "./MotelSeo";
 import { COMUNAS } from "../../lib/comunas";
-import { countByComuna, fetchMotelDirectory } from "../../lib/motels";
+import { countByComuna, fetchMotelDirectory, motelsForComuna } from "../../lib/motels";
 import { MOTEL_OWNER_LANDINGS, type MotelOwnerLanding } from "../../lib/motelOwnerLandings";
 
 const SITE = "https://uzeed.cl";
@@ -174,7 +174,12 @@ export default async function MotelOwnerLandingPage({ landing }: { landing: Mote
       <section className="mx-auto mt-12 max-w-6xl">
         <h2 className="flex items-center gap-2 text-lg font-semibold"><MapPin className="h-5 w-5 text-fuchsia-300" /> Tu motel aparece en la página de su comuna</h2>
         <div className="mt-4 flex flex-wrap gap-2">
-          {COMUNAS.filter((c) => !c.isMetro).slice(0, 24).map((c) => (
+          {/* Sólo comunas que se indexan: las sin moteles propios ni cercanos van con noindex. */}
+          {COMUNAS.filter((c) => {
+            if (c.isMetro) return false;
+            const { inside, nearby } = motelsForComuna(all, c);
+            return inside.length > 0 || nearby.length > 0;
+          }).slice(0, 24).map((c) => (
             <Link key={c.slug} href={`/moteles/${c.slug}`} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] text-white/60 transition hover:text-white">
               Moteles en {c.name}
             </Link>

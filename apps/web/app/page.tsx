@@ -16,6 +16,9 @@ type ProfileLink = {
   username?: string;
   displayName?: string | null;
   city?: string | null;
+  /* Sin la categoría una masajista se enlazaba como /escort/<usuario>, que
+     redirige a /masajista/<usuario>. */
+  serviceCategory?: string | null;
 };
 
 async function fetchFeaturedProfiles(): Promise<ProfileLink[]> {
@@ -219,7 +222,7 @@ export default async function HomePage() {
             {profiles.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={cleanProfileHref({ id: p.id, username: p.username, name: p.displayName || p.username, city: p.city })}
+                  href={cleanProfileHref({ id: p.id, username: p.username, serviceCategory: p.serviceCategory, name: p.displayName || p.username, city: p.city })}
                   className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
                 >
                   {p.displayName || p.username}{p.city ? ` — ${p.city}` : ""}

@@ -5,6 +5,7 @@ export const metadata = {
   title: "Empieza en UZEED — Elige cómo registrarte",
   description:
     "Crea tu perfil profesional en UZEED. Elige entre registro completo o publicación rápida.",
+  alternates: { canonical: "/empezar" },
 };
 
 export default function EmpezarPage() {

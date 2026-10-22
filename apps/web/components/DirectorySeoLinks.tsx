@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cleanProfileHref } from "../lib/profileUrl";
-import { tagFilterParams, type TagFilter } from "../lib/escortSearchLandings";
+import { tagFilter, tagFilterParams, type TagFilter } from "../lib/escortSearchLandings";
+import { getCity } from "../lib/cities";
 
 /**
  * Lista de perfiles renderizada en el SERVIDOR para que Google indexe contenido
@@ -89,6 +90,33 @@ export async function cityHasProfiles(lat: number, lng: number): Promise<boolean
   return profiles === null || profiles.length > 0;
 }
 
+
+/**
+ * ¿La landing /escorts/{tag} tiene perfiles que mostrar? Misma consulta que la
+ * lista de la página (el fetch se deduplica). Una ciudad cuenta si hay escorts
+ * en ella o, si no, cerca (la página lista las más cercanas). Las que no
+ * tienen nada quedan sólo con texto de plantilla: Google las marcaba como
+ * soft 404 o "rastreada, sin indexar", así que van con noindex y fuera del
+ * sitemap hasta que haya alguien (ver /escorts/[tag] y sitemap.ts). Si la API
+ * falla se responde true: un error pasajero no saca la página de Google.
+ */
+export async function escortLandingHasProfiles(tag: string): Promise<boolean> {
+  const city = getCity(tag);
+  if (city) {
+    const inCity = await fetchProfiles(cityParams(city.lat, city.lng, CITY_RADIUS_KM));
+    if (inCity === null || inCity.length > 0) return true;
+    const nearby = await fetchProfiles(cityParams(city.lat, city.lng, NEARBY_RADIUS_KM));
+    return nearby === null || nearby.length > 0;
+  }
+  const profiles = await fetchProfiles({
+    entityType: "professional",
+    categorySlug: "escort",
+    sort: "featured",
+    limit: "30",
+    ...tagFilterParams(tagFilter(tag)),
+  });
+  return profiles === null || profiles.length > 0;
+}
 
 export default async function DirectorySeoLinks({
   heading,

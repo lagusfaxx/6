@@ -36,6 +36,8 @@ async function fetchFeaturedProfiles(): Promise<PublicProfile[]> {
     const list: any[] = data?.profiles || [];
     return list.slice(0, 18).map((p) => ({
       id: String(p.id),
+      username: typeof p.username === "string" ? p.username : null,
+      serviceCategory: p.serviceCategory ?? null,
       displayName: p.displayName || p.username || "Creadora",
       city: p.city ?? null,
       avatarUrl:

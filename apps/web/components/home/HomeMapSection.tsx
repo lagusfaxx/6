@@ -21,6 +21,7 @@ import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import { spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
 import type { MapMarker } from "../MapboxMap";
 import { LocateFixed, MapPin, Maximize2 } from "lucide-react";
+import { cleanProfileHref } from "../../lib/profileUrl";
 
 const MapboxMap = dynamic(() => import("../MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../ProfilePreviewModal"), { ssr: false });
@@ -76,7 +77,9 @@ function ownerHref(p: NearbyProfile) {
   if (p.externalOnly && p.websiteUrl) return p.websiteUrl;
   if (p.profileType === "ESTABLISHMENT") return `/motel/${p.username || p.id}`;
   if (p.profileType === "SHOP") return `/sexshop/${p.username}`;
-  return `/profesional/${p.id}`;
+  /* Directo a la ficha limpia: /profesional/<id> redirige y Google la cuenta
+     como "página con redirección". */
+  return cleanProfileHref({ id: p.id, username: p.username, serviceCategory: p.serviceCategory, name: p.displayName, city: p.city });
 }
 
 type Props = {

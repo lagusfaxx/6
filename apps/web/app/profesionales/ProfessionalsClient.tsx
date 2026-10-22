@@ -12,6 +12,7 @@ import StarRating from "../../components/StarRating";
 import SkeletonCard from "../../components/SkeletonCard";
 import { useMapLocation } from "../../hooks/useMapLocation";
 import useMe from "../../hooks/useMe";
+import { cleanProfileHref } from "../../lib/profileUrl";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -31,8 +32,22 @@ type Professional = {
   gender: string | null;
   age?: number | null;
   serviceSummary?: string | null;
+  serviceCategory?: string | null;
+  profile?: { username?: string | null } | null;
   category: { id: string; name: string; displayName?: string | null; kind: string } | null;
 };
+
+/* Directo a la ficha limpia: /profesional/<id> redirige y Google la cuenta
+   como "página con redirección". */
+function proHref(p: Professional) {
+  return cleanProfileHref({
+    id: p.id,
+    username: p.profile?.username,
+    serviceCategory: p.serviceCategory ?? p.category?.name ?? null,
+    name: p.name,
+    city: p.locality ?? null,
+  });
+}
 
 type CategoryRef = {
   id: string;
@@ -166,7 +181,7 @@ export default function ProfessionalsClient() {
                 age: p.age ?? null,
                 gender: p.gender ?? null,
                 description: p.serviceSummary || null,
-                href: `/profesional/${p.id}`,
+                href: proHref(p),
                 messageHref: me?.user ? `/chat/${p.id}` : null,
                 avatarUrl: p.avatarUrl,
                 tier: p.tier,
@@ -234,7 +249,7 @@ export default function ProfessionalsClient() {
                   </div>
                 </div>
                 <Link
-                  href={`/profesional/${p.id}`}
+                  href={proHref(p)}
                   className="rounded-full border border-white/15 bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 px-3 py-1 text-xs text-white/80 hover:from-fuchsia-600/30 hover:to-violet-600/30 transition-all"
                 >
                   Ver perfil

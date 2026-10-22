@@ -693,6 +693,9 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       avatarUrl: { not: null },
       isVerified: true,
+      /* Sin esto salían en las filas Diamond/Gold del inicio perfiles
+         pausados o desactivados, cuya ficha ya no es pública. */
+      isActive: true,
       // El inicio es de escorts: las que sólo venden contenido van a /contenido.
       AND: [notContentOnlyWhere()],
       ...(genderFilter === "FEMALE"
@@ -776,6 +779,7 @@ directoryRouter.get(
         });
         return {
           id: u.id,
+          username: u.username,
           name: u.displayName || u.username,
           avatarUrl: u.avatarUrl,
           city: u.city,

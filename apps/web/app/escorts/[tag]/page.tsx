@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import DirectoryPage from "../../../components/DirectoryPage";
-import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
+import DirectorySeoLinks, { cityHasProfiles, escortLandingHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
 import { TEMPLATE_TAG_SEO } from "../../../lib/escortSemrushSeo";
@@ -11,6 +11,9 @@ import { jsonLdString } from "../../../lib/jsonLd";
 type Props = { params: Promise<{ tag: string }> };
 
 const OG_IMAGE = "https://uzeed.cl/brand/isotipo-new.png";
+
+/* Página de plantilla sin perfiles: no se indexa hasta que tenga alguno. */
+const NOINDEX: Partial<Metadata> = { robots: { index: false, follow: true } };
 
 function buildMetadata(path: string, title: string, description: string, alt: string, extra: Partial<Metadata> = {}): Metadata {
   return {
@@ -54,8 +57,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : hasProfiles
         ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
         : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
+    /* Con copy propio se indexa igual (es contenido único); sin copy y sin
+       nadie en la ciudad ni cerca, la página es sólo plantilla. */
+    const empty = !seo && !(await escortLandingHasProfiles(tag));
     return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`,
-      seo ? { keywords: seo.keywords } : {});
+      { ...(seo ? { keywords: seo.keywords } : {}), ...(empty ? NOINDEX : {}) });
   }
 
   // ── Landing curada (a-domicilio, hombres, trans, maduras …) ──
@@ -67,11 +73,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // ── Landing por atributo/servicio (tetona, anal, colombiana …) ──
   const label = tag.charAt(0).toUpperCase() + tag.slice(1).replace(/-/g, " ");
+  const hasCopy = Object.prototype.hasOwnProperty.call(TEMPLATE_TAG_SEO, tag);
+  const empty = !hasCopy && !(await escortLandingHasProfiles(tag));
   return buildMetadata(
     `/escorts/${tag}`,
     `Escorts ${label} en Chile - Verificadas Hoy`,
     `Escorts y putas ${label.toLowerCase()} verificadas en Santiago, Viña del Mar y todo Chile. Fotos reales, contacto directo y disponibilidad hoy en UZEED.`,
     `UZEED Escorts ${label}`,
+    empty ? NOINDEX : {},
   );
 }
 

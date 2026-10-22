@@ -13,7 +13,10 @@ type Props = { params: Promise<{ id: string; slug?: string[] }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const p = await fetchProfileById(id);
-  if (!p) return { title: "Perfil no encontrado" };
+  /* La página igual se muestra (la dueña puede ver su perfil aún no
+     publicado), pero sin perfil público respondía 200 con "no encontrado":
+     Google lo contaba como soft 404. */
+  if (!p) return { title: "Perfil no encontrado", robots: { index: false, follow: false } };
   return buildProfileMetadata(p, canonicalProfilePath(p));
 }
 

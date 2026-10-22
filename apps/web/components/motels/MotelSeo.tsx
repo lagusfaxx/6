@@ -41,10 +41,21 @@ export function Breadcrumbs({ items }: { items: Array<{ name: string; path?: str
  * "Moteles por comuna": enlaces internos a todas las landings. Es lo que lleva
  * a Google (y a la gente) de /moteles a /moteles/providencia, /moteles/maipu...
  */
-export function ComunaLinks({ counts, current }: { counts: Map<string, number>; current?: string }) {
+export function ComunaLinks({
+  counts,
+  current,
+  indexable,
+}: {
+  counts: Map<string, number>;
+  current?: string;
+  /* Sólo las comunas que se indexan (con moteles propios o cercanos): las
+     demás llevan noindex y Google las contaba como "excluida por noindex". */
+  indexable?: Set<string>;
+}) {
   const groups = new Map<string, Comuna[]>();
   for (const c of COMUNAS) {
     if (c.isMetro || c.slug === current) continue;
+    if (indexable && !indexable.has(c.slug)) continue;
     const key = c.region === "Región Metropolitana" ? "Santiago y Región Metropolitana" : "Otras ciudades";
     groups.set(key, [...(groups.get(key) || []), c]);
   }

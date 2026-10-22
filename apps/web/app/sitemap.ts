@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
-import { TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
+import { CITY_SEO, TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
+import { TEMPLATE_TAG_SEO } from "../lib/escortSemrushSeo";
+import { escortLandingHasProfiles } from "../components/DirectorySeoLinks";
 import { cleanProfileHref } from "../lib/profileUrl";
 import { COMUNAS } from "../lib/comunas";
 import { fetchMotelDirectory, motelHref, motelsForComuna } from "../lib/motels";
@@ -176,10 +178,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/sexshop", "daily", 0.8);
   add("/services", "daily", 0.85);
 
+  /* Landings de plantilla sin perfiles (ni copy propio) van con noindex:
+     no se listan hasta que tengan alguno. Mismo criterio que /escorts/[tag]. */
+  const [tagHasProfiles, cityHasAny] = await Promise.all([
+    Promise.all(ESCORT_TAGS.map((tag) =>
+      Object.prototype.hasOwnProperty.call(TEMPLATE_TAG_SEO, tag) ? true : escortLandingHasProfiles(tag))),
+    Promise.all(CITY_LANDINGS.map((city) => (CITY_SEO[city.slug] ? true : escortLandingHasProfiles(city.slug)))),
+  ]);
+
   // ── Landing pages por tag de escort (long-tail SEO) ──
-  for (const tag of ESCORT_TAGS) {
-    add(`/escorts/${encodeURIComponent(tag)}`, "daily", 0.8);
-  }
+  ESCORT_TAGS.forEach((tag, i) => {
+    if (tagHasProfiles[i]) add(`/escorts/${encodeURIComponent(tag)}`, "daily", 0.8);
+  });
   // Landings con copy propio (keywords de Semrush): a domicilio, hombres,
   // trans, maduras… Van con más prioridad que las de plantilla.
   // /escorts/hombres redirige a /hombres (sección propia): va con su URL final.
@@ -191,9 +201,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // URLs LIMPIAS e indexables (/escorts/{ciudad}) con canonical propio y
   // resultados filtrados por ubicación. Antes se emitían como ?city= que
   // Google canonicalizaba a /escorts (duplicado) y no indexaba.
-  for (const city of CITY_LANDINGS) {
-    add(`/escorts/${city.slug}`, "daily", 0.8);
-  }
+  CITY_LANDINGS.forEach((city, i) => {
+    if (cityHasAny[i]) add(`/escorts/${city.slug}`, "daily", 0.8);
+  });
 
   // ── Combinaciones tag + ciudad top eliminadas ──
   // Las combinaciones tag+ciudad generaban ~77 URLs de contenido delgado
