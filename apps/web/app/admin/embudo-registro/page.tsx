@@ -5,10 +5,12 @@ import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
 import { canOpenAdmin } from "../../../lib/adminAccess";
-import { AlertTriangle, ArrowLeft, Filter, LogOut, RefreshCw, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock, Filter, LogOut, RefreshCw, UserPlus, Users } from "lucide-react";
 
 type FlowKey = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 type Period = "24h" | "7d" | "30d" | "90d";
+
+type SegmentRow = { key: string; people: number; done: number };
 
 type FlowReport = {
   flow: FlowKey;
@@ -17,10 +19,34 @@ type FlowReport = {
   googleDone: number;
   inProgress: number;
   abandoned: number;
-  stages: { key: string; label: string; count: number }[];
+  failedPeople: number;
+  failedRecovered: number;
+  medianDoneMinutes: number | null;
+  medianAbandonMinutes: number | null;
+  stages: { key: string; label: string; count: number; medianSecondsFromPrev: number | null }[];
   fields: { field: string; touched: number; abandonedHere: number }[];
   dropPoints: { point: string; count: number }[];
-  errors: { step: string; field: string | null; message: string; count: number }[];
+  errors: {
+    step: string;
+    field: string | null;
+    message: string;
+    count: number;
+    people: number;
+    peopleDone: number;
+    peopleAbandoned: number;
+  }[];
+  failures: { message: string; people: number; recovered: number }[];
+  recentFails: {
+    at: string;
+    message: string;
+    device: string;
+    os: string;
+    browser: string;
+    google: boolean;
+    recovered: boolean;
+  }[];
+  segments: Record<"device" | "os" | "browser" | "source" | "method", SegmentRow[]>;
+  daily: { day: string; started: number; done: number; abandoned: number }[];
 };
 
 type FunnelResponse = {
@@ -29,6 +55,7 @@ type FunnelResponse = {
   generatedAt: string;
   idleMinutes: number;
   visits: number;
+  visitsNoType: number;
   truncated: boolean;
   accountsCreated: Record<string, number>;
   flows: FlowReport[];
@@ -130,11 +157,38 @@ function dropPointLabel(point: string) {
     case "stage:verified":
       return "Verificó el código pero la cuenta no se creó";
     case "stage:fail":
-      return "La creación de la cuenta falló (error de la API)";
+      return "Le falló la creación de la cuenta y no volvió a intentar con éxito";
     default:
       return "Sin datos suficientes";
   }
 }
+
+const DEVICE_LABELS: Record<string, string> = {
+  mobile: "Celular",
+  desktop: "Computador",
+  tablet: "Tablet",
+  desconocido: "Desconocido",
+};
+
+function duration(minutes: number | null) {
+  if (minutes === null) return "—";
+  if (minutes < 1) return `${Math.round(minutes * 60)} s`;
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  return `${(minutes / 60).toFixed(1)} h`;
+}
+
+function seconds(sec: number | null) {
+  if (sec === null) return null;
+  return duration(sec / 60);
+}
+
+const timeFmt = new Intl.DateTimeFormat("es-CL", {
+  timeZone: "America/Santiago",
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 function pct(part: number, total: number) {
   if (!total) return "0%";
@@ -271,9 +325,14 @@ export default function AdminEmbudoRegistro() {
         {data && report && (
           <>
             {/* Resumen */}
-            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-              <SummaryCard icon={Users} label="Visitas a /register" value={data.visits} hint="todas las cuentas" />
-              <SummaryCard icon={Filter} label="Empezaron este registro" value={start} hint="eligieron el tipo" />
+            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+              <SummaryCard
+                icon={Users}
+                label="Visitas a /register"
+                value={data.visits}
+                hint={`personas · ${data.visitsNoType} no eligieron tipo`}
+              />
+              <SummaryCard icon={Filter} label="Empezaron este registro" value={start} hint="personas" />
               <SummaryCard
                 icon={UserPlus}
                 label="Cuentas creadas"
@@ -288,20 +347,33 @@ export default function AdminEmbudoRegistro() {
               />
               <SummaryCard
                 icon={AlertTriangle}
-                label="Avisos de error"
-                value={report.errors.reduce((a, e) => a + e.count, 0)}
-                hint="validación + API"
+                label="Les falló crear la cuenta"
+                value={report.failedPeople}
+                hint={`${report.failedRecovered} lo lograron después`}
+              />
+              <SummaryCard
+                icon={Clock}
+                label="Tiempo para registrarse"
+                text={duration(report.medianDoneMinutes)}
+                hint={`mediana · los que se van, a los ${duration(report.medianAbandonMinutes)}`}
               />
             </div>
 
             {/* Embudo por etapa */}
-            <Section title="Etapas" subtitle="Visitas que llegaron al menos hasta cada etapa.">
+            <Section
+              title="Etapas"
+              subtitle="Personas que llegaron al menos hasta cada etapa, cuántas siguieron desde la anterior y cuánto tardaron en pasar."
+            >
               <div className="grid gap-2">
                 {report.stages.map((s, i) => {
                   const prev = i === 0 ? s.count : report.stages[i - 1].count;
                   const lost = prev - s.count;
+                  const took = seconds(s.medianSecondsFromPrev);
                   return (
-                    <div key={s.key} className="grid grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-3 sm:grid-cols-[16rem_1fr_9rem]">
+                    <div
+                      key={s.key}
+                      className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 sm:grid-cols-[16rem_1fr_15rem]"
+                    >
                       <span className="truncate text-sm text-white/75">{s.label}</span>
                       <div className="h-7 overflow-hidden rounded-md bg-white/[0.04]">
                         <div
@@ -313,7 +385,13 @@ export default function AdminEmbudoRegistro() {
                       </div>
                       <span className="text-right text-xs tabular-nums text-white/50">
                         {pct(s.count, start)}
-                        {i > 0 && lost > 0 && <span className="ml-2 text-red-300/80">−{lost}</span>}
+                        {i > 0 && (
+                          <>
+                            <span className="ml-2 text-white/35">siguió {pct(s.count, prev)}</span>
+                            {lost > 0 && <span className="ml-2 text-red-300/80">−{lost}</span>}
+                            {took && <span className="ml-2 hidden text-white/30 sm:inline">· {took}</span>}
+                          </>
+                        )}
                       </span>
                     </div>
                   );
@@ -325,7 +403,7 @@ export default function AdminEmbudoRegistro() {
               {/* Dónde abandonan */}
               <Section
                 title="Dónde abandonan"
-                subtitle={`Visitas sin cuenta creada y sin actividad en ${data.idleMinutes} min.`}
+                subtitle={`Personas sin cuenta creada y sin actividad en ${data.idleMinutes} min.`}
               >
                 {report.dropPoints.length === 0 ? (
                   <Empty />
@@ -344,7 +422,10 @@ export default function AdminEmbudoRegistro() {
               </Section>
 
               {/* Errores */}
-              <Section title="Avisos y errores que vieron" subtitle="Validaciones del formulario, del código y respuestas de la API.">
+              <Section
+                title="Avisos y errores que vieron"
+                subtitle="Personas que vieron cada aviso (no clicks) y qué pasó con ellas después."
+              >
                 {report.errors.length === 0 ? (
                   <Empty />
                 ) : (
@@ -357,8 +438,24 @@ export default function AdminEmbudoRegistro() {
                             {STEP_LABELS[e.step] ?? e.step}
                             {e.field ? ` · ${fieldLabel(e.field)}` : ""}
                           </span>
+                          <span className="mt-0.5 block text-[11px]">
+                            {e.peopleAbandoned > 0 && (
+                              <span className="text-red-300/80">{e.peopleAbandoned} se fueron</span>
+                            )}
+                            {e.peopleAbandoned > 0 && e.peopleDone > 0 && <span className="text-white/25"> · </span>}
+                            {e.peopleDone > 0 && (
+                              <span className="text-emerald-300/70">{e.peopleDone} crearon la cuenta igual</span>
+                            )}
+                          </span>
                         </span>
-                        <span className="shrink-0 tabular-nums text-white/60">{e.count}</span>
+                        <span className="shrink-0 text-right tabular-nums">
+                          <span className="block text-white/70">
+                            {e.people} {e.people === 1 ? "persona" : "personas"}
+                          </span>
+                          {e.count > e.people && (
+                            <span className="block text-[11px] text-white/35">{e.count} veces</span>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -366,10 +463,97 @@ export default function AdminEmbudoRegistro() {
               </Section>
             </div>
 
+            {/* Fallos al crear la cuenta */}
+            <Section
+              title="Fallos al crear la cuenta"
+              subtitle="Cuando la API rechaza el registro o la conexión se corta al enviarlo. “Lo lograron” = después crearon la cuenta."
+            >
+              {report.failures.length === 0 ? (
+                <Empty />
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <ul className="grid content-start gap-1.5">
+                    {report.failures.map((f) => (
+                      <li key={f.message} className="flex items-start justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2 text-sm">
+                        <span className="min-w-0 text-white/75">{f.message}</span>
+                        <span className="shrink-0 text-right tabular-nums">
+                          <span className="block text-white/70">{f.people}</span>
+                          <span className="block text-[11px] text-emerald-300/70">{f.recovered} lo lograron</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-white/35">Últimos fallos</p>
+                    <ul className="grid gap-1.5">
+                      {report.recentFails.map((f, i) => (
+                        <li key={i} className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="tabular-nums text-white/45">{timeFmt.format(new Date(f.at))}</span>
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] ${
+                                f.recovered ? "bg-emerald-500/15 text-emerald-200" : "bg-red-500/15 text-red-200"
+                              }`}
+                            >
+                              {f.recovered ? "creó la cuenta después" : "no la creó"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-white/75">{f.message}</p>
+                          <p className="mt-0.5 text-white/35">
+                            {DEVICE_LABELS[f.device] ?? f.device} · {f.os} · {f.browser}
+                            {f.google ? " · con Google" : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </Section>
+
+            {/* Conversión por segmento */}
+            <Section
+              title="Conversión por dispositivo, navegador y fuente"
+              subtitle="Personas que empezaron y cuántas crearon la cuenta. Sirve para ver si falla en un navegador (p. ej. Instagram o Safari)."
+            >
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                <SegmentTable title="Dispositivo" rows={report.segments.device} label={(k) => DEVICE_LABELS[k] ?? k} />
+                <SegmentTable title="Sistema" rows={report.segments.os} />
+                <SegmentTable title="Navegador" rows={report.segments.browser} />
+                <SegmentTable title="De dónde llegó" rows={report.segments.source} />
+                <SegmentTable title="Con Google o email" rows={report.segments.method} />
+              </div>
+            </Section>
+
+            {/* Por día */}
+            <Section title="Por día" subtitle="Personas que empezaron cada día (hora de Chile) y cuántas de ellas terminaron.">
+              {report.daily.length === 0 ? (
+                <Empty />
+              ) : (
+                <div className="grid gap-1.5">
+                  {report.daily.map((d) => {
+                    const maxDay = Math.max(1, ...report.daily.map((x) => x.started));
+                    return (
+                      <div key={d.day} className="grid grid-cols-[5.5rem_1fr_8rem] items-center gap-3 text-xs">
+                        <span className="tabular-nums text-white/55">{d.day.slice(5).split("-").reverse().join("/")}</span>
+                        <div className="relative h-5 overflow-hidden rounded bg-white/[0.04]">
+                          <div className="absolute inset-y-0 left-0 rounded bg-violet-500/30" style={{ width: `${(d.started / maxDay) * 100}%` }} />
+                          <div className="absolute inset-y-0 left-0 rounded bg-emerald-500/60" style={{ width: `${(d.done / maxDay) * 100}%` }} />
+                        </div>
+                        <span className="text-right tabular-nums text-white/55">
+                          {d.done}/{d.started} <span className="text-white/35">· {pct(d.done, d.started)}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+
             {/* Campos */}
             <Section
               title="Campos"
-              subtitle="Cuántas visitas tocaron cada campo y en cuántas fue el último antes de irse."
+              subtitle="Cuántas personas tocaron cada campo y para cuántas fue el último antes de irse."
             >
               {fields.length === 0 ? (
                 <Empty />
@@ -414,9 +598,10 @@ export default function AdminEmbudoRegistro() {
             </Section>
 
             <p className="mt-6 text-[11px] leading-relaxed text-white/35">
-              Cada visita es una pestaña del navegador. “Cuentas creadas” cuenta las que terminaron el formulario en
-              el periodo; “en la base” son las cuentas de ese tipo creadas en el mismo periodo por cualquier vía. Los
-              datos empiezan a juntarse desde que se publicó este embudo.
+              Cada persona es un navegador (aunque abra varias pestañas o vuelva otro día); no se cuenta al equipo ni a
+              los bots. “Cuentas creadas” son las que terminaron el formulario en el periodo; “en la base” son las cuentas
+              de ese tipo creadas en el mismo periodo, sin perfiles de prueba ni las que carga el admin. Los fallos de
+              red (“Failed to fetch” en Chrome, “Load failed” en Safari) se agrupan en una sola fila.
             </p>
           </>
         )}
@@ -429,11 +614,13 @@ function SummaryCard({
   icon: Icon,
   label,
   value,
+  text,
   hint,
 }: {
   icon: any;
   label: string;
-  value: number;
+  value?: number;
+  text?: string;
   hint?: string;
 }) {
   return (
@@ -442,7 +629,7 @@ function SummaryCard({
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <p className="mt-2 text-2xl font-bold tabular-nums">{value.toLocaleString("es-CL")}</p>
+      <p className="mt-2 text-2xl font-bold tabular-nums">{text ?? (value ?? 0).toLocaleString("es-CL")}</p>
       {hint && <p className="mt-0.5 text-[11px] text-white/40">{hint}</p>}
     </div>
   );
@@ -455,6 +642,38 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
       {subtitle && <p className="mt-0.5 text-xs text-white/40">{subtitle}</p>}
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+function SegmentTable({
+  title,
+  rows,
+  label = (k) => k,
+}: {
+  title: string;
+  rows: SegmentRow[];
+  label?: (key: string) => string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] uppercase tracking-wider text-white/35">{title}</p>
+      {rows.length === 0 ? (
+        <Empty />
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-t border-white/[0.05]">
+                <td className="py-1.5 pr-2 text-white/75">{label(r.key)}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums text-white/45">{r.people}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums text-white/60">{r.done}</td>
+                <td className="w-12 py-1.5 text-right tabular-nums text-white/80">{pct(r.done, r.people)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
