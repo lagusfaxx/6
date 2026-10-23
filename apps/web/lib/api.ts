@@ -105,7 +105,16 @@ export function isAuthError(err: any): boolean {
   return Boolean(err && (err.status === 401 || err.status === 403));
 }
 
+/** "Failed to fetch" (Chrome), "Load failed" (Safari), "NetworkError…" (Firefox):
+ *  la petición no recibió respuesta (sin señal, conexión cortada, servidor caído). */
+export function isNetworkError(err: any): boolean {
+  if (!err || err.status) return false;
+  const msg = String(err.message || "");
+  return err.name === "TypeError" && /failed to fetch|load failed|networkerror|network request failed/i.test(msg);
+}
+
 export function friendlyErrorMessage(err: any): string {
+  if (isNetworkError(err)) return "Se cortó la conexión. Revisa tu internet e intenta de nuevo.";
   const status = err?.status;
   if (status === 429) return "Demasiadas solicitudes, intenta en unos segundos.";
   if (status === 401) return "Inicia sesión para continuar.";

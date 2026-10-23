@@ -8,6 +8,7 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
+import { compressImage } from "../../lib/compressImage";
 import { trackRegister } from "../../lib/registerFunnel";
 import {
   VenetianMask,
@@ -341,22 +342,21 @@ export default function RegisterClient() {
     }
   }
 
-  function handleGalleryAdd(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    const valid: File[] = [];
-    for (const file of files) {
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > 10 * 1024 * 1024) continue;
-      valid.push(file);
-    }
-    const remaining = MAX_PHOTOS - galleryFiles.length;
-    const toAdd = valid.slice(0, remaining);
-    if (toAdd.length > 0) {
-      setGalleryFiles((prev) => [...prev, ...toAdd]);
-      setGalleryPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
-    }
+  async function handleGalleryAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith("image/"));
     e.target.value = "";
+    if (!files.length) return;
+    // Se comprimen al elegirlas: el registro sube todas juntas y las fotos
+    // originales del celular cortaban la conexión ("Failed to fetch").
+    const compressed = await Promise.all(files.map((f) => compressImage(f)));
+    const valid = compressed.filter((f) => f.size <= 10 * 1024 * 1024);
+    if (!valid.length) return;
+    // El tope va dentro del updater: tras el await, galleryFiles puede estar
+    // desactualizado si eligió fotos dos veces seguidas.
+    setGalleryFiles((prev) => [...prev, ...valid].slice(0, MAX_PHOTOS));
+    setGalleryPreviews((prev) =>
+      [...prev, ...valid.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS),
+    );
   }
 
   function removeGalleryItem(idx: number) {
