@@ -186,6 +186,13 @@ encabezado de una plantilla con imagen, por ejemplo `uzeed_metricas`:
 
 Usa la fuente Inter (`fonts-inter` en el Dockerfile).
 
+Para elegir a quiénes: `orden` (`mas_visitas`, `menos_visitas`,
+`mas_contactos`, `menos_contactos` en el periodo; `mas_nuevas`,
+`mas_antiguas` por fecha de registro) y `cantidad`. Para probar antes:
+`prueba="mi_numero"` (o un teléfono) manda el mensaje y el afiche de cada
+perfil elegido (hasta 5) a ese número, sin confirmación, sin gastar el cupo
+del día y sin que a las profesionales les llegue nada.
+
 ### Diseño propio para la imagen (SVG)
 
 En vez de la tarjeta de UZEED se puede usar un diseño propio hecho en Figma o

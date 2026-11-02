@@ -83,7 +83,20 @@ const LIMITS: Record<Via, { maxPerSend: number; dailyCap: number; minDelayMs: nu
 const MAX_LIST = Math.max(LIMITS.bot.maxPerSend, LIMITS.plantilla.maxPerSend);
 const NOTIFIABLE = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 
-type Recipient = { id: string; username: string; nombre: string; phone: string; avatarUrl: string | null };
+type Recipient = {
+  id: string;
+  username: string;
+  nombre: string;
+  phone: string;
+  avatarUrl: string | null;
+  createdAt?: Date;
+  /** Envío de prueba: va al número del equipo, no a la profesional. */
+  prueba?: boolean;
+};
+
+const ORDENES = ["mas_visitas", "menos_visitas", "mas_contactos", "menos_contactos", "mas_nuevas", "mas_antiguas"] as const;
+type Orden = (typeof ORDENES)[number];
+const PRUEBA_MAX = 5;
 
 /** Qué imagen va con el mensaje. */
 type Imagen = {
@@ -407,7 +420,7 @@ async function platformBenchmarks(period: Period): Promise<{ tasaContacto: numbe
 async function recipients(ids: string[]): Promise<{ ok: Recipient[]; sinTelefono: number }> {
   const users = await prisma.user.findMany({
     where: { id: { in: ids }, isActive: true, profileType: { in: NOTIFIABLE as any } },
-    select: { id: true, username: true, displayName: true, phone: true, avatarUrl: true },
+    select: { id: true, username: true, displayName: true, phone: true, avatarUrl: true, createdAt: true },
   });
   const ok: Recipient[] = [];
   const seen = new Set<string>();
@@ -415,7 +428,7 @@ async function recipients(ids: string[]): Promise<{ ok: Recipient[]; sinTelefono
     const phone = normalizePhoneForWhatsApp(u.phone);
     if (!phone || seen.has(phone)) continue;
     seen.add(phone);
-    ok.push({ id: u.id, username: u.username, nombre: (u.displayName || u.username || "").trim(), phone, avatarUrl: u.avatarUrl });
+    ok.push({ id: u.id, username: u.username, nombre: (u.displayName || u.username || "").trim(), phone, avatarUrl: u.avatarUrl, createdAt: u.createdAt });
   }
   return { ok, sinTelefono: ids.length - ok.length };
 }
@@ -466,7 +479,7 @@ function templateSender(t: Plantilla, img: Imagen): Sender {
       urlButtonIndex: t.botonIndice,
     });
     // Si responde, que no caiga en su último chat con un cliente.
-    if (result.ok && !isProspect(r)) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
+    if (result.ok && !isProspect(r) && !r.prueba) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
     return result;
   };
 }
@@ -662,6 +675,9 @@ type Args = Filtros &
     incluirFoto?: boolean;
     flyerTitulo?: string;
     flyerTexto?: string;
+    orden?: Orden;
+    cantidad?: number;
+    prueba?: string;
     confirmacion?: string;
   };
 
@@ -699,6 +715,9 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         flyerTitulo: z.string().trim().min(2).max(60).optional().describe("Para imagen=flyer: titular grande (hasta 2 líneas)."),
         flyerTexto: z.string().trim().max(240).optional().describe("Para imagen=flyer: texto bajo el titular (hasta 4 líneas)."),
         ...periodShape,
+        orden: z.enum(ORDENES).optional().describe("Elegir a quiénes primero: mas_visitas / menos_visitas / mas_contactos / menos_contactos (en el periodo), mas_nuevas / mas_antiguas (por fecha de registro). Se combina con cantidad."),
+        cantidad: z.number().int().min(1).max(MAX_LIST).optional().describe("Cuántas profesionales del grupo (después de ordenar)."),
+        prueba: z.string().max(40).optional().describe(`Envío de PRUEBA: manda el mensaje y la imagen de cada perfil elegido (máx. ${PRUEBA_MAX}) a este número en vez de a las profesionales. "mi_numero" usa el teléfono de la cuenta de quien llama. No pide confirmación ni gasta el cupo del día.`),
         confirmacion: z.string().optional().describe("Código de la vista previa, una vez que el usuario la aprobó."),
       },
       annotations: WRITE,
@@ -754,23 +773,86 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         criterio = describeFiltros(f);
       }
 
-      const { ok: list, sinTelefono } = await recipients(ids);
-      if (!list.length) return errorResult("Ningún perfil activo con teléfono válido calza con eso.");
+      const { ok: all, sinTelefono } = await recipients(ids);
+      if (!all.length) return errorResult("Ningún perfil activo con teléfono válido calza con eso.");
+      const period = resolvePeriod(args);
+
+      // Orden y cantidad: a quiénes primero y cuántas.
+      let list = all;
+      let orderMetrics: Map<string, Metrics> | null = null;
+      if (args.orden) {
+        const dir = args.orden.startsWith("mas_") ? -1 : 1;
+        if (/visitas|contactos/.test(args.orden)) {
+          orderMetrics = await profileMetrics(all.map((r) => r.id), period);
+          const key = args.orden.endsWith("visitas") ? "visitantes" : "contactos";
+          const val = (r: Recipient) => orderMetrics!.get(r.id)?.[key].cur ?? 0;
+          list = [...all].sort((a, b) => dir * (val(a) - val(b)) || a.username.localeCompare(b.username));
+        } else {
+          // mas_nuevas = registro más reciente primero.
+          const t = (r: Recipient) => r.createdAt?.getTime() ?? 0;
+          list = [...all].sort((a, b) => (args.orden === "mas_nuevas" ? t(b) - t(a) : t(a) - t(b)));
+        }
+      }
+      if (args.cantidad) list = list.slice(0, args.cantidad);
+      const sampleOf = (rs: Recipient[]) =>
+        rs.slice(0, 8).map((r) => ({
+          usuario: r.username,
+          nombre: r.nombre,
+          ...(orderMetrics ? { visitas: orderMetrics.get(r.id)?.visitantes.cur ?? 0, contactos: orderMetrics.get(r.id)?.contactos.cur ?? 0 } : {}),
+          ...(args.orden === "mas_nuevas" || args.orden === "mas_antiguas" ? { registrada: r.createdAt } : {}),
+        }));
+
+      if (args.prueba) {
+        // Prueba: el mensaje de cada perfil elegido llega al número del equipo.
+        let raw = args.prueba;
+        if (raw === "mi_numero") {
+          const me = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { phone: true } });
+          if (!me?.phone) return errorResult("Tu cuenta no tiene teléfono. Indica el número en prueba (ej. +56912345678).");
+          raw = me.phone;
+        }
+        const to = normalizePhoneForWhatsApp(raw);
+        if (!to) return errorResult(`"${args.prueba}" no es un teléfono válido.`);
+        const sample = list.slice(0, Math.min(args.cantidad ?? PRUEBA_MAX, PRUEBA_MAX));
+        const ms = orderMetrics ?? (needsMetrics(via === "bot" ? [args.mensaje!] : [...plantilla!.variables, plantilla!.botonVariable ?? ""], img)
+          ? await profileMetrics(sample.map((r) => r.id), period)
+          : null);
+        const send = via === "bot" ? botSender(args.mensaje!) : templateSender(plantilla!, img);
+        const resultados: Record<string, unknown>[] = [];
+        for (const r of sample) {
+          const m = ms?.get(r.id) ?? null;
+          let res: { ok: boolean; error?: string; messageId?: string };
+          try {
+            res = await send({ ...r, phone: to, prueba: true }, m, await buildImage(img, r, m, period));
+          } catch (err: any) {
+            res = { ok: false, error: err?.message || "ERROR" };
+          }
+          await logDelivery(prisma, { userId: r.id, channel: "WHATSAPP", type: "MCP_TEST", result: res });
+          resultados.push({ perfil: r.username, nombre: r.nombre, enviado: res.ok, error: res.ok ? undefined : res.error });
+          await sleep(1_000);
+        }
+        return jsonResult({
+          prueba: true,
+          enviadoA: `+${to}`,
+          via,
+          resultados,
+          nota: "Sólo se envió al número de prueba; a las profesionales no les llegó nada. Si se ve bien, repite sin `prueba` para la vista previa del envío real.",
+        });
+      }
+
       if (list.length > lim.maxPerSend) {
         return errorResult(`Son ${list.length} destinatarios con teléfono; el máximo por envío (${via}) es ${lim.maxPerSend}. Acota los filtros o divide el envío.`);
       }
 
       const texts = via === "bot" ? [args.mensaje!] : [...plantilla!.variables, plantilla!.botonVariable ?? ""];
-      const period = resolvePeriod(args);
       const contenido = via === "bot" ? { mensaje: args.mensaje } : plantilla;
-      const code = confirmationCode(list.map((r) => r.id), contenido, img, period.label);
+      const code = confirmationCode(list.map((r) => r.id), { contenido, orden: args.orden ?? null }, img, period.label);
       const restantesHoy = lim.dailyCap - (await sentToday(via));
       const perMsg = (lim.minDelayMs + lim.maxDelayMs) / 2 + (via === "bot" ? 2_000 : 1_500);
       const etaMin = Math.ceil((list.length * perMsg) / 60_000);
 
       if (args.confirmacion !== code) {
         const first = list[0];
-        const m = needsMetrics(texts, img) ? (await profileMetrics([first.id], period)).get(first.id)! : null;
+        const m = orderMetrics?.get(first.id) ?? (needsMetrics(texts, img) ? (await profileMetrics([first.id], period)).get(first.id)! : null);
         const values = plantilla?.variables.map((v) => personalize(v, first, m)) ?? [];
         const preview = jsonResult({
           vistaPrevia: true,
@@ -781,7 +863,9 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
             total: list.length,
             descartadosSinTelefonoOInactivos: sinTelefono,
             criterio,
-            muestra: list.slice(0, 8).map((r) => ({ usuario: r.username, nombre: r.nombre })),
+            delGrupo: all.length,
+            orden: args.orden,
+            muestra: sampleOf(list),
           },
           imagen: tipo === "ninguna" ? false : {
             tipo,
@@ -824,7 +908,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         return errorResult(`Hoy quedan ${Math.max(0, restantesHoy)} envíos disponibles por ${via} (tope ${lim.dailyCap} por día).`);
       }
 
-      const metrics = needsMetrics(texts, img) ? await profileMetrics(list.map((r) => r.id), period) : null;
+      const metrics = orderMetrics ?? (needsMetrics(texts, img) ? await profileMetrics(list.map((r) => r.id), period) : null);
       const job: Job = {
         id: randomUUID().slice(0, 8),
         via,
