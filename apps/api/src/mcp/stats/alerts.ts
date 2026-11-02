@@ -4,6 +4,7 @@ import { emitAdminEvent } from "../../lib/adminEvents";
 import { sendAdminStatsEmail, escapeHtml } from "../../lib/notificationEmail";
 import { resolvePeriod, type PeriodInput } from "../helpers";
 import { METRIC_LABELS, metricSet, type Filtros } from "./core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 /**
  * Alertas configurables. Cada hora el worker evalúa las activas; una alerta
@@ -71,7 +72,7 @@ export async function evaluateAlert(alert: {
     const rows = await prisma.$queryRaw<{ username: string; vistas: number; lastEditedAt: Date | null }[]>`
       WITH top AS (
         SELECT split_part(pv."path", '/', 3) AS ref, COUNT(*)::int AS vistas FROM "PageView" pv
-        WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${p.from} AND pv."createdAt" < ${p.to} AND pv."path" NOT LIKE '/admin%'
+        WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${p.from} AND pv."createdAt" < ${p.to} AND pv."path" NOT LIKE '/admin%'
         GROUP BY 1 ORDER BY 2 DESC LIMIT 20
       )
       SELECT u."username", top.vistas, u."lastEditedAt" FROM top JOIN "User" u ON top.ref IN (u."id"::text, u."username")
@@ -85,7 +86,7 @@ export async function evaluateAlert(alert: {
     const rows = await prisma.$queryRaw<{ username: string; vistas: number }[]>`
       WITH v AS (
         SELECT split_part(pv."path", '/', 3) AS ref, COUNT(*)::int AS vistas FROM "PageView" pv
-        WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${p.from} AND pv."createdAt" < ${p.to} AND pv."path" NOT LIKE '/admin%'
+        WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${p.from} AND pv."createdAt" < ${p.to} AND pv."path" NOT LIKE '/admin%'
         GROUP BY 1 HAVING COUNT(*) >= ${minViews}
       )
       SELECT u."username", v.vistas FROM v JOIN "User" u ON v.ref IN (u."id"::text, u."username")

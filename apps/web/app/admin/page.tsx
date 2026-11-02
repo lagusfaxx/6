@@ -28,6 +28,7 @@ import {
   CreditCard,
   Download,
   FileSpreadsheet,
+  Filter,
   LayoutGrid,
   ListChecks,
   MapPin,
@@ -51,6 +52,8 @@ import {
   Heart,
   Phone,
   Signature,
+  Zap,
+  ListOrdered,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -164,6 +167,7 @@ const notificationFallback: Record<string, { title: string; url: string }> = {
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
+  { href: "/admin/embudo-registro", label: "Embudo registro", icon: Filter },
   { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/phone-changes", label: "Cambios de número", icon: Phone },
@@ -175,6 +179,8 @@ const NAV_ITEMS = [
   { href: "/admin/banners", label: "Banners", icon: BookImage },
   { href: "/admin/home-stories", label: "Historias Home", icon: Video },
   { href: "/admin/cobros", label: "Cobros", icon: CircleDollarSign },
+  { href: "/admin/destacar", label: "Destacar", icon: Zap },
+  { href: "/admin/novedades", label: "Orden Novedades", icon: ListOrdered },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
@@ -549,9 +555,8 @@ export default function AdminIndex() {
                 </div>
 
                 {/* Engagement */}
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                   <MiniMetric icon={MessageSquare} label="Mensajes 7d" value={overview.engagement.messagesWeek} delta={overview.engagement.messagesGrowthPct} color="blue" />
-                  <MiniMetric icon={Video} label="Videollamadas 7d" value={overview.engagement.videocallsWeek} color="fuchsia" />
                   <MiniMetric icon={Users} label="Encuentros 7d" value={overview.engagement.serviceRequestsWeek} sub={`${overview.engagement.serviceRequestsCompletedWeek} cerrados`} color="violet" />
                   <MiniMetric icon={Heart} label="Favoritos 7d" value={overview.engagement.favoritesWeek} color="pink" />
                   <MiniMetric icon={Phone} label="WhatsApp 7d" value={overview.engagement.whatsappClicksWeek} color="emerald" />
@@ -634,6 +639,7 @@ export default function AdminIndex() {
                 {adminOnly && <QuickAction href="/admin/cobros" icon={CircleDollarSign} label="Cobros" desc="Interruptor, planes y boosts" accent="emerald" />}
                 {<QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />}
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
+                <QuickAction href="/admin/embudo-registro" icon={Filter} label="Embudo registro" desc="Dónde abandonan el registro" accent="fuchsia" />
                 {<QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />}
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />

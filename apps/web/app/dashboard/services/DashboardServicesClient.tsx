@@ -20,6 +20,7 @@ import {
 } from "../../../hooks/useDashboardForm";
 import StudioLayout from "./_components/StudioLayout";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
+import { SERVICE_CATEGORY_VALUES } from "../../../lib/serviceCategories";
 
 /* ─── Utilities ─── */
 
@@ -250,6 +251,11 @@ export default function DashboardServicesClient() {
           languages: meRes?.user?.languages ?? "",
           serviceStyleTags: meRes?.user?.serviceStyleTags ?? "",
           primaryCategory: meRes?.user?.primaryCategory ?? "",
+          serviceCategories: Array.isArray(meRes?.user?.serviceCategories) && meRes.user.serviceCategories.length
+            ? meRes.user.serviceCategories
+            : SERVICE_CATEGORY_VALUES.includes(meRes?.user?.primaryCategory)
+              ? [meRes.user.primaryCategory]
+              : [],
           profileTags: Array.isArray(meRes?.user?.profileTags) ? meRes.user.profileTags : [],
           serviceTags: Array.isArray(meRes?.user?.serviceTags) ? meRes.user.serviceTags : [],
           undisclosedFields: Array.isArray(meRes?.user?.undisclosedFields)
@@ -310,6 +316,7 @@ export default function DashboardServicesClient() {
             profileTags: JSON.stringify(fields.profileTags),
             serviceTags: JSON.stringify(fields.serviceTags),
             undisclosedFields: JSON.stringify(fields.undisclosedFields),
+            serviceCategories: JSON.stringify(fields.serviceCategories),
           });
         }, 0);
       } catch {
@@ -502,6 +509,7 @@ export default function DashboardServicesClient() {
         languages: state.languages || null,
         serviceStyleTags: state.serviceStyleTags || null,
         primaryCategory: state.primaryCategory || null,
+        serviceCategories: state.serviceCategories,
         profileTags: state.profileTags,
         serviceTags: state.serviceTags,
         undisclosedFields: state.undisclosedFields,

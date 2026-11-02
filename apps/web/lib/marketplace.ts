@@ -44,6 +44,8 @@ export type MarketProduct = {
   stock: number | null;
   isActive: boolean;
   isHidden?: boolean;
+  /** Estado que ve la vendedora (sólo en su panel). */
+  publishStatus?: "incomplete" | "processing" | "published" | "not_published" | "paused";
   tags: string[];
   coverUrl: string | null;
   salesCount: number;

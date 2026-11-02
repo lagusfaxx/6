@@ -15,7 +15,8 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
-import { PROFESSIONAL_PHONE_REGEX, samePhone } from "./phoneChange";
+import { applyNovedadesPins, getNovedadesPins } from "../lib/novedadesPins";
+import { PROFESSIONAL_PHONE_REGEX, findUserWithPhone, samePhone } from "./phoneChange";
 import {
   displayNameError,
   normalizeDisplayName,
@@ -37,6 +38,14 @@ import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import {
+  CONTENT_CATEGORY,
+  isContentOnly,
+  notContentOnlyWhere,
+  parseServiceCategories,
+  primaryFromServiceCategories,
+} from "../lib/serviceCategories";
+import { normalizePhone } from "@uzeed/shared";
 
 export const profileRouter = Router();
 
@@ -184,19 +193,18 @@ profileRouter.get(
       sort = "featured";
     }
 
-    const profiles = await prisma.user.findMany({
-      where: {
+    const discoverWhere = {
         profileType: "PROFESSIONAL",
         isActive: true,
+        // Secciones del inicio (escorts): sin las que sólo venden contenido.
+        AND: [notContentOnlyWhere()],
         ...(genderFilter === "FEMALE"
           ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
           : genderFilter
             ? { gender: genderFilter }
             : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: Math.max(limit * 3, 48),
-      select: {
+      } satisfies Prisma.UserWhereInput;
+    const discoverSelect = {
         id: true,
         username: true,
         displayName: true,
@@ -221,12 +229,15 @@ profileRouter.get(
         serviceTags: true,
         serviceCategory: true,
         tier: true,
-      },
+      } satisfies Prisma.UserSelect;
+    const profiles = await prisma.user.findMany({
+      where: discoverWhere,
+      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 3, 48),
+      select: discoverSelect,
     });
 
-    const enriched = profiles
-      .filter((p) => isBusinessPlanActive(p))
-      .map((p) => {
+    const enrich = (p: (typeof profiles)[number]) => {
         const distanceKm =
           lat !== null &&
           lng !== null &&
@@ -268,7 +279,10 @@ profileRouter.get(
           serviceCategory: (p as any).serviceCategory ?? null,
           createdAt: p.createdAt,
         };
-      })
+      };
+    const enriched = profiles
+      .filter((p) => isBusinessPlanActive(p))
+      .map(enrich)
       .filter((p) =>
         radiusKm !== null && p.distanceKm !== null
           ? p.distanceKm <= radiusKm
@@ -308,8 +322,23 @@ profileRouter.get(
           : byNewest
               .filter((p) => new Date(p.createdAt).getTime() >= Date.now() - 60 * DAY_MS)
               .slice(0, MIN_NEW);
+      /* Orden manual del admin (/admin/novedades): las tarjetas que movió
+         quedan en su lugar, bajando uno por cada perfil publicado después,
+         y el resto sigue el orden de arriba. */
+      const pinSet = await getNovedadesPins(genderFilter ?? "ALL");
+      let ordered: Array<(typeof selected)[number]> = selected;
+      if (pinSet.pins.length) {
+        const pinnedRows = await prisma.user.findMany({
+          where: { ...discoverWhere, id: { in: pinSet.pins.map((x) => x.id) } },
+          select: discoverSelect,
+        });
+        const pinned = new Map(
+          pinnedRows.filter((p) => isBusinessPlanActive(p)).map((p) => [p.id, enrich(p)] as const),
+        );
+        ordered = applyNovedadesPins(selected, pinned, pinSet, limit);
+      }
       return res.json({
-        profiles: selected
+        profiles: ordered
           .slice(0, limit)
           .map(({ createdAt, ...row }) => row),
       });
@@ -617,6 +646,7 @@ async function updateProfile(req: any, res: any) {
     undisclosedFields,
     businessOpen,
     businessPublished,
+    serviceCategories,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -767,7 +797,7 @@ async function updateProfile(req: any, res: any) {
   // silently wiping a professional's number. Enforce a valid number like registration.
   let phoneUpdate: string | null | undefined = undefined;
   if (phone !== undefined) {
-    const trimmedPhone = String(phone ?? "").trim();
+    const trimmedPhone = normalizePhone(String(phone ?? ""));
     if (me.profileType === "PROFESSIONAL") {
       if (!PROFESSIONAL_PHONE_REGEX.test(trimmedPhone)) {
         return res.status(400).json({
@@ -887,6 +917,18 @@ async function updateProfile(req: any, res: any) {
     }
   }
 
+  /* Tipos de servicio (varios). Si sólo vende contenido la categoría
+     principal pasa a "contenido", para que no salga en escorts; si agrega
+     un servicio presencial y la principal era contenido, toma ese servicio. */
+  if (me.profileType === "PROFESSIONAL" && Array.isArray(serviceCategories)) {
+    const cats = parseServiceCategories(serviceCategories);
+    baseData.serviceCategories = cats;
+    const requested = typeof baseData.primaryCategory === "string" ? baseData.primaryCategory : null;
+    if (isContentOnly(cats)) baseData.primaryCategory = CONTENT_CATEGORY;
+    else if (cats.length && (!requested || requested === CONTENT_CATEGORY))
+      baseData.primaryCategory = primaryFromServiceCategories(cats);
+  }
+
   /* Publicación. La ficha incompleta ya no retiene el anuncio: un perfil
      nuevo sale al aire al guardarse, y lo que falte se recuerda en el panel
      como visibilidad, no como bloqueo. `profileCompletedAt` se sigue usando
@@ -918,6 +960,7 @@ async function updateProfile(req: any, res: any) {
     ) {
       // New columns not in DB yet — strip them and retry
       delete baseData.primaryCategory;
+      delete baseData.serviceCategories;
       delete baseData.profileTags;
       delete baseData.serviceTags;
       delete baseData.coverPositionX;
@@ -1193,6 +1236,7 @@ profileRouter.post(
       birthYear,
       birthMonth,
       acceptTerms,
+      serviceCategories: rawServiceCategories,
     } = req.body as Record<string, any>;
 
     const safeDisplayName = normalizeDisplayName(displayName);
@@ -1212,7 +1256,7 @@ profileRouter.post(
       });
     }
 
-    const safePhone = String(phone || "").trim();
+    const safePhone = normalizePhone(String(phone || ""));
     if (!PROFESSIONAL_PHONE_REGEX.test(safePhone)) {
       return res.status(400).json({
         error: "PHONE_INVALID",
@@ -1221,7 +1265,9 @@ profileRouter.post(
       });
     }
 
-    const safePrimaryCategory = String(primaryCategory || "").trim();
+    const upgradeServiceCategories = parseServiceCategories(rawServiceCategories, primaryCategory);
+    const safePrimaryCategory =
+      primaryFromServiceCategories(upgradeServiceCategories) || String(primaryCategory || "").trim();
     if (!safePrimaryCategory) {
       return res.status(400).json({
         error: "CATEGORY_REQUIRED",
@@ -1308,10 +1354,7 @@ profileRouter.post(
       });
     }
 
-    const phoneTaken = await prisma.user.findFirst({
-      where: { phone: safePhone, NOT: { id: me.id } },
-      select: { id: true },
-    });
+    const phoneTaken = await findUserWithPhone(safePhone, me.id);
     if (phoneTaken) {
       return res.status(409).json({
         error: "PHONE_IN_USE",
@@ -1347,6 +1390,9 @@ profileRouter.post(
         gender: safeGender as any,
         phone: safePhone,
         primaryCategory: safePrimaryCategory,
+        ...(upgradeServiceCategories.length ? { serviceCategories: upgradeServiceCategories } : {}),
+        // Trans va por género + etiqueta, igual que /auth/register.
+        ...(safeGender === "OTHER" ? { profileTags: ["trans"] } : {}),
         serviceCategory: resolvedCategoryName,
         categoryId: resolvedCategoryId,
         address: safeAddress,

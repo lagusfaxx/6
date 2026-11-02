@@ -14,6 +14,7 @@ import {
   Gift,
 } from "lucide-react";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import { trackRegister } from "../../../lib/registerFunnel";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL";
 
@@ -111,18 +112,21 @@ export default function GoogleTypeChooserClient() {
 
     setSubmitting(true);
     setError(null);
+    trackRegister("reg_submit", { flow: profileType, google: true });
     try {
       const data = await apiFetch<{ redirect: string }>("/auth/google/complete", {
         method: "POST",
         body: JSON.stringify({ profileType }),
       });
+      trackRegister("reg_done", { flow: profileType, google: true });
       window.location.replace(data.redirect || "/");
     } catch (err: any) {
-      setError(
+      const msg =
         err?.body?.message ||
-          friendlyErrorMessage(err) ||
-          "No pudimos crear tu cuenta. Intenta de nuevo.",
-      );
+        friendlyErrorMessage(err) ||
+        "No pudimos crear tu cuenta. Intenta de nuevo.";
+      setError(msg);
+      trackRegister("reg_fail", { flow: profileType, google: true, message: msg });
       setSubmitting(false);
     }
   }

@@ -82,14 +82,6 @@ export default function AyudaChatPage() {
         </p>
       </Section>
 
-      <Section title="Chat y videollamadas">
-        <p>
-          Desde el chat puedes coordinar una videollamada con el profesional.
-          Recuerda que las videollamadas se pagan en tokens y se agendan desde
-          el perfil: no pagues nunca fuera de la plataforma.
-        </p>
-      </Section>
-
       <RelatedLinks
         links={[
           { href: "/ayuda/marketplace", label: "Marketplace" },

@@ -56,6 +56,7 @@ import {
 import { hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
 import WhatsAppIcon from "../../../components/icons/WhatsAppIcon";
+import FlashBadge from "../../../components/FlashBadge";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
 
@@ -68,6 +69,8 @@ type ForumComment = {
 
 type Professional = {
   id: string;
+  /** Destacada vigente: fin del boost (contador del sello). */
+  boostEndsAt?: string | null;
   /** Se usa para las URLs limpias y para enlazar su tienda del marketplace. */
   username?: string | null;
   name: string;
@@ -887,6 +890,7 @@ export default function ProfileDetailView({
                   sigue en el documento. */}
               <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent md:hidden" />
               <div aria-hidden="true" className="absolute inset-x-0 bottom-0 px-4 pb-9 md:hidden">
+                {professional.boostEndsAt && <FlashBadge endsAt={professional.boostEndsAt} size="md" className="mb-2.5" />}
                 <p className="text-[26px] font-semibold leading-none tracking-tight">
                   {professional.name}
                   {professional.age ? (
@@ -942,6 +946,7 @@ export default function ProfileDetailView({
                 ) : null}
               </h1>
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/55">
+                {professional.boostEndsAt && <FlashBadge endsAt={professional.boostEndsAt} size="md" />}
                 {levelPill}
                 {professional.city && (
                   <span className="inline-flex items-center gap-1 text-white/70">

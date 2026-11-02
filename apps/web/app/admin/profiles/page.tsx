@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import {
+  SERVICE_CATEGORY_OPTIONS,
+  SERVICE_CATEGORY_VALUES,
+  isContentOnly,
+  toggleServiceCategory,
+} from "../../../lib/serviceCategories";
 import { EXAMS_ENABLED } from "../../../lib/systemBadges";
 import {
   canDeleteProfiles,
@@ -77,6 +83,8 @@ type Profile = {
   serviceTags: string[] | null;
   quickReplies: QuickReplies | null;
   birthdate: string | null;
+  primaryCategory?: string | null;
+  serviceCategories?: string[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -444,6 +452,38 @@ export default function AdminProfilesPage() {
       await loadProfiles();
     } catch (err: any) {
       setError(err?.body?.message || "No se pudieron guardar las respuestas rápidas.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Tipos de servicio: el equipo marca a mano a las que venden contenido.
+     Las que sólo venden contenido salen del inicio y de escorts. */
+  function serviceCategoriesOf(profile: Profile): string[] {
+    if (profile.serviceCategories?.length) return profile.serviceCategories;
+    const primary = (profile.primaryCategory ?? "").toLowerCase();
+    return SERVICE_CATEGORY_VALUES.includes(primary) ? [primary] : [];
+  }
+
+  async function toggleServiceType(profile: Profile, value: string) {
+    const next = toggleServiceCategory(serviceCategoriesOf(profile), value);
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) => prev.map((pr) => (pr.id === profile.id ? { ...pr, serviceCategories: next } : pr)));
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ serviceCategories: next }),
+      });
+      setSuccess(
+        `Tipos de servicio de ${profile.displayName || profile.username} actualizados${
+          isContentOnly(next) ? " (sólo contenido: sale de escorts)" : ""
+        }.`,
+      );
+    } catch {
+      setProfiles(prevProfiles);
+      setError("No se pudieron actualizar los tipos de servicio.");
     } finally {
       setBusy(null);
     }
@@ -915,6 +955,34 @@ export default function AdminProfilesPage() {
                   </span>
                 )}
               </div>
+
+              {p.profileType === "PROFESSIONAL" && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-white/40">Servicios:</span>
+                  {SERVICE_CATEGORY_OPTIONS.map((c) => {
+                    const active = serviceCategoriesOf(p).includes(c.value);
+                    return (
+                      <button
+                        key={c.value}
+                        disabled={busy === p.id}
+                        onClick={() => toggleServiceType(p, c.value)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                          active
+                            ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                            : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                  {isContentOnly(serviceCategoriesOf(p)) && (
+                    <span className="text-[10px] text-amber-300/80">
+                      Sólo contenido: no aparece en el inicio ni en escorts
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Nombre público: sólo administrador (el equipo lo ve arriba, en
                   la cabecera de la ficha). */}

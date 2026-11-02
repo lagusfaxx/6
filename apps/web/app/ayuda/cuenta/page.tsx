@@ -23,8 +23,8 @@ export default function AyudaCuentaPage() {
       <Section title="Tipos de cuenta">
         <BulletList
           items={[
-            <><strong>Cliente:</strong> para explorar la plataforma, contactar profesionales, hacer videollamadas y usar todas las funciones de cliente.</>,
-            <><strong>Profesional:</strong> para publicar tu perfil, subir fotos, recibir mensajes y agendar videollamadas.</>,
+            <><strong>Cliente:</strong> para explorar la plataforma, contactar profesionales, comprar contenido y usar todas las funciones de cliente.</>,
+            <><strong>Profesional:</strong> para publicar tu perfil, subir fotos, recibir mensajes y vender packs de contenido.</>,
             <><strong>Establecimiento:</strong> para moteles, hospedajes y locales que quieran publicar habitaciones y tarifas.</>,
             <><strong>Tienda (shop):</strong> para sex shops con catálogo de productos.</>,
           ]}
@@ -73,7 +73,7 @@ export default function AyudaCuentaPage() {
             "Foto de perfil y galería (si eres profesional).",
             "Nombre visible, biografía y tags descriptivos.",
             "Ubicación, disponibilidad y horarios.",
-            "Tarifas de videollamadas, lives y servicios presenciales.",
+            "Tarifas de tus servicios.",
             "Métodos de contacto habilitados.",
           ]}
         />
@@ -97,8 +97,8 @@ export default function AyudaCuentaPage() {
       <Section title="Notificaciones">
         <p>
           Puedes permitir notificaciones push para recibir avisos incluso
-          cuando no tengas la página abierta: mensajes, reservas de
-          videollamadas, respuestas en el foro y actualizaciones importantes.
+          cuando no tengas la página abierta: mensajes, ventas de
+          contenido, respuestas en el foro y actualizaciones importantes.
           Configura los permisos desde tu navegador o sistema.
         </p>
       </Section>

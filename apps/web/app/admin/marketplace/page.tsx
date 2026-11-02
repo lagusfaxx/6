@@ -21,6 +21,8 @@ type Settings = {
   id: string;
   isEnabled: boolean;
   commissionPercent: number;
+  freeSalesCount: number;
+  ivaPercent: number;
   holdDays: number;
   minPriceClp: number;
   maxPriceClp: number;
@@ -91,10 +93,11 @@ type AdminProduct = {
   _count?: { assets: number; orders: number };
 };
 
-type Tab = "resumen" | "pedidos" | "catalogo" | "envios" | "retiros" | "tiendas" | "config";
+type Tab = "resumen" | "revision" | "pedidos" | "catalogo" | "envios" | "retiros" | "tiendas" | "config";
 
 const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
   { key: "resumen", label: "Resumen", icon: DollarSign },
+  { key: "revision", label: "Por revisar", icon: ShieldCheck },
   { key: "pedidos", label: "Pedidos", icon: Package },
   { key: "catalogo", label: "Catálogo", icon: ImageIcon },
   { key: "envios", label: "Envíos", icon: Truck },
@@ -160,6 +163,7 @@ export default function AdminMarketplacePage() {
 
       <div className="mt-5">
         {tab === "resumen" && <OverviewTab overview={overview} />}
+        {tab === "revision" && <ReviewTab onError={setError} onNotice={flash} />}
         {tab === "pedidos" && <OrdersTab onError={setError} onNotice={flash} reload={loadOverview} />}
         {tab === "catalogo" && <CatalogTab onError={setError} onNotice={flash} />}
         {tab === "envios" && <ShippingTab onError={setError} onNotice={flash} />}
@@ -671,6 +675,103 @@ function ProductInspector({ productId, onError }: { productId: string; onError: 
   );
 }
 
+/* ─────────── Revisión de packs ───────────
+   Todo pack nuevo o con contenido cambiado espera acá antes de venderse:
+   se revisa que las fotos y videos sean de ella. La vendedora sólo ve
+   "procesando"; no se le avisa de la revisión. */
+
+type ReviewProduct = {
+  id: string;
+  title: string;
+  description: string | null;
+  priceClp: number;
+  type: string;
+  updatedAt: string;
+  user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
+};
+
+function ReviewTab({ onError, onNotice }: { onError: (v: string | null) => void; onNotice: (v: string) => void }) {
+  const [products, setProducts] = useState<ReviewProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiFetch<{ products: ReviewProduct[] }>("/admin/market/review-queue");
+      setProducts(response.products || []);
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [onError]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const decide = async (product: ReviewProduct, decision: "approve" | "reject") => {
+    if (decision === "reject" && !window.confirm(`¿Rechazar "${product.title}"? No se publicará.`)) return;
+    setBusyId(product.id);
+    try {
+      await apiFetch(`/admin/market/products/${product.id}/review`, { method: "POST", body: JSON.stringify({ decision }) });
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      onNotice(decision === "approve" ? "Pack aprobado: ya está a la venta" : "Pack rechazado");
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return <p className="py-10 text-center text-sm text-white/45">Cargando...</p>;
+  if (products.length === 0) {
+    return <p className="py-14 text-center text-sm text-white/45">No hay packs por revisar.</p>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-white/45">
+        Revisa que las fotos y videos sean de la profesional (no sacados de otro sitio). Al aprobar, el pack sale a la
+        venta en Contenido. A ella no se le informa de la revisión: ve su pack como “procesando”.
+      </p>
+      {products.map((product) => (
+        <div key={product.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{product.title}</p>
+              <p className="text-xs text-white/45">
+                {formatClp(product.priceClp)} ·{" "}
+                <span className="text-fuchsia-300">@{product.user.username}</span>{" "}
+                · {formatDate(product.updatedAt)}
+              </p>
+              {product.description && <p className="mt-1 line-clamp-2 text-xs text-white/55">{product.description}</p>}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                disabled={busyId === product.id}
+                onClick={() => decide(product, "reject")}
+                className="flex items-center gap-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40"
+              >
+                <XCircle className="h-3.5 w-3.5" /> Rechazar
+              </button>
+              <button
+                type="button"
+                disabled={busyId === product.id}
+                onClick={() => decide(product, "approve")}
+                className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Aprobar
+              </button>
+            </div>
+          </div>
+          <ProductInspector productId={product.id} onError={onError} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─────────── Envíos ─────────── */
 
 function ShippingTab({ onError, onNotice }: { onError: (v: string | null) => void; onNotice: (v: string) => void }) {
@@ -965,6 +1066,8 @@ function SettingsTab({
           <NumberField label="Días de retención del pago" value={form.holdDays} onChange={(v) => update({ holdDays: v })} />
           <NumberField label="Precio mínimo (CLP)" value={form.minPriceClp} onChange={(v) => update({ minPriceClp: v })} />
           <NumberField label="Precio máximo (CLP)" value={form.maxPriceClp} onChange={(v) => update({ maxPriceClp: v })} />
+          <NumberField label="Primeras ventas sin comisión (sólo IVA)" value={form.freeSalesCount} onChange={(v) => update({ freeSalesCount: v })} />
+          <NumberField label="IVA (%)" value={form.ivaPercent} onChange={(v) => update({ ivaPercent: v })} />
         </div>
         <div className="flex flex-wrap gap-3">
           <Check label="Marketplace activo" checked={form.isEnabled} onChange={(v) => update({ isEnabled: v })} />

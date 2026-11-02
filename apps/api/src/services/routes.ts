@@ -19,6 +19,7 @@ import { sendServiceRequestConfirmation } from "../lib/notificationEmail";
 import { sendInAppAndPush } from "../lib/sendReminder";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import { notContentOnlyWhere } from "../lib/serviceCategories";
 
 export const servicesRouter = Router();
 
@@ -146,6 +147,8 @@ servicesRouter.get(
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
         isVerified: true,
+        // Las que sólo venden contenido no atienden: van a /contenido.
+        ...notContentOnlyWhere(),
         /* Va dentro de AND porque la búsqueda por texto ya ocupa la clave OR
            de este where: puestos como hermanos, el segundo pisaba al primero. */
         ...(genderFilter === "FEMALE"
@@ -365,6 +368,8 @@ servicesRouter.get(
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
         isVerified: true,
+        // Las que sólo venden contenido no atienden: van a /contenido.
+        ...notContentOnlyWhere(),
         isActive: true,
         latitude: { not: null },
         longitude: { not: null },

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Mail, RefreshCw, CheckCircle2, ArrowLeft, MessageCircle, Smartphone } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { trackRegister } from "../lib/registerFunnel";
 
 type CodeChannel = "email" | "whatsapp" | "sms";
 
@@ -27,9 +28,11 @@ interface EmailVerificationProps {
   name?: string;
   onVerified: () => void | Promise<void>;
   onBack?: () => void;
+  /** Tipo de cuenta para el embudo del registro (/admin/embudo-registro). */
+  funnelFlow?: string;
 }
 
-export default function EmailVerification({ email, phone, name, onVerified, onBack }: EmailVerificationProps) {
+export default function EmailVerification({ email, phone, name, onVerified, onBack, funnelFlow }: EmailVerificationProps) {
   const [channel, setChannel] = useState<CodeChannel>("email");
   const [destination, setDestination] = useState(email);
   const [notice, setNotice] = useState<string | null>(null);
@@ -121,6 +124,7 @@ export default function EmailVerification({ email, phone, name, onVerified, onBa
     } catch (err: any) {
       const msg = err?.body?.message || "Error al enviar el código";
       setError(msg);
+      if (funnelFlow) trackRegister("reg_error", { flow: funnelFlow, step: "verify", field: "envio_codigo", message: msg });
       if (Array.isArray(err?.body?.phoneChannels)) setPhoneChannels(err.body.phoneChannels);
     } finally {
       setResending(false);
@@ -144,6 +148,7 @@ export default function EmailVerification({ email, phone, name, onVerified, onBa
       setCreatingAccount(false);
       const msg = err?.body?.message || "Código incorrecto";
       setError(msg);
+      if (funnelFlow) trackRegister("reg_error", { flow: funnelFlow, step: "verify", field: "codigo", message: msg });
       setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {

@@ -11,7 +11,7 @@ const footerLinks = {
     { label: "Escorts Trans Chile", href: "/escorts?profileTags=trans" },
     { label: "Moteles", href: "/moteles" },
     { label: "Sex Shop Online", href: "/sexshop" },
-    { label: "Marketplace", href: "/marketplace" },
+    { label: "Creadoras de contenido", href: "/contenido" },
   ],
   "Ciudades": [
     { label: "Escorts en Santiago", href: "/escorts/santiago" },

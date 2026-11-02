@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { foldText, matchRegion, normalizeCity, type GeoNormalized } from "../../lib/chileGeo";
-import { BOT_UA_PATTERN, realUserSql, staffIdsSql } from "../../lib/statsFilters";
+import { BOT_UA_PATTERN, profilePageSql, realUserSql, staffIdsSql } from "../../lib/statsFilters";
 import { PROFILE_TYPES, TIERS, TZ, chileMidnight, chileToday, deltaPct, type Period } from "../helpers";
 
 /**
@@ -229,8 +229,8 @@ export async function trafficCtes(range: Range, f: Filtros): Promise<Prisma.Sql>
     ), sx AS (
       SELECT ${skeySql("pv")} AS skey, MAX(pv."createdAt") AS ended, COUNT(*)::int AS pages,
         (array_agg(pv."path" ORDER BY pv."createdAt" DESC))[1] AS exit_path,
-        COUNT(*) FILTER (WHERE pv."path" LIKE '/profesional/%')::int AS profile_pages,
-        COUNT(DISTINCT pv."path") FILTER (WHERE pv."path" LIKE '/profesional/%')::int AS profiles_seen
+        COUNT(*) FILTER (WHERE ${profilePageSql("pv")})::int AS profile_pages,
+        COUNT(DISTINCT pv."path") FILTER (WHERE ${profilePageSql("pv")})::int AS profiles_seen
       FROM "PageView" pv
       WHERE pv."createdAt" >= ${range.from} AND pv."createdAt" < ${range.to} AND ${realPv("pv")}
       GROUP BY 1
@@ -261,7 +261,7 @@ export async function trafficCtes(range: Range, f: Filtros): Promise<Prisma.Sql>
 export function profilePathJoin(pvAlias = "pvf", uAlias = "u"): Prisma.Sql {
   const p = Prisma.raw(`"${pvAlias}"`);
   const u = Prisma.raw(`"${uAlias}"`);
-  return Prisma.sql`JOIN "User" ${u} ON ${p}."path" LIKE '/profesional/%'
+  return Prisma.sql`JOIN "User" ${u} ON ${profilePageSql(pvAlias)}
     AND (split_part(${p}."path", '/', 3) = ${u}."id"::text OR split_part(${p}."path", '/', 3) = ${u}."username")`;
 }
 

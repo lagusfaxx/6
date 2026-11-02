@@ -14,6 +14,7 @@ import {
   BookImage,
   Clock,
   Eye,
+  Filter,
   Globe,
   Heart,
   LayoutGrid,
@@ -121,6 +122,7 @@ const ACTION_ICONS: Record<string, any> = {
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
+  { href: "/admin/embudo-registro", label: "Embudo registro", icon: Filter },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
   { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
@@ -333,9 +335,8 @@ export default function AdminEstadisticas() {
                 {/* ── Interaction Breakdown ── */}
                 <div>
                   <SectionHeader icon={Activity} label="Interacciones" />
-                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                     <MiniCard icon={MessageSquare} label="Mensajes" value={data.interactions.messages} color="blue" />
-                    <MiniCard icon={Video} label="Videollamadas" value={data.interactions.videocallBookings} color="fuchsia" />
                     <MiniCard icon={Users} label="Encuentros" value={data.interactions.serviceRequests} color="violet" />
                     <MiniCard icon={Heart} label="Favoritos" value={data.interactions.favorites} color="pink" />
                     <MiniCard icon={Phone} label="WhatsApp" value={data.interactions.whatsappClicks} color="emerald" />

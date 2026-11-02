@@ -74,6 +74,8 @@ export type DashboardFormState = {
   languages: string;
   serviceStyleTags: string;
   primaryCategory: string;
+  /** Tipos de servicio (varios): escort, masajes, contenido… */
+  serviceCategories: string[];
   profileTags: string[];
   serviceTags: string[];
   /** Datos marcados como "prefiero no decirlo". */
@@ -162,6 +164,7 @@ export const INITIAL_STATE: DashboardFormState = {
   languages: "",
   serviceStyleTags: "",
   primaryCategory: "",
+  serviceCategories: [],
   profileTags: [],
   serviceTags: [],
   undisclosedFields: [],
@@ -291,7 +294,7 @@ const DIRTY_TRACKED_KEYS = [
 
 /* undisclosedFields va acá para que marcar "prefiero no decirlo" encienda el
    botón de guardar: si no, el check se pierde al salir de la pantalla. */
-const DIRTY_TRACKED_ARRAYS = ["profileTags", "serviceTags", "undisclosedFields"] as const;
+const DIRTY_TRACKED_ARRAYS = ["profileTags", "serviceTags", "undisclosedFields", "serviceCategories"] as const;
 
 type DirtySnapshot = Record<(typeof DIRTY_TRACKED_KEYS)[number], string | boolean> & Record<(typeof DIRTY_TRACKED_ARRAYS)[number], string>;
 

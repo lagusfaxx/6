@@ -25,6 +25,7 @@ const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection
 const HomeMapSection = dynamic(() => import("../components/home/HomeMapSection"), { ssr: false });
 const NovedadesCarousel = dynamic(() => import("../components/home/NovedadesCarousel"), { ssr: false });
 const DestacadasGrid = dynamic(() => import("../components/home/DestacadasGrid"), { ssr: false });
+const ContentPackToast = dynamic(() => import("../components/home/ContentPackToast"), { ssr: false });
 
 import {
   buildChatHref,
@@ -33,7 +34,7 @@ import {
 } from "../lib/chat";
 import {
   ArrowRight,
-  BadgeCheck,
+  Camera,
   ChevronRight,
   Download,
   Hand,
@@ -43,7 +44,6 @@ import {
   Search as SearchIcon,
   ShoppingBag,
   Sparkles,
-  Users,
   X,
   Zap,
 } from "lucide-react";
@@ -63,7 +63,8 @@ const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
   { keywords: ["masajista", "masajistas", "masaje", "masajes"], href: "/masajistas" },
   { keywords: ["motel", "moteles"], href: "/moteles" },
   { keywords: ["sexshop", "sex shop", "sexo shop", "juguete", "juguetes"], href: "/sexshop" },
-  { keywords: ["marketplace", "market", "tienda", "packs", "pack de fotos", "comprar"], href: "/marketplace" },
+  { keywords: ["contenido", "creadora", "creadoras", "packs", "pack de fotos", "fotos", "videos"], href: "/contenido" },
+  { keywords: ["marketplace", "market", "tienda", "comprar"], href: "/marketplace" },
   { keywords: ["live", "lives", "en vivo"], href: "https://live.uzeed.cl/south-american-cams/female/" },
   { keywords: ["foro", "comunidad"], href: "/foro" },
 ];
@@ -190,17 +191,6 @@ type NewProfile = {
   availableNow?: boolean;
 };
 
-type UmateCreatorCard = {
-  id: string;
-  displayName: string;
-  avatarUrl: string | null;
-  coverUrl: string | null;
-  subscriberCount: number;
-  totalPosts: number;
-  monthlyPriceCLP: number;
-  user: { username: string; isVerified: boolean };
-};
-
 /* ── Install App Button ── */
 function InstallAppButton({ compact = false }: { compact?: boolean }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -279,11 +269,7 @@ export default function HomeClient() {
   const [previewProfile, setPreviewProfile] = useState<any>(null);
   const isAuthed = Boolean(me?.user?.id);
 
-  /* ── U-Mate creators (home showcase) ── */
-  const [umateCreators, setUmateCreators] = useState<UmateCreatorCard[]>([]);
-
   /* ── Live Streams ── */
-  const [liveStreams, setLiveStreams] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -443,24 +429,6 @@ export default function HomeClient() {
       });
 
     return () => controller.abort();
-  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
-  useEffect(() => {
-    const controller = new AbortController();
-
-    // Defer 2s so above-the-fold images load first
-    const timer = setTimeout(() => {
-      if (controller.signal.aborted) return;
-      apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12&gender=FEMALE", { signal: controller.signal })
-        .then((r) => setUmateCreators(r?.creators ?? []))
-        .catch(() => {});
-      apiFetch<{ streams: any[] }>("/live/active?gender=FEMALE", { signal: controller.signal })
-        .then((r) => setLiveStreams(r?.streams ?? []))
-        .catch(() => {});
-    }, 2000);
-
-    return () => { clearTimeout(timer); controller.abort(); };
   }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const horizontalBanners = useMemo(
@@ -661,7 +629,7 @@ export default function HomeClient() {
               { label: "Masajistas", href: "/masajistas", icon: Hand },
               { label: "Moteles", href: "/moteles", icon: Hotel },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
-              { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
+              { label: "Contenido", href: "/contenido", icon: Camera },
             ].map((c) => (
               <Link
                 key={c.href}
@@ -709,7 +677,8 @@ export default function HomeClient() {
 
         {/* ═══ STORIES ═══ */}
         <section className="mb-6">
-          <Stories />
+          {/* El inicio lista mujeres: las historias, también. */}
+          <Stories gender="FEMALE" />
         </section>
 
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
@@ -739,7 +708,6 @@ export default function HomeClient() {
 
         {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
              el mapa siga entrando en pantalla al abrir el home ═══ */}
-        {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" compact />}
         {diamondCompact.length > 0 && (
           <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
         )}
@@ -786,6 +754,9 @@ export default function HomeClient() {
           />
         )}
 
+        {/* ═══ DESTACADAS — perfiles con la Destacada vigente, en chico ═══ */}
+        {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" mini />}
+
         {/* ═══ CTA PUBLÍCATE ═══ */}
         {!isAuthed && (
           <Link
@@ -809,112 +780,11 @@ export default function HomeClient() {
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
         <HomeFeed goldProfiles={goldProfiles.map((p) => p.card)} />
 
-        {/* ═══ EN VIVO AHORA ═══ */}
-        {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
-        {liveStreams.length > 0 && (
-          <section key={`live-${locationKey}`} className="mb-10">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-              </span>
-              <h2 className="text-xl font-bold">En Vivo Ahora</h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-              {liveStreams.map((s: any) => (
-                <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
-                    {s.host?.avatarUrl ? (
-                      <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" loading="lazy" decoding="async" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/20">
-                        {(s.host?.displayName || "?")[0]}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> LIVE
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <p className="text-xs font-semibold truncate">{s.host?.displayName || s.host?.username}</p>
-                      {s.title && <p className="text-[10px] text-white/50 truncate">{s.title}</p>}
-                      <p className="text-[10px] text-white/40 mt-0.5">{s.viewerCount} viendo</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* ═══ CAMS EN VIVO ═══ */}
         <LiveCamsSection />
 
-        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
-
-        {/* ═══ CREADORAS U-MATE ═══ */}
-        {umateCreators.length > 0 && (
-          <section key={`umate-${locationKey}`} className="mb-10 uzeed-below-fold">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">Creadoras U-Mate</h2>
-                <span className="rounded-full border border-[#00aff0]/20 bg-[#00aff0]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00aff0]">
-                  Exclusivo
-                </span>
-              </div>
-              <Link
-                href="/umate/creators"
-                className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-[#00aff0] transition-colors duration-200"
-              >
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
-              {umateCreators.map((c) => (
-                <article
-                  key={c.id}
-                  className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto"
-                  style={{ borderColor: "rgba(0,175,240,0.12)" }}
-                >
-                  <Link href={`/umate/profile/${c.user.username}`} className="block">
-                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      {(c.coverUrl || c.avatarUrl) ? (
-                        <img
-                          src={resolveMediaUrl(c.coverUrl || c.avatarUrl) ?? undefined}
-                          alt={c.displayName}
-                          className="uzeed-card-img h-full w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Users className="h-10 w-10 text-white/[0.06]" />
-                        </div>
-                      )}
-                      {/* Badge tarifa mensual */}
-                      <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-[#00aff0]/25 bg-black/50 px-2 py-0.5 text-[10px] font-bold text-[#00aff0] backdrop-blur-xl tabular-nums">
-                        ${c.monthlyPriceCLP.toLocaleString("es-CL")}/mes
-                      </div>
-                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
-                      {/* Nombre + suscriptores */}
-                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
-                        <h3 className="truncate text-sm font-bold flex items-center gap-1">
-                          <span className="truncate">{c.displayName}</span>
-                          {c.user.isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#00aff0]" />}
-                        </h3>
-                        <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1">
-                          <Users className="h-2.5 w-2.5 text-[#00aff0]/60" />
-                          {c.subscriberCount} suscriptores
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Aviso de packs nuevos: entrada a /contenido sin pasar por el menú. */}
+        <ContentPackToast />
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
         {!isAuthed && <div className="mb-6 h-px bg-white/[0.06]" />}

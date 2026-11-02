@@ -112,6 +112,7 @@ export async function buildAdminOverview() {
       users({
         isVerified: false,
         verificationRejectedAt: null,
+        deletedAt: null,
         profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
       }),
     ),

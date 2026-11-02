@@ -168,6 +168,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // are 301-redirected in next.config.mjs and must NOT appear here.
   add("/escorts", "daily", 0.9);
   add("/masajistas", "daily", 0.9);
+  add("/contenido", "daily", 0.8);
   add("/hombres", "daily", 0.9);
   add("/moteles", "daily", 0.9);
   add("/establecimientos", "daily", 0.85);

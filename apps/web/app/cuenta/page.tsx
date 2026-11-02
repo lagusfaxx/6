@@ -12,13 +12,15 @@ import EmailNotificationsToggle from "../../components/EmailNotificationsToggle"
 import AutoReplySettings from "../../components/AutoReplySettings";
 import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import DeleteAccountDialog from "../../components/DeleteAccountDialog";
+import SpotlightPromoCard from "../../components/SpotlightPromoCard";
 import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, Wallet, RefreshCw,
-  VenetianMask, ArrowRight, Bell, BadgeCheck,
+  VenetianMask, ArrowRight, Bell, BadgeCheck, Trash2,
   Settings, BedDouble, CalendarDays, Package, ClipboardList,
 } from "lucide-react";
 
@@ -95,19 +97,6 @@ export default function AccountPage() {
     window.location.href = "/login";
   };
 
-  const [umateCreatorStatus, setUmateCreatorStatus] = useState<string | null>(null);
-  useEffect(() => {
-    if (!me?.user) return;
-    apiFetch<{ creator: { status?: string } | null }>("/umate/creator/me")
-      .then((d) => setUmateCreatorStatus(d?.creator?.status ?? null))
-      .catch(() => setUmateCreatorStatus(null));
-  }, [me]);
-  const umateHref = umateCreatorStatus === "ACTIVE" ? "/umate/explore" : "/umate/onboarding";
-  const umateDescription =
-    umateCreatorStatus === "ACTIVE" ? "Ir a UMate"
-    : umateCreatorStatus === "PENDING_REVIEW" ? "En revisión"
-    : umateCreatorStatus ? "Continúa tu registro"
-    : "Crea tu perfil UMate";
 
   const handleSubscribe = () => {
     router.push("/pago");
@@ -117,6 +106,7 @@ export default function AccountPage() {
   const role = (user?.role || "").toUpperCase();
   const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const isProfessional = profileType === "PROFESSIONAL";
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const isShop = profileType === "SHOP";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
@@ -175,6 +165,7 @@ export default function AccountPage() {
     quickActions.push(
       { label: "Subir historia", description: "Foto o video de 20 días", href: "/dashboard/stories?nueva=1", icon: Camera, tone: "pink" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, tone: "violet" },
+      { label: "Mis packs", description: "Vende fotos y videos", href: "/marketplace/vender", icon: ShoppingBag, tone: "fuchsia" },
     );
   }
   if (!canManageProfile) {
@@ -190,7 +181,6 @@ export default function AccountPage() {
   if (!isProfessional) {
     quickActions.push(
       { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, tone: "amber" },
-      { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, tone: "violet" },
     );
   }
 
@@ -509,19 +499,19 @@ export default function AccountPage() {
             </Card>
           )}
 
+          {/* ── Destacada (boost con contador) ── */}
+          {isProfessional && <SpotlightPromoCard />}
+
           {/* ── Visibilidad ── */}
           {isProfessional && (
             <Card title="Aumenta tu visibilidad" icon={<TrendingUp className="h-4 w-4" />}>
-              <p className="mb-4 text-sm text-white/50">Sube stories, completa tu perfil y activa UMate.</p>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <p className="mb-4 text-sm text-white/50">Sube stories y completa tu perfil.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Link href="/dashboard/stories?nueva=1" className="flex items-center gap-2 rounded-xl border border-pink-500/20 bg-pink-500/10 px-3 py-2.5 text-xs font-medium text-pink-200 transition hover:bg-pink-500/20">
                   <Camera className="h-4 w-4" /> Subir story
                 </Link>
                 <Link href="/dashboard/services" className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-medium text-white/75 transition hover:bg-white/10">
                   <Edit3 className="h-4 w-4" /> Editar perfil
-                </Link>
-                <Link href={umateHref} className="flex items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-3 py-2.5 text-xs font-medium text-violet-200 transition hover:bg-violet-500/20">
-                  <Sparkles className="h-4 w-4" /> UMate
                 </Link>
               </div>
               <Link
@@ -558,10 +548,20 @@ export default function AccountPage() {
                 <LogOut className="h-4 w-4" />
                 Cerrar sesión
               </button>
+              {isProfessional && (
+                <button
+                  onClick={() => setDeleteOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs text-white/35 transition hover:bg-white/[0.04] hover:text-white/60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar mi cuenta
+                </button>
+              )}
             </div>
           </Card>
         </motion.div>
       </div>
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }

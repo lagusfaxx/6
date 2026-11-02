@@ -84,6 +84,8 @@ const ADMIN_ONLY_SECTIONS = [
   "/admin/claude",
   // Encender el cobro y fijar la tarifa: dinero de verdad.
   "/admin/cobros",
+  // Regalar la Destacada: es un boost que se vende.
+  "/admin/destacar",
 ];
 
 /** ¿Se le muestra esta sección del panel a esta cuenta? */

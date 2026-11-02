@@ -8,6 +8,7 @@ import { getMarketSettings } from "./settings";
 import { confirmOrderPaid, logOrderEvent, rejectOrderPayment, releaseOrderPayout, signOrderAssets } from "./orders";
 import { buildProductAssetUrl } from "./media";
 import { notifyMarket, orderUrl } from "./notify";
+import { REVIEW_APPROVED, REVIEW_PENDING, REVIEW_REJECTED, hasRequiredContent, packContentWhere } from "./review";
 
 export const marketAdminRouter = Router();
 
@@ -90,6 +91,16 @@ marketAdminRouter.put("/admin/market/settings", requireAdmin, asyncHandler(async
     const days = toInt(req.body.holdDays, current.holdDays);
     if (days < 0 || days > 60) return res.status(400).json({ error: "HOLD_DAYS_INVALID" });
     data.holdDays = days;
+  }
+  if (req.body?.freeSalesCount !== undefined) {
+    const n = toInt(req.body.freeSalesCount, current.freeSalesCount);
+    if (n < 0 || n > 100) return res.status(400).json({ error: "FREE_SALES_INVALID" });
+    data.freeSalesCount = n;
+  }
+  if (req.body?.ivaPercent !== undefined) {
+    const iva = Number(req.body.ivaPercent);
+    if (!Number.isFinite(iva) || iva < 0 || iva > 40) return res.status(400).json({ error: "IVA_INVALID" });
+    data.ivaPercent = iva;
   }
   if (req.body?.minPriceClp !== undefined) data.minPriceClp = Math.max(0, toInt(req.body.minPriceClp, current.minPriceClp));
   if (req.body?.maxPriceClp !== undefined) data.maxPriceClp = Math.max(1, toInt(req.body.maxPriceClp, current.maxPriceClp));
@@ -394,6 +405,50 @@ marketAdminRouter.get("/admin/market/products/:id", requireAdmin, asyncHandler(a
     media: product.media,
     assets: signProductAssets(assets),
   });
+}));
+
+/* ─────────── Revisión de packs ───────────
+   Todo pack nuevo o con contenido cambiado queda pendiente: se revisa que
+   las fotos y videos sean de ella antes de venderlo. Sólo entran a la cola
+   los que ya tienen el contenido mínimo (1 foto y 1 video). */
+marketAdminRouter.get("/admin/market/review-queue", requireAdmin, asyncHandler(async (_req, res) => {
+  const products = await prisma.marketProduct.findMany({
+    where: { reviewStatus: REVIEW_PENDING, isHidden: false, AND: [packContentWhere()] },
+    orderBy: { updatedAt: "asc" },
+    take: 50,
+    include: {
+      media: { orderBy: { pos: "asc" } },
+      assets: { orderBy: { pos: "asc" } },
+      user: { select: profileSelect },
+    },
+  });
+  return res.json({
+    products: products.map(({ assets, ...p }) => ({
+      ...p,
+      coverUrl: adminCover(p),
+      assets: signProductAssets(assets),
+    })),
+    total: products.length,
+  });
+}));
+
+marketAdminRouter.post("/admin/market/products/:id/review", requireAdmin, asyncHandler(async (req, res) => {
+  const decision = String(req.body?.decision || "");
+  if (decision !== "approve" && decision !== "reject") return res.status(400).json({ error: "DECISION_INVALID" });
+  const product = await prisma.marketProduct.findUnique({
+    where: { id: String(req.params.id) },
+    include: { assets: { select: { type: true } } },
+  });
+  if (!product) return res.status(404).json({ error: "NOT_FOUND" });
+  if (decision === "approve" && !hasRequiredContent(product.type, product.assets)) {
+    return res.status(400).json({ error: "CONTENT_INCOMPLETE", message: "El pack necesita al menos 1 foto y 1 video." });
+  }
+  const updated = await prisma.marketProduct.update({
+    where: { id: product.id },
+    data: { reviewStatus: decision === "approve" ? REVIEW_APPROVED : REVIEW_REJECTED, reviewedAt: new Date() },
+    select: { id: true, reviewStatus: true, reviewedAt: true },
+  });
+  return res.json({ product: updated });
 }));
 
 marketAdminRouter.put("/admin/market/products/:id/visibility", requireAdmin, asyncHandler(async (req, res) => {

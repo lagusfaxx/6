@@ -16,6 +16,13 @@ import FloatingSelect from "../FloatingSelect";
 import PhoneField from "./PhoneField";
 import NameField from "./NameField";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../../../../../components/DirectoryPage";
+import {
+  CONTENT_CATEGORY,
+  SERVICE_CATEGORY_OPTIONS,
+  isContentOnly,
+  primaryFromServiceCategories,
+  toggleServiceCategory,
+} from "../../../../../lib/serviceCategories";
 
 const PRIMARY_CATEGORY_OPTIONS = [
   { value: "",           label: "Sin categoría principal" },
@@ -24,6 +31,7 @@ const PRIMARY_CATEGORY_OPTIONS = [
   { value: "trans",      label: "Trans" },
   { value: "despedidas", label: "Despedidas de soltero" },
   { value: "videollamadas", label: "Videollamadas" },
+  { value: CONTENT_CATEGORY, label: "Creadora de contenido" },
 ];
 
 const HAIR_COLOR_OPTIONS = [
@@ -118,6 +126,18 @@ export default function ProfileEditor() {
 
   const serviceTagsDone = isDone("serviceTags");
 
+  /* La categoría principal sigue a los tipos marcados: si sólo vende
+     contenido pasa a "contenido"; si agrega un servicio presencial y la
+     principal era contenido (o no tenía), toma ese servicio. */
+  function toggleServiceType(value: string) {
+    const next = toggleServiceCategory(state.serviceCategories, value);
+    setField("serviceCategories", next);
+    const current = state.primaryCategory;
+    if (isContentOnly(next)) setField("primaryCategory", CONTENT_CATEGORY);
+    else if (next.length && (!current || current === CONTENT_CATEGORY || (!next.includes(current) && current !== "trans")))
+      setField("primaryCategory", primaryFromServiceCategories(next));
+  }
+
   return (
     <div className="space-y-4">
 
@@ -182,6 +202,38 @@ export default function ProfileEditor() {
             options={PRIMARY_CATEGORY_OPTIONS}
             hint="Define en qué listado apareces primero."
           />
+
+          <div className="grid gap-2">
+            <span className="text-xs font-medium text-white/55">Tipos de servicio (puedes marcar varios)</span>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_CATEGORY_OPTIONS.map((opt) => {
+                const active = state.serviceCategories.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleServiceType(opt.value)}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
+                      active
+                        ? "border-fuchsia-500/50 bg-fuchsia-500/20 text-fuchsia-300 shadow-[0_0_12px_rgba(217,70,239,0.15)]"
+                        : "border-white/10 text-white/45 hover:border-fuchsia-500/30 hover:bg-fuchsia-500/5 hover:text-white/70"
+                    }`}
+                  >
+                    <span className="mr-1">{opt.emoji}</span>
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-white/35">
+              {isContentOnly(state.serviceCategories)
+                ? "Sólo vendes contenido: apareces en la sección Contenido, no en escorts."
+                : state.serviceCategories.includes(CONTENT_CATEGORY)
+                  ? "Apareces en escorts y también en la sección Contenido."
+                  : "Marca “Creadora de contenido” si también vendes fotos o videos."}
+            </p>
+          </div>
         </div>
       </EditorCard>
 

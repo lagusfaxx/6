@@ -488,7 +488,7 @@ export const SEMRUSH_TAG_LANDINGS: TagLanding[] = [
     h1: "Videos, fotos y packs de escorts chilenas",
     paragraphs: [
       "Las escorts de esta lista venden packs de fotos y videos propios. Es contenido real, hecho por ellas y vendido directo: no son videos robados ni de páginas porno que usan nombres de escorts chilenas.",
-      "Puedes ver las fotos públicas de cada perfil y comprar packs o suscribirte a su contenido en U-Mate, la sección de creadoras de UZEED. Muchas también hacen videollamadas.",
+      "Puedes ver las fotos públicas de cada perfil y comprar sus packs en la sección Contenido, donde están las creadoras de UZEED. Muchas también hacen videollamadas.",
       "Si buscas una escort con videos, revisa la galería de cada perfil: si sube videos, los verás ahí antes de contactarla.",
     ],
     faq: [
@@ -506,7 +506,7 @@ export const SEMRUSH_TAG_LANDINGS: TagLanding[] = [
       },
     ],
     related: [
-      { href: "/umate", label: "U-Mate: creadoras" },
+      { href: "/contenido", label: "Creadoras de contenido" },
       { href: "/escorts/videollamada", label: "Escorts con videollamada" },
       { href: "/escorts/maduras", label: "Escorts maduras" },
       { href: "/escorts/chilena", label: "Escorts chilenas" },

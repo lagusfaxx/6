@@ -3,6 +3,7 @@ import { config } from "../../config";
 import { sendAdminStatsEmail, escapeHtml } from "../../lib/notificationEmail";
 import { resolvePeriod } from "../helpers";
 import { METRIC_LABELS, compareSets, metricSet } from "./core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 /**
  * Informe semanal automático por correo (lunes 09:00 Chile): KPIs de los
@@ -54,7 +55,7 @@ export async function buildWeeklyReport() {
     prisma.$queryRaw<{ n: number }[]>`
       SELECT COUNT(*)::int AS n FROM (
         SELECT split_part(pv."path", '/', 3) AS ref FROM "PageView" pv
-        WHERE pv."path" LIKE '/profesional/%' AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} GROUP BY 1 HAVING COUNT(*) >= 10
+        WHERE ${profilePageSql("pv")} AND pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} GROUP BY 1 HAVING COUNT(*) >= 10
       ) v JOIN "User" u ON v.ref IN (u."id"::text, u."username")
       WHERE NOT EXISTS (SELECT 1 FROM "UserAction" ua WHERE ua."targetId" = u."id" AND ua."action" IN ('whatsapp_click','phone_click') AND ua."createdAt" >= ${period.from} AND ua."createdAt" < ${period.to})`,
   ]);

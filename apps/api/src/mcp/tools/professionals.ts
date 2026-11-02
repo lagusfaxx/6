@@ -6,6 +6,7 @@ import { guarded, type McpContext } from "../audit";
 import { TZ, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
 import { localTs } from "../metrics";
 import { describeFiltros, filtrosShape, pickFiltros, profileSql, withSegment, type Filtros } from "../stats/core";
+import { profilePageSql } from "../../lib/statsFilters";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 const SECCIONES = ["crecimiento", "verificacion", "actividad", "tiers"] as const;
@@ -102,7 +103,7 @@ export function registerProfessionalTools(server: McpServer, ctx: McpContext) {
             SELECT u."username", u."displayName" AS nombre, u."city" AS ciudad, u."tier"::text AS tier, u."lastSeen" AS "ultimoLogin", u."lastEditedAt" AS "ultimaEdicion",
               (EXTRACT(EPOCH FROM (now() - u."lastSeen")) / 86400)::int AS "diasSinLogin",
               (SELECT COUNT(*) FROM "Story" s WHERE s."userId" = u."id" AND s."createdAt" > now() - interval '30 days')::int AS historias30d,
-              (SELECT COUNT(*) FROM "PageView" pv WHERE pv."path" LIKE '/profesional/%' AND split_part(pv."path", '/', 3) = u."id"::text AND pv."createdAt" > now() - interval '30 days')::int AS vistas30d
+              (SELECT COUNT(*) FROM "PageView" pv WHERE ${profilePageSql("pv")} AND split_part(pv."path", '/', 3) IN (u."id"::text, u."username") AND pv."createdAt" > now() - interval '30 days')::int AS vistas30d
             FROM "User" u WHERE ${pf} AND ${BUSINESS} AND u."isActive" AND u."isVerified"
             ORDER BY u."lastSeen" ASC NULLS FIRST LIMIT ${take}`,
           prisma.$queryRaw<{ perfilesConHistorias: number; historias: number; publicados: number; editaronEnPeriodo: number }[]>`

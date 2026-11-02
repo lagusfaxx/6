@@ -26,7 +26,7 @@ let _pushMiddlewareDepth = 0;
  */
 const PROFILE_EDIT_FIELDS = new Set([
   "displayName", "bio", "city", "address", "latitude", "longitude", "baseRate", "minDurationMinutes",
-  "serviceDescription", "serviceCategory", "primaryCategory", "profileTags", "serviceTags", "serviceStyleTags",
+  "serviceDescription", "serviceCategory", "primaryCategory", "serviceCategories", "profileTags", "serviceTags", "serviceStyleTags",
   "availabilityNote", "avatarUrl", "coverUrl", "heightCm", "weightKg", "measurements", "hairColor", "skinTone",
   "languages", "acceptsIncalls", "acceptsOutcalls", "subscriptionPrice", "phone", "gender", "birthdate",
   "undisclosedFields", "autoReplyEnabled", "autoReplyMessage", "quickReplies",

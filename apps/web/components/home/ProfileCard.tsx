@@ -21,6 +21,7 @@ import { resolveMediaUrl } from "../../lib/api";
 import { hasVerifiedBadge } from "../../lib/systemBadges";
 import VerifiedTick from "../VerifiedTick";
 import useFavorites from "../../hooks/useFavorites";
+import FlashBadge from "../FlashBadge";
 
 export type HomeLevel = "DIAMOND" | "GOLD" | "SILVER";
 
@@ -42,6 +43,8 @@ export type HomeProfile = {
   isNew: boolean;
   /** Boost "Destacada" vigente. */
   spotlight?: boolean;
+  /** Hasta cuándo sigue destacada (contador del sello). */
+  boostEndsAt?: string | null;
 };
 
 export type CardStoryMedia = {
@@ -71,6 +74,7 @@ export function toHomeProfile(r: any, overrides: Partial<HomeProfile> = {}): Hom
     primaryCategory: r.primaryCategory ?? null,
     isNew: Boolean(r.isNew),
     spotlight: r?.boost === "SPOTLIGHT",
+    boostEndsAt: typeof r?.boostEndsAt === "string" ? r.boostEndsAt : null,
     ...overrides,
   };
 }
@@ -93,6 +97,8 @@ export function categoryLabel(p: HomeProfile): string {
      /escorts?profileTags=trans. La categoría principal no sirve: hay
      perfiles de mujeres con primaryCategory "trans" cargado por error. */
   if (p.profileTags.map(normalize).includes("trans")) return paid ? "Trans VIP" : "Trans";
+  /* Sólo vende contenido (sección /contenido): no es escort. */
+  if (normalize(p.primaryCategory) === "contenido") return "Creadora de contenido";
   if (cat.includes("masaj")) {
     const text = `${cat} ${tags.join(" ")}`;
     if (text.includes("tantr")) return "Tántrico";
@@ -147,6 +153,9 @@ type Props = {
   large?: boolean;
   /** La primera fila se pide con prioridad; el resto espera al scroll. */
   eager?: boolean;
+  /** Tarjeta chica (fila de Destacadas): texto menor, sin flechas, franja
+      del contador reducida. */
+  mini?: boolean;
 };
 
 export default function ProfileCard({
@@ -155,6 +164,7 @@ export default function ProfileCard({
   aspect = "aspect-[2/3]",
   large = false,
   eager = false,
+  mini = false,
 }: Props) {
   const { favorites, toggle } = useFavorites();
   const isFavorite = favorites.has(p.id);
@@ -187,8 +197,9 @@ export default function ProfileCard({
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   };
 
+  const banded = Boolean(p.spotlight && p.boostEndsAt);
   const tag =
-    p.spotlight ? (
+    banded ? null : p.spotlight ? (
       <span className={`${TAG_CLASS} text-fuchsia-200`}>🔥 Destacada</span>
     ) : p.userLevel === "DIAMOND" ? (
       <span className={`${TAG_CLASS} text-tier-diamond`}>◆ Diamond</span>
@@ -244,8 +255,15 @@ export default function ProfileCard({
         className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-fuchsia-500"
       />
 
+      {/* Destacada: franja con contador de lado a lado; lo demás baja. */}
+      {banded && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[4]">
+          <FlashBadge endsAt={p.boostEndsAt} size={mini ? "bandMini" : "band"} />
+        </div>
+      )}
+
       {slides.length > 1 && (
-        <div className="pointer-events-none absolute left-1/2 top-2 z-[3] flex -translate-x-1/2 gap-[3px]">
+        <div className={`pointer-events-none absolute left-1/2 ${banded ? (mini ? "top-7" : "top-8") : "top-2"} z-[3] flex -translate-x-1/2 gap-[3px]`}>
           {slides.map((_, i) => (
             <i
               key={i}
@@ -255,7 +273,7 @@ export default function ProfileCard({
         </div>
       )}
 
-      <div className="pointer-events-none absolute left-2 top-4 z-[3] flex items-center gap-[5px]">
+      <div className={`pointer-events-none absolute left-2 ${banded ? (mini ? "top-8" : "top-9") : "top-4"} z-[3] flex items-center gap-[5px]`}>
         {p.availableNow && (
           <span
             title="Disponible ahora"
@@ -274,7 +292,7 @@ export default function ProfileCard({
         }}
         aria-label={isFavorite ? "Quitar de favoritas" : "Guardar en favoritas"}
         aria-pressed={isFavorite}
-        className="absolute right-1.5 top-1.5 z-[3] grid h-7 w-7 place-items-center rounded-full bg-black/40 transition hover:bg-black/60"
+        className={`absolute right-1.5 ${banded ? (mini ? "top-7" : "top-8") : "top-1.5"} z-[3] grid ${mini ? "h-6 w-6" : "h-7 w-7"} place-items-center rounded-full bg-black/40 transition hover:bg-black/60`}
       >
         <Star
           className={`h-[15px] w-[15px] ${isFavorite ? "fill-tier-gold text-tier-gold" : "text-white"}`}
@@ -282,7 +300,7 @@ export default function ProfileCard({
         />
       </button>
 
-      {slides.length > 1 && (
+      {slides.length > 1 && !mini && (
         <>
           <button
             type="button"
@@ -307,7 +325,7 @@ export default function ProfileCard({
         <div className="flex items-center gap-1">
           <span
             className={`truncate font-display font-bold uppercase leading-none tracking-[0.02em] [text-shadow:0_1px_6px_rgba(0,0,0,0.6)] ${
-              large ? "text-[19px]" : "text-[15px]"
+              large ? "text-[19px]" : mini ? "text-[13px]" : "text-[15px]"
             }`}
           >
             {p.displayName}

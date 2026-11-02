@@ -1378,3 +1378,22 @@ html.discreet .animate-ping {
 .umate-protected * {
   -webkit-touch-callout: none;
 }
+
+/* Sello "Destacada" (FlashBadge): un brillo que cruza cada pocos segundos,
+   como las ofertas relámpago. Sin animación si la persona lo pidió. */
+.uzeed-flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: uzeed-flash-shine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes uzeed-flash-shine {
+  0%, 55% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .uzeed-flash::after { animation: none; }
+}

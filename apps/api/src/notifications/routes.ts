@@ -103,6 +103,40 @@ notificationsRouter.post("/notifications/sms/unread-reminder", requireAdmin, asy
   return res.status(started ? 202 : 409).json({ ok: started, started, count: targets.length });
 }));
 
+/* Respuestas que las profesionales mandaron desde WhatsApp: quién, a qué
+   cliente, qué dijo y si llegó al chat (panel /admin/whatsapp). */
+notificationsRouter.get("/notifications/whatsapp/replies", requireAdmin, asyncHandler(async (req, res) => {
+  const take = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  const skip = Math.max(0, Number(req.query.offset) || 0);
+  const status = typeof req.query.status === "string" ? req.query.status.toUpperCase() : "";
+  const where = ["SENT", "NO_CHAT", "NOT_TEXT", "BLOCKED", "TEST"].includes(status) ? { status } : {};
+
+  const [rows, total] = await Promise.all([
+    prisma.whatsAppReply.findMany({ where, orderBy: { createdAt: "desc" }, take, skip }),
+    prisma.whatsAppReply.count({ where }),
+  ]);
+  const ids = [...new Set(rows.flatMap((r) => [r.userId, r.peerId]).filter((id): id is string => Boolean(id)))];
+  const users = ids.length
+    ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true, username: true } })
+    : [];
+  const byId = new Map(users.map((u) => [u.id, { name: u.displayName || u.username, username: u.username }]));
+
+  return res.json({
+    replies: rows.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      status: r.status,
+      kind: r.kind,
+      body: r.body,
+      messageId: r.messageId,
+      professional: r.userId ? byId.get(r.userId) ?? null : null,
+      client: r.peerId ? byId.get(r.peerId) ?? null : null,
+    })),
+    total,
+    hasMore: skip + rows.length < total,
+  });
+}));
+
 /* Estadísticas de avisos enviados por SMS y WhatsApp (panel /admin/whatsapp). */
 notificationsRouter.get("/notifications/whatsapp/stats", requireAdmin, asyncHandler(async (_req, res) => {
   const now = Date.now();

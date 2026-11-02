@@ -61,6 +61,7 @@ export const DISCREET_LABELS: Record<string, string> = {
   "/moteles": "Alojamiento",
   "/sexshop": "Tienda",
   "/marketplace": "Tienda personal",
+  "/contenido": "Galería",
   "/cerca": "Cerca",
   "/services": "Todo",
   "/escorts?serviceTags=despedidas": "Eventos",

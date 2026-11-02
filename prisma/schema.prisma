@@ -476,6 +476,12 @@ model User {
   languages           String?
   serviceStyleTags    String?
   primaryCategory     String?
+  /// Tipos de servicio que ofrece la profesional (puede marcar varios):
+  /// "escort", "masajes", "despedidas", "videollamadas", "contenido".
+  /// Quien sólo marca "contenido" vende contenido y no atiende: no sale en el
+  /// inicio ni en las secciones de escorts, sólo en /contenido. Vacío en las
+  /// cuentas anteriores a la columna: cuenta como su `primaryCategory`.
+  serviceCategories   String[]          @default([])
   profileTags         String[]          @default([])
   serviceTags         String[]          @default([])
   avgResponseMinutes  Int?
@@ -534,6 +540,9 @@ model User {
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
+  /// La profesional eliminó su cuenta desde /cuenta: sus datos personales se
+  /// borraron y el perfil ya no aparece. El motivo queda en AccountDeletion.
+  deletedAt           DateTime?
   adminManaged        Boolean           @default(false)
   adminQualityScore   Float?
   passwordSetToken          String?
@@ -941,6 +950,40 @@ model WhatsAppRelay {
   createdAt DateTime @default(now())
 
   @@index([waId, createdAt])
+}
+
+/// Cuentas que la propia profesional eliminó desde /cuenta, con el motivo
+/// que escribió (obligatorio). Guarda nombre y usuario porque la cuenta queda
+/// anonimizada.
+model AccountDeletion {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  username    String
+  displayName String?
+  profileType String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Lo que llega del WhatsApp de una profesional (Cloud API de Meta), para el
+/// panel /admin/whatsapp: quién respondió, a qué cliente, qué dijo y si se
+/// entregó en el chat. status: SENT, NO_CHAT (no se supo a qué chat iba),
+/// NOT_TEXT (foto/audio), BLOCKED (cuenta inactiva o chat no permitido), TEST.
+model WhatsAppReply {
+  id        String   @id @default(uuid()) @db.Uuid
+  waId      String
+  userId    String?  @db.Uuid
+  peerId    String?  @db.Uuid
+  messageId String?  @db.Uuid
+  kind      String
+  body      String?
+  status    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 /// Registro de cada aviso enviado (o intentado) por SMS o WhatsApp, para
@@ -2028,6 +2071,10 @@ model MarketSettings {
   id                 String   @id @default("default")
   isEnabled          Boolean  @default(true)
   commissionPercent  Float    @default(15)   // comisión UZEED por venta
+  /// Ventas iniciales de cada vendedora sin comisión: sólo se descuenta el IVA.
+  freeSalesCount     Int      @default(5)
+  /// IVA incluido en el precio, que se descuenta en las ventas sin comisión.
+  ivaPercent         Float    @default(19)
   holdDays           Int      @default(4)    // días de retención tras el pago
   minPriceClp        Int      @default(1000)
   maxPriceClp        Int      @default(2000000)
@@ -2105,6 +2152,11 @@ model MarketProduct {
   stock           Int?              // null = ilimitado (contenido digital)
   isActive        Boolean           @default(true)
   isHidden        Boolean           @default(false) // ocultado por admin
+  /// Revisión del contenido antes de salir a la venta: "PENDING" (nuevo o
+  /// con fotos/videos cambiados), "APPROVED" o "REJECTED". La vendedora no ve
+  /// que hay una revisión: para ella el pack está "procesando".
+  reviewStatus    String            @default("APPROVED")
+  reviewedAt      DateTime?
   tags            String[]          @default([])
   coverUrl        String?           // portada pública (preview)
   viewCount       Int               @default(0)
@@ -2125,6 +2177,7 @@ model MarketProduct {
   @@index([userId])
   @@index([isActive, createdAt])
   @@index([type])
+  @@index([reviewStatus])
 }
 
 /// Previews públicos del artículo (con marca de agua o censurados).

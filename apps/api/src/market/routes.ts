@@ -19,7 +19,7 @@ import {
   sendMarketOrderDeliveredEmail,
   sendMarketTransferInstructionsEmail,
 } from "../lib/marketEmail";
-import { getMarketSettings, publicTransferData, splitAmounts, transferDataComplete } from "./settings";
+import { freeSalesLeft, getMarketSettings, ivaShareOfPrice, publicTransferData, splitAmounts, transferDataComplete } from "./settings";
 import {
   isPrivateRef,
   privateRefToRelPath,
@@ -40,6 +40,12 @@ import {
 } from "./orders";
 import { notifyMarket, orderUrl, formatClp } from "./notify";
 import { FFMPEG_SAFE_INPUT_ARGS, looksLikePlainVideo, safeUploadExt } from "../lib/uploadFilename";
+import {
+  REVIEW_PENDING,
+  isSellable,
+  sellableProductWhere,
+  sellerPublishStatus,
+} from "./review";
 
 const execFileAsync = promisify(execFile);
 
@@ -342,6 +348,16 @@ function orderCard(order: any, viewer: "buyer" | "seller" | "admin") {
 }
 
 /** La vendedora tiene que ser profesional y no estar bloqueada. */
+/** Datos mínimos para transferirle sus ventas. */
+function sellerBankComplete(seller: {
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankHolderName: string | null;
+  bankHolderRut: string | null;
+}) {
+  return Boolean(seller.bankName && seller.bankAccountNumber && seller.bankHolderName && seller.bankHolderRut);
+}
+
 async function requireSeller(req: any, res: any) {
   const id = userId(req);
   const seller = await prisma.marketSeller.findUnique({ where: { userId: id } });
@@ -388,8 +404,7 @@ marketRouter.get("/market/products", asyncHandler(async (req, res) => {
   const maxPrice = req.query.maxPrice !== undefined ? toInt(req.query.maxPrice, 0) : null;
 
   const where: Prisma.MarketProductWhereInput = {
-    isActive: true,
-    isHidden: false,
+    ...sellableProductWhere(),
     seller: { isActive: true, isBanned: false },
     ...(PRODUCT_TYPES.includes(type as MarketProductType) ? { type: type as MarketProductType } : {}),
     ...(sellerUsername ? { user: { username: sellerUsername } } : {}),
@@ -447,7 +462,10 @@ marketRouter.get("/market/products/:id", asyncHandler(async (req, res) => {
 
   const viewer = userId(req as any);
   const isOwner = viewer && viewer === product.userId;
-  if (!product.isActive && !isOwner) return res.status(404).json({ error: "NOT_FOUND" });
+  if (!isOwner) {
+    const assets = await prisma.marketProductAsset.findMany({ where: { productId: product.id }, select: { type: true } });
+    if (!isSellable(product, assets)) return res.status(404).json({ error: "NOT_FOUND" });
+  }
 
   if (!isOwner) {
     await prisma.marketProduct.update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined);
@@ -494,7 +512,7 @@ marketRouter.get("/market/products/:id", asyncHandler(async (req, res) => {
 marketRouter.get("/market/sellers", asyncHandler(async (req, res) => {
   const take = Math.min(48, Math.max(1, toInt(req.query.limit, 18)));
   const sellers = await prisma.marketSeller.findMany({
-    where: { isActive: true, isBanned: false, products: { some: { isActive: true, isHidden: false } } },
+    where: { isActive: true, isBanned: false, products: { some: sellableProductWhere() } },
     orderBy: [{ totalSales: "desc" }, { createdAt: "desc" }],
     take,
     include: {
@@ -534,7 +552,7 @@ marketRouter.get("/market/sellers/:username", asyncHandler(async (req, res) => {
   }
 
   const products = await prisma.marketProduct.findMany({
-    where: { userId: user.id, isActive: true, isHidden: false },
+    where: { userId: user.id, ...sellableProductWhere() },
     orderBy: { createdAt: "desc" },
     take: 60,
     include: {
@@ -674,7 +692,9 @@ marketRouter.post("/market/orders", requireAuth, orderLimiter, asyncHandler(asyn
     where: { id: productId },
     include: { seller: true, user: { select: { id: true, displayName: true, username: true, email: true } }, _count: { select: { assets: true } } },
   });
-  if (!product || !product.isActive || product.isHidden) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
+  if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
+  const productAssets = await prisma.marketProductAsset.findMany({ where: { productId: product.id }, select: { type: true } });
+  if (!isSellable(product, productAssets)) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
   if (product.seller.isBanned || !product.seller.isActive) return res.status(404).json({ error: "SELLER_UNAVAILABLE" });
   if (product.userId === buyerId) return res.status(400).json({ error: "OWN_PRODUCT", message: "No puedes comprar tu propio artículo." });
   if (!product.deliveryMethods.includes(deliveryMethod)) {
@@ -710,7 +730,11 @@ marketRouter.post("/market/orders", requireAuth, orderLimiter, asyncHandler(asyn
   }
 
   const itemTotalClp = product.priceClp * quantity;
-  const { commissionClp, sellerNetClp, totalClp } = splitAmounts(itemTotalClp, shippingClp, settings.commissionPercent);
+  /* Primeras ventas de cada vendedora: sin comisión, sólo se descuenta el
+     IVA incluido en el precio. */
+  const isFreeSale = (await freeSalesLeft(product.userId, settings.freeSalesCount)) > 0;
+  const appliedPercent = isFreeSale ? ivaShareOfPrice(settings.ivaPercent) : settings.commissionPercent;
+  const { commissionClp, sellerNetClp, totalClp } = splitAmounts(itemTotalClp, shippingClp, appliedPercent);
 
   const buyer = await prisma.user.findUnique({ where: { id: buyerId }, select: { email: true, displayName: true, username: true } });
   if (!buyer) return res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -729,7 +753,7 @@ marketRouter.post("/market/orders", requireAuth, orderLimiter, asyncHandler(asyn
       totalClp,
       commissionClp,
       sellerNetClp,
-      commissionPercent: settings.commissionPercent,
+      commissionPercent: appliedPercent,
       deliveryMethod,
       shippingRateId,
       shippingRegion,
@@ -1078,6 +1102,12 @@ marketRouter.get("/market/seller/me", requireAuth, asyncHandler(async (req, res)
     holdDays: settings.holdDays,
     minPriceClp: settings.minPriceClp,
     maxPriceClp: settings.maxPriceClp,
+    /* Promoción de arranque: primeras ventas sin comisión, sólo IVA. */
+    freeSalesCount: settings.freeSalesCount,
+    freeSalesLeft: await freeSalesLeft(id, settings.freeSalesCount),
+    ivaPercent: settings.ivaPercent,
+    ivaShareOfPrice: ivaShareOfPrice(settings.ivaPercent),
+    bankComplete: seller ? sellerBankComplete(seller) : false,
   });
 }));
 
@@ -1140,6 +1170,7 @@ marketRouter.get("/market/seller/products", requireAuth, asyncHandler(async (req
     where: { sellerId: seller.id },
     orderBy: { createdAt: "desc" },
     include: {
+      assets: { select: { type: true } },
       media: { orderBy: { pos: "asc" } },
       user: { select: publicProfile },
       seller: { select: { storeName: true, tagline: true } },
@@ -1151,6 +1182,7 @@ marketRouter.get("/market/seller/products", requireAuth, asyncHandler(async (req
     products: products.map((p) => ({
       ...productCard(p),
       isHidden: p.isHidden,
+      publishStatus: sellerPublishStatus(p, p.assets),
       orderCount: p._count.orders,
       assetCount: p._count.assets,
     })),
@@ -1190,6 +1222,14 @@ marketRouter.post("/market/seller/products", requireAuth, contentLimiter, asyncH
   if (!seller) return;
   const settings = await getMarketSettings();
 
+  /* Sin cuenta bancaria no hay dónde transferirle lo que venda. */
+  if (!sellerBankComplete(seller)) {
+    return res.status(400).json({
+      error: "BANK_REQUIRED",
+      message: "Agrega tu cuenta bancaria para recibir tus ventas antes de publicar.",
+    });
+  }
+
   const title = str(req.body?.title, 120);
   if (!title) return res.status(400).json({ error: "TITLE_REQUIRED" });
 
@@ -1219,6 +1259,7 @@ marketRouter.post("/market/seller/products", requireAuth, contentLimiter, asyncH
       stock: DIGITAL_TYPES.has(type) ? null : stock,
       tags: parseTags(req.body?.tags),
       isActive: req.body?.isActive !== false,
+      reviewStatus: REVIEW_PENDING,
     },
     include: { media: true, user: { select: publicProfile }, seller: { select: { storeName: true, tagline: true } } },
   });
@@ -1344,6 +1385,8 @@ marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimit
     const cover = coverFor({ coverUrl: null, media: created });
     if (cover) await prisma.marketProduct.update({ where: { id: product.id }, data: { coverUrl: cover } });
   }
+  /* Vitrina nueva: se revisa de nuevo antes de mostrarla. */
+  await prisma.marketProduct.update({ where: { id: product.id }, data: { reviewStatus: REVIEW_PENDING } });
 
   return res.json({ media: created });
 }));
@@ -1430,6 +1473,8 @@ marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimi
       if (coverUrl) await prisma.marketProduct.update({ where: { id: product.id }, data: { coverUrl } });
     }
   }
+  /* Contenido nuevo: se revisa de nuevo antes de venderlo. */
+  await prisma.marketProduct.update({ where: { id: product.id }, data: { reviewStatus: REVIEW_PENDING } });
 
   return res.json({ assets: created });
 }));

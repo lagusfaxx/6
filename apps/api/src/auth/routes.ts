@@ -32,6 +32,8 @@ import {
   geocodeAddress,
 } from "./registerHelpers";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import { parseServiceCategories, primaryFromServiceCategories } from "../lib/serviceCategories";
+import { findUserWithPhone } from "../profile/phoneChange";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -189,6 +191,15 @@ authRouter.post(
       autoReplyMessage,
       quickReplies,
     } = parsed.data;
+    // Tipos de servicio: el registro deja marcar varios (escort, masajes,
+    // contenido…). Llegan aparte del esquema; si no viene la lista se usa
+    // la categoría de siempre, así un formulario viejo sigue funcionando.
+    const serviceCategories =
+      profileType === "PROFESSIONAL"
+        ? parseServiceCategories(payload.serviceCategories, primaryCategory)
+        : [];
+    const resolvedPrimaryCategory =
+      primaryFromServiceCategories(serviceCategories) || primaryCategory || null;
     const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing)
@@ -364,7 +375,8 @@ authRouter.post(
           profileType,
           address: address || null,
           city: city || geocoded?.city || null,
-          primaryCategory: primaryCategory || null,
+          primaryCategory: resolvedPrimaryCategory,
+          ...(serviceCategories.length ? { serviceCategories } : {}),
           serviceCategory: resolvedCategoryName || null,
           categoryId: resolvedCategoryId || null,
           latitude: isBusinessProfile
@@ -472,7 +484,7 @@ authRouter.post(
         userId: user.id,
         username: user.username,
         displayName: user.displayName || null,
-        primaryCategory: primaryCategory || null,
+        primaryCategory: resolvedPrimaryCategory,
       }).catch((error) => {
         console.error("[auth/register] failed to create forum thread", {
           userId: user.id,
@@ -590,7 +602,7 @@ authRouter.post(
       return res.status(409).json({ error: "EMAIL_IN_USE", message: "Este correo ya está registrado." });
     }
 
-    const existingPhone = await prisma.user.findFirst({ where: { phone } });
+    const existingPhone = await findUserWithPhone(phone);
     if (existingPhone) {
       return res.status(409).json({ error: "PHONE_IN_USE", message: "Este teléfono ya está registrado." });
     }
@@ -923,6 +935,7 @@ authRouter.get(
     const extendedSelect = {
       ...baseSelect,
       primaryCategory: true,
+      serviceCategories: true,
       profileTags: true,
       serviceTags: true,
       profileCompletedAt: true,
@@ -948,6 +961,7 @@ authRouter.get(
         });
         if (user) {
           user.primaryCategory = null;
+          user.serviceCategories = [];
           user.profileTags = [];
           user.serviceTags = [];
           user.profileCompletedAt = null;

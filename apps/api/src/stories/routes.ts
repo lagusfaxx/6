@@ -73,6 +73,15 @@ storiesRouter.get(
     const radiusKm = Math.max(1, Math.min(200, Number(req.query.radiusKm) || 100));
     const viewerUserId = (req as any).user?.id as string | undefined;
     const anonId = req.cookies?.[ANON_COOKIE] as string | undefined;
+    /* Género de la sección que pide las historias (/hombres → MALE). Igual
+       que el directorio: FEMALE incluye a los perfiles sin género cargado. */
+    const genderParam = typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+    const genderWhere: Prisma.StoryWhereInput =
+      genderParam === "MALE" || genderParam === "OTHER"
+        ? { user: { gender: genderParam } }
+        : genderParam === "FEMALE"
+          ? { user: { OR: [{ gender: "FEMALE" }, { gender: null }] } }
+          : {};
 
     function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       const R = 6371;
@@ -90,7 +99,7 @@ storiesRouter.get(
     try {
     stories = await prisma.story.findMany({
       // Las historias ocultadas por el admin salen del feed sin borrarse.
-      where: { expiresAt: { gt: now }, isHidden: false },
+      where: { expiresAt: { gt: now }, isHidden: false, ...genderWhere },
       // Se ordena por la fecha de publicación original: renovar desde el
       // admin solo alarga la vigencia, no adelanta la historia.
       orderBy: { createdAt: "desc" },

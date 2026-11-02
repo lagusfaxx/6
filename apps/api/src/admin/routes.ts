@@ -27,7 +27,7 @@ import { isUUID } from "../lib/validators";
 import { getS3MirrorStatus } from "../storage/s3Mirror";
 import {
   PROFESSIONAL_PHONE_REGEX,
-  samePhone,
+  findUserWithPhone,
 } from "../profile/phoneChange";
 import {
   displayNameError,
@@ -35,6 +35,12 @@ import {
 } from "../profile/nameChange";
 import { safeUploadFilename } from "../lib/uploadFilename";
 import { EXAMS_ENABLED } from "../profile/professionalDocuments";
+import {
+  CONTENT_CATEGORY,
+  isContentOnly,
+  parseServiceCategories,
+  primaryFromServiceCategories,
+} from "../lib/serviceCategories";
 
 export const adminRouter = Router();
 
@@ -112,6 +118,8 @@ adminRouter.get(
         where: {
           isVerified: false,
           verificationRejectedAt: null,
+          // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+          deletedAt: null,
           profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
         },
       }),
@@ -432,6 +440,8 @@ adminRouter.get(
           serviceTags: true,
           quickReplies: true,
           birthdate: true,
+          primaryCategory: true,
+          serviceCategories: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -553,9 +563,30 @@ adminRouter.put(
       serviceTags,
       profileTags,
       quickReplies,
+      serviceCategories,
     } = req.body ?? {};
 
     const data: any = {};
+
+    /* Tipos de servicio (escort, masajes, contenido…). El equipo marca a
+       mano a las que venden contenido. La categoría principal sigue a la
+       lista: sólo contenido → "contenido" (sale de escorts); si tiene un
+       servicio presencial y la principal no está en la lista, toma ese. */
+    if (Array.isArray(serviceCategories)) {
+      const cats = parseServiceCategories(serviceCategories);
+      data.serviceCategories = cats;
+      const current = await prisma.user.findUnique({
+        where: { id },
+        select: { primaryCategory: true },
+      });
+      const currentPrimary = (current?.primaryCategory ?? "").toLowerCase();
+      if (isContentOnly(cats)) data.primaryCategory = CONTENT_CATEGORY;
+      else if (
+        cats.length &&
+        (!currentPrimary || currentPrimary === CONTENT_CATEGORY || (!cats.includes(currentPrimary) && currentPrimary !== "trans"))
+      )
+        data.primaryCategory = primaryFromServiceCategories(cats);
+    }
 
     /** Texto opcional: "" borra el dato, undefined lo deja como está. */
     const setText = (field: string, value: unknown, maxLength = 300) => {
@@ -695,14 +726,10 @@ adminRouter.put(
               "Número inválido. Usa formato internacional, por ejemplo +56 9 1234 5678.",
           });
         }
-        // El mismo número puede estar guardado con o sin espacios, así que se
-        // comparan ambas escrituras antes de dar el número por libre.
-        const compact = trimmed.replace(/[\s-]/g, "");
-        const taken = await prisma.user.findFirst({
-          where: { phone: { in: [trimmed, compact] }, NOT: { id } },
-          select: { id: true, username: true, phone: true },
-        });
-        if (taken && samePhone(taken.phone, trimmed)) {
+        // El mismo número puede estar guardado con o sin espacios: se
+        // comparan sólo los dígitos antes de dar el número por libre.
+        const taken = await findUserWithPhone(trimmed, id);
+        if (taken) {
           return res.status(409).json({
             error: "PHONE_TAKEN",
             message: `Ese número ya está en la cuenta @${taken.username}.`,
@@ -825,6 +852,20 @@ adminRouter.delete(
   }),
 );
 
+/* Cuentas que la propia profesional eliminó desde /cuenta, con su motivo. */
+adminRouter.get(
+  "/account-deletions",
+  asyncHandler(async (req, res) => {
+    const take = Math.min(Number(req.query.limit) || 50, 200);
+    const skip = Math.max(0, Number(req.query.offset) || 0);
+    const [deletions, total] = await Promise.all([
+      prisma.accountDeletion.findMany({ orderBy: { createdAt: "desc" }, take, skip }),
+      prisma.accountDeletion.count(),
+    ]);
+    return res.json({ deletions, total, hasMore: skip + deletions.length < total });
+  }),
+);
+
 /* ══════════════════════════════════════════════════════════════
    VERIFICATION (Pending Profiles)
    ══════════════════════════════════════════════════════════════ */
@@ -845,6 +886,8 @@ adminRouter.get(
     const where: any = {
       isVerified: false,
       verificationRejectedAt: rejected ? { not: null } : null,
+      // Las cuentas que se eliminaron solas quedan sin verificar: no son pendientes.
+      deletedAt: null,
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
     };
     if (q) {
@@ -895,6 +938,7 @@ adminRouter.put(
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
+        deletedAt: true,
         isVerified: true,
         profileType: true,
         isActive: true,
@@ -913,6 +957,8 @@ adminRouter.put(
       },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    /* Aprobarla la volvería a publicar: una cuenta eliminada no vuelve. */
+    if (user.deletedAt) return res.status(409).json({ error: "ACCOUNT_DELETED", message: "La cuenta fue eliminada por su dueña." });
 
     /* Aprobar la verificación publica el perfil, tenga la ficha completa o
        no: retenerlo dejaba a la profesional verificada pero invisible por

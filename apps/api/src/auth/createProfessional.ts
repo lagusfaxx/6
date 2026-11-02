@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
 import { sendSetPasswordEmail } from "./verification";
+import { parseServiceCategories } from "../lib/serviceCategories";
 
 /**
  * Thrown by createProfessionalUser when the target email is already in use.
@@ -54,6 +55,8 @@ function slugify(text: string): string {
 export type CreateProfessionalInput = {
   displayName: string;
   primaryCategory: string;
+  /** Tipos de servicio; sin lista se toma `primaryCategory`. */
+  serviceCategories?: string[];
   address: string;
   latitude: number;
   longitude: number;
@@ -164,6 +167,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
         latitude: input.latitude,
         longitude: input.longitude,
         primaryCategory: input.primaryCategory,
+        serviceCategories: parseServiceCategories(input.serviceCategories, input.primaryCategory),
         serviceCategory: resolvedCategoryName,
         categoryId: resolvedCategoryId,
         serviceDescription: input.serviceDescription,

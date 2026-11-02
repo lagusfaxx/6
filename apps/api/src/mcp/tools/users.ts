@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "../../config";
 import {
   actorKeySql,
+  profilePageSql,
   realActionSql,
   realPageViewSql,
   realUserSql,
@@ -95,12 +96,12 @@ type RankingArgs = PeriodInput & {
 };
 
 /**
- * Condición SQL "esta página vista es la ficha de ese perfil". La ficha vive
- * en /profesional/<id>; se acepta también el username por enlaces antiguos.
+ * Condición SQL "esta página vista es la ficha de ese perfil": /profesional/<id
+ * o usuario>, /escort/<usuario> o /masajista/<usuario>.
  */
 function profilePathSql(alias: string, idCol: Prisma.Sql, usernameCol: Prisma.Sql): Prisma.Sql {
   const seg = Prisma.sql`split_part(${Prisma.raw(`"${alias}"`)}."path", '/', 3)`;
-  return Prisma.sql`(${Prisma.raw(`"${alias}"`)}."path" LIKE '/profesional/%' AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
+  return Prisma.sql`(${profilePageSql(alias)} AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
 }
 
 /** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono, reportes y notas internas. */
@@ -110,7 +111,7 @@ async function profile360(id: string) {
     prisma.$queryRaw<{ dia: string; vistas: number; contactos: number }[]>`
       WITH days AS (SELECT generate_series(date_trunc('day', (now() AT TIME ZONE ${TZ}) - interval '29 days'), date_trunc('day', now() AT TIME ZONE ${TZ}), '1 day'::interval) AS d),
       v AS (SELECT date_trunc('day', ${localTs('pv."createdAt"')}) AS d, COUNT(*)::int AS n FROM "PageView" pv
-            WHERE pv."path" LIKE '/profesional/%' AND split_part(pv."path", '/', 3) = ${id} AND pv."createdAt" >= ${since30} AND ${realPageViewSql("pv")} GROUP BY 1),
+            WHERE ${profilePageSql("pv")} AND split_part(pv."path", '/', 3) IN (${id}, (SELECT "username" FROM "User" WHERE "id" = ${id}::uuid)) AND pv."createdAt" >= ${since30} AND ${realPageViewSql("pv")} GROUP BY 1),
       c AS (SELECT date_trunc('day', ${localTs('ua."createdAt"')}) AS d, COUNT(DISTINCT ${actorKeySql("ua")})::int AS n FROM "UserAction" ua
             WHERE ua."targetId" = ${id}::uuid AND ua."action" IN ('whatsapp_click','phone_click') AND ua."createdAt" >= ${since30} AND ${realActionSql("ua")} GROUP BY 1)
       SELECT to_char(days.d, 'YYYY-MM-DD') AS dia, COALESCE(v.n, 0)::int AS vistas, COALESCE(c.n, 0)::int AS contactos
@@ -413,7 +414,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
       const from = period.from;
       const to = period.to;
       const pvJoin = Prisma.sql`"PageView" pv JOIN "User" u
-        ON pv."path" LIKE '/profesional/%'
+        ON ${profilePageSql("pv")}
        AND (split_part(pv."path", '/', 3) = u."id"::text OR split_part(pv."path", '/', 3) = u."username")`;
       const pvWhere = Prisma.sql`pv."createdAt" >= ${from} AND pv."createdAt" < ${to} AND ${realPageViewSql("pv")} AND ${userFilter}`;
       const waUnique = Prisma.sql`COUNT(DISTINCT (${actorKeySql("ua")} || ':' || to_char(${localTs('ua."createdAt"')}, 'YYYY-MM-DD')))`;

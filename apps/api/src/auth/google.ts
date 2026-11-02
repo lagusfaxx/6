@@ -12,6 +12,7 @@ import { emitAdminEvent } from "../lib/adminEvents";
 import {
   Genders,
   PreferenceGenders,
+  normalizePhone,
   normalizeQuickReplies,
 } from "@uzeed/shared";
 import { createProfessionalForumThread } from "./registerHelpers";
@@ -23,6 +24,7 @@ import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
 import { autoReplyFields } from "../messages/autoReply";
 import { isPanelStaff } from "./twoFactor";
 import { safeUploadFilename } from "../lib/uploadFilename";
+import { parseServiceCategories, primaryFromServiceCategories } from "../lib/serviceCategories";
 
 export const googleAuthRouter = Router();
 
@@ -277,9 +279,10 @@ const phoneRegex =
 const professionalCompleteSchema = z.object({
   profileType: z.literal("PROFESSIONAL"),
   displayName: z.string().min(2).max(50),
-  phone: z
-    .string()
-    .regex(phoneRegex, "Ingresa un número válido con código de país (+56, +57, +58 o +51)."),
+  phone: z.preprocess(
+    (v) => (typeof v === "string" ? normalizePhone(v) : v),
+    z.string().regex(phoneRegex, "Ingresa un número válido con código de país (+56, +57, +58 o +51)."),
+  ),
   gender: Genders,
   preferenceGender: PreferenceGenders.optional(),
   birthdate: z.string().min(1, "required"),
@@ -489,6 +492,9 @@ googleAuthRouter.post(
         .json({ error: "VALIDATION", details: parsed.error.flatten() });
     }
     const data = parsed.data;
+    // Tipos de servicio (puede marcar varios); sin lista, su categoría única.
+    const serviceCategories = parseServiceCategories(b.serviceCategories, data.primaryCategory);
+    const primaryCategory = primaryFromServiceCategories(serviceCategories) || data.primaryCategory;
 
     // Respuestas rápidas: opcionales (el cliente sólo ve las que respondió).
     const quickReplies = normalizeQuickReplies(data.quickReplies);
@@ -600,7 +606,8 @@ googleAuthRouter.post(
           profileType: "PROFESSIONAL",
           address: data.address,
           city: data.city || null,
-          primaryCategory: data.primaryCategory,
+          primaryCategory,
+          ...(serviceCategories.length ? { serviceCategories } : {}),
           serviceCategory: resolvedCategoryName,
           categoryId: resolvedCategoryId,
           latitude: data.latitude,
@@ -683,7 +690,7 @@ googleAuthRouter.post(
       userId: user.id,
       username: user.username,
       displayName: user.displayName || null,
-      primaryCategory: data.primaryCategory,
+      primaryCategory,
     }).catch((error) => {
       console.error("[auth/google] failed to create forum thread", {
         userId: user.id,

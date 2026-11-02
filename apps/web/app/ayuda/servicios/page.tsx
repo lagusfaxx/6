@@ -71,7 +71,6 @@ export default function AyudaServiciosPage() {
         <BulletList
           items={[
             "Abre el perfil y usa el botón de chat para conversar dentro de UZEED.",
-            "Si el profesional tiene videollamadas habilitadas, puedes agendar desde su perfil.",
             "Evita contactar por canales externos antes de conocer bien a la persona.",
           ]}
         />

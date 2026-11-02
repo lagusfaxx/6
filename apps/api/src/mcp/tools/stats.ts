@@ -6,6 +6,7 @@ import { buildAdminOverview } from "../../admin/overview";
 import {
   actorKeySql,
   organicSignupWhere,
+  profilePageSql,
   realActionSql,
   realPageViewSql,
   realUserSql,
@@ -252,7 +253,7 @@ const SERIES: Record<string, SeriesDef> = {
   },
   visitas_fichas: {
     table: "PageView", profileJoin: "pv_profile", dateCol: "createdAt", agg: raw("COUNT(*)"),
-    where: () => Prisma.sql`t."path" LIKE '/profesional/%' AND ${realPageViewSql("t")}`,
+    where: () => Prisma.sql`${profilePageSql("t")} AND ${realPageViewSql("t")}`,
     description: "Visitas reales a fichas de profesionales",
   },
   contactos_whatsapp: {

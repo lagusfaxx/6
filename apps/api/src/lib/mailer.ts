@@ -27,6 +27,21 @@ export type MailResult =
 
 const FROM = "UZEED <no-reply@uzeed.cl>";
 
+/* Ni el SDK de Resend ni nodemailer cortan solos una conexión que se queda
+   colgada: un envío así nunca terminaba y dejaba trabado al worker de avisos
+   (cada pasada siguiente se omitía por "pasada anterior en curso"). */
+const SEND_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timeout tras ${ms} ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 const QUOTA_BLOCK_MS: Record<string, number> = {
   daily_quota_exceeded: 60 * 60 * 1000, // se vuelve a probar cada hora
   monthly_quota_exceeded: 6 * 60 * 60 * 1000,
@@ -59,6 +74,9 @@ function smtp(): nodemailer.Transporter | null {
       port: config.smtp.port!,
       secure: config.smtp.port === 465,
       auth: { user: config.smtp.user!, pass: config.smtp.pass! },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: SEND_TIMEOUT_MS,
     });
   }
   return smtpTransport;
@@ -104,7 +122,7 @@ async function sendViaResend(
   for (let attempt = 0; attempt < 2; attempt++) {
     let error: { name?: string; message?: string; statusCode?: number | null } | null;
     try {
-      ({ error } = await client.emails.send({ from: FROM, to, subject, html }));
+      ({ error } = await withTimeout(client.emails.send({ from: FROM, to, subject, html }), SEND_TIMEOUT_MS, "Resend"));
     } catch (err: any) {
       error = { name: "exception", message: err?.message ?? String(err) };
     }
@@ -138,7 +156,7 @@ async function sendViaSmtp(
   const transport = smtp();
   if (!transport) return { ok: false, reason: "SMTP_NOT_CONFIGURED" };
   try {
-    await transport.sendMail({ from: config.smtp.from!, to, subject, html, text });
+    await withTimeout(transport.sendMail({ from: config.smtp.from!, to, subject, html, text }), SEND_TIMEOUT_MS, "SMTP");
     return { ok: true, provider: "smtp" };
   } catch (err: any) {
     console.error("[mailer] SMTP error", { to, subject, err: err?.message ?? err });

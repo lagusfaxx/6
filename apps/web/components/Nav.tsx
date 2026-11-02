@@ -37,7 +37,7 @@ const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/south-american-cams/female/";
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: "/cerca", label: "Cerca tuyo", icon: MapPin, protected: false },
-  { href: "/marketplace", label: "Marketplace", icon: ShoppingBag, protected: false },
+  { href: "/contenido", label: "Contenido", icon: Camera, protected: false },
   { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
@@ -110,6 +110,9 @@ export default function Nav() {
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
         ...(isProfessional ? [
           { href: "/dashboard/stories?nueva=1", label: "Subir historia", icon: Camera, protected: true },
+          /* Packs de fotos y videos: salen en /contenido. Antes se llegaba
+             por el Marketplace del menú, que ya no está. */
+          { href: "/marketplace/vender", label: "Mis packs", icon: ShoppingBag, protected: true },
         ] : []),
         { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]
