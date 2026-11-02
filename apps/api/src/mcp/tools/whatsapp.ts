@@ -4,9 +4,10 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { config } from "../../config";
+import { POSTER_PHOTO, renderPoster } from "../../lib/statsPoster";
 import { listDesigns, listFixedImages, loadDesign, loadFixedImage, renderDesign, unknownPlaceholders } from "../../lib/customDesign";
 import { AVATAR_PX, FLYER_PHOTO_H, W, loadProfilePhoto, renderFlyer, renderMetricsCard, type MetricsCardData, type SeriePoint } from "../../lib/metricsCard";
-import { actorKeySql, realActionSql, realPageViewSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
+import { actorKeySql, realActionSql, realPageViewSql, realUserSql, staffIdsSql, visitorKeySql } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
 import {
   getWhatsAppProvider,
@@ -86,7 +87,7 @@ type Recipient = { id: string; username: string; nombre: string; phone: string; 
 
 /** Qué imagen va con el mensaje. */
 type Imagen = {
-  tipo: "ninguna" | "metricas" | "flyer" | "diseno" | "fija";
+  tipo: "ninguna" | "metricas" | "afiche" | "flyer" | "diseno" | "fija";
   foto: boolean;
   titulo?: string;
   texto?: string;
@@ -125,7 +126,17 @@ const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).form
 const lastMs = (d: Date) => new Date(d.getTime() - 1);
 
 type Pair = { cur: number; prev: number };
-type Metrics = { visitantes: Pair; contactos: Pair; impresiones: Pair; favoritos: Pair; mensajes: Pair; serie: SeriePoint[] };
+type Metrics = {
+  visitantes: Pair;
+  contactos: Pair;
+  impresiones: Pair;
+  favoritos: Pair;
+  mensajes: Pair;
+  serie: SeriePoint[];
+  /** Pocas barras (≤ 8) para el afiche, y su unidad (día, semana o mes). */
+  serieCorta: SeriePoint[];
+  serieUnidad: string;
+};
 
 const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
@@ -144,6 +155,26 @@ function periodDays(period: Period): string[] {
 }
 
 const dayLabel = (s: string) => `${Number(s.slice(8, 10))} ${MES_CORTO[Number(s.slice(5, 7)) - 1]}`;
+
+/** Hasta 8 barras: por día (≤ 8 días), por semana (≤ 62 días) o por mes. */
+function buildShortSerie(days: string[], byDay: Map<string, number>): { serie: SeriePoint[]; unidad: string } {
+  const sum = (chunk: string[]) => chunk.reduce((a, d) => a + (byDay.get(d) ?? 0), 0);
+  if (days.length <= 8) return { serie: days.map((d) => ({ etiqueta: dayLabel(d), valor: byDay.get(d) ?? 0 })), unidad: "día" };
+  if (days.length <= 62) {
+    // Semanas completas contadas hacia atrás desde el último día: una semana
+    // a medias al final parecería una caída. El resto del inicio se descarta.
+    const out: SeriePoint[] = [];
+    for (let end = days.length; end - 7 >= 0; end -= 7) {
+      const chunk = days.slice(end - 7, end);
+      out.unshift({ etiqueta: dayLabel(chunk[0]), valor: sum(chunk) });
+    }
+    return { serie: out.slice(-8), unidad: "semana" };
+  }
+  const months = new Map<string, string[]>();
+  for (const d of days) months.set(d.slice(0, 7), [...(months.get(d.slice(0, 7)) ?? []), d]);
+  const serie = [...months].map(([ym, ds]) => ({ etiqueta: MES_CORTO[Number(ym.slice(5, 7)) - 1], valor: sum(ds) }));
+  return { serie: serie.slice(-8), unidad: "mes" };
+}
 
 /** Hasta 31 barras: por día, o sumando de a 7 días en periodos largos. */
 function buildSerie(days: string[], byDay: Map<string, number>): SeriePoint[] {
@@ -215,10 +246,9 @@ async function profileMetrics(ids: string[], period: Period): Promise<Map<string
       GROUP BY 1, 2`,
   ]);
 
-  const zero = (): Pair => ({ cur: 0, prev: 0 });
   const out = new Map<string, Metrics>();
-  for (const id of ids) out.set(id, { visitantes: zero(), contactos: zero(), impresiones: zero(), favoritos: zero(), mensajes: zero(), serie: [] });
-  const put = (rows: { id: string; cur: number; prev: number }[], key: Exclude<keyof Metrics, "serie">) => {
+  for (const id of ids) out.set(id, zeroMetrics());
+  const put = (rows: { id: string; cur: number; prev: number }[], key: "visitantes" | "contactos" | "impresiones" | "favoritos" | "mensajes") => {
     for (const r of rows) {
       const m = out.get(r.id);
       if (m) m[key] = { cur: r.cur, prev: r.prev };
@@ -235,7 +265,13 @@ async function profileMetrics(ids: string[], period: Period): Promise<Map<string
     if (!byUser.has(r.id)) byUser.set(r.id, new Map());
     byUser.get(r.id)!.set(r.dia, r.n);
   }
-  for (const [id, m] of out) m.serie = buildSerie(days, byUser.get(id) ?? new Map());
+  for (const [id, m] of out) {
+    const byDay = byUser.get(id) ?? new Map<string, number>();
+    m.serie = buildSerie(days, byDay);
+    const short = buildShortSerie(days, byDay);
+    m.serieCorta = short.serie;
+    m.serieUnidad = short.unidad;
+  }
   return out;
 }
 
@@ -281,16 +317,39 @@ function personalize(text: string, r: Recipient, m: Metrics | null): string {
 const METRIC_TAGS = /\{(visitas|contactos|favoritos|mensajes|impresiones)\}/;
 
 function needsMetrics(texts: string[], img: Imagen): boolean {
-  return img.tipo === "metricas" || img.tipo === "diseno" || [...texts, img.titulo ?? "", img.texto ?? ""].some((t) => METRIC_TAGS.test(t));
+  return img.tipo === "metricas" || img.tipo === "afiche" || img.tipo === "diseno" || [...texts, img.titulo ?? "", img.texto ?? ""].some((t) => METRIC_TAGS.test(t));
 }
 
 /** Arma la imagen de un destinatario; null si el envío es sólo texto. */
 async function buildImage(img: Imagen, r: Recipient, m: Metrics | null, period: Period): Promise<Buffer | null> {
   if (img.tipo === "ninguna") return null;
   if (img.tipo === "fija") return img.fija ? fixedCache.get(img.fija.sha) ?? null : null;
-  const [w, h] = img.tipo === "flyer" ? [W, FLYER_PHOTO_H] : img.tipo === "diseno" ? [W, W] : [AVATAR_PX, AVATAR_PX];
+  const [w, h] = img.tipo === "flyer"
+    ? [W, FLYER_PHOTO_H]
+    : img.tipo === "afiche"
+      ? [POSTER_PHOTO.w, POSTER_PHOTO.h]
+      : img.tipo === "diseno"
+        ? [W, W]
+        : [AVATAR_PX, AVATAR_PX];
   const foto = img.foto ? await loadProfilePhoto(r.avatarUrl, w, h) : null;
   if (img.tipo === "metricas") return m ? renderMetricsCard(cardData(r, m, period, foto)) : null;
+  if (img.tipo === "afiche") {
+    if (!m) return null;
+    const v = (p: Pair) => ({ actual: p.cur, anterior: p.prev });
+    return renderPoster({
+      nombre: r.nombre,
+      periodo: friendlyRange(period),
+      foto,
+      visitantes: v(m.visitantes),
+      contactos: v(m.contactos),
+      impresiones: v(m.impresiones),
+      favoritos: v(m.favoritos),
+      serie: m.serieCorta,
+      serieUnidad: m.serieUnidad,
+      promedio: await platformBenchmarks(period),
+      enlace: `${new URL(config.appUrl).host}/profesional/${r.username}`,
+    });
+  }
   if (img.tipo === "diseno") return m && img.diseno ? renderDesign(img.diseno.svg, { ...cardData(r, m, period, foto), usuario: r.username }) : null;
   const host = new URL(config.appUrl).host;
   return renderFlyer({
@@ -300,6 +359,47 @@ async function buildImage(img: Imagen, r: Recipient, m: Metrics | null, period: 
     foto,
     pie: r.username ? `${host}/profesional/${r.username}` : host,
   });
+}
+
+/**
+ * Referencias de UZEED para el afiche: % de visitantes que escribe por
+ * WhatsApp (todas las profesionales) y contactos promedio de las 10 más
+ * contactadas. Se calcula una vez por periodo y se guarda 10 minutos.
+ */
+const benchCache = new Map<string, { at: number; value: { tasaContacto: number; top10Contactos: number } }>();
+
+async function platformBenchmarks(period: Period): Promise<{ tasaContacto: number; top10Contactos: number }> {
+  const key = `${period.from.toISOString()}|${period.to.toISOString()}`;
+  const hit = benchCache.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.value;
+  const { from, to } = period;
+  const pros = Prisma.sql`SELECT u."id", u."username" FROM "User" u WHERE u."profileType" = 'PROFESSIONAL' AND ${realUserSql("u")}`;
+  const [vis, con] = await Promise.all([
+    prisma.$queryRaw<{ n: number }[]>`
+      WITH u AS (${pros})
+      SELECT COALESCE(SUM(n), 0)::int AS n FROM (
+        SELECT u."id", COUNT(DISTINCT ${visitorKeySql("pv")}) AS n
+        FROM "PageView" pv JOIN u ON pv."path" LIKE '/profesional/%'
+          AND (split_part(pv."path", '/', 3) = u."id"::text OR split_part(pv."path", '/', 3) = u."username")
+        WHERE pv."createdAt" >= ${from} AND pv."createdAt" < ${to} AND ${realPageViewSql("pv")}
+        GROUP BY u."id") t`,
+    prisma.$queryRaw<{ id: string; n: number }[]>`
+      WITH u AS (${pros})
+      SELECT ua."targetId"::text AS id,
+        COUNT(DISTINCT (${actorKeySql("ua")} || ':' || to_char(${localTs('ua."createdAt"')}, 'YYYY-MM-DD')))::int AS n
+      FROM "UserAction" ua JOIN u ON u."id" = ua."targetId"
+      WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${from} AND ua."createdAt" < ${to} AND ${realActionSql("ua")}
+      GROUP BY 1 ORDER BY 2 DESC`,
+  ]);
+  const totalVis = vis[0]?.n ?? 0;
+  const totalCon = con.reduce((a, r) => a + r.n, 0);
+  const top = con.slice(0, 10);
+  const value = {
+    tasaContacto: totalVis > 0 ? (totalCon / totalVis) * 100 : 0,
+    top10Contactos: top.length ? Math.round(top.reduce((a, r) => a + r.n, 0) / top.length) : 0,
+  };
+  benchCache.set(key, { at: Date.now(), value });
+  return value;
 }
 
 // ── Destinatarios ─────────────────────────────────────────────────────────
@@ -391,7 +491,7 @@ const isProspect = (r: Recipient) => r.id.startsWith("ext:");
 
 const zeroMetrics = (): Metrics => {
   const z = () => ({ cur: 0, prev: 0 });
-  return { visitantes: z(), contactos: z(), impresiones: z(), favoritos: z(), mensajes: z(), serie: [] };
+  return { visitantes: z(), contactos: z(), impresiones: z(), favoritos: z(), mensajes: z(), serie: [], serieCorta: [], serieUnidad: "día" };
 };
 
 /** Plantilla a un contacto sin cuenta: deja registro para no repetirle el envío. */
@@ -531,7 +631,7 @@ async function resolveImage(args: ImageArgs, template: CloudTemplateInfo | null,
   }
   if (template) {
     const conImagen = template.encabezado === "IMAGE";
-    if (conImagen && tipo === "ninguna") return { error: `La plantilla "${template.nombre}" lleva imagen de encabezado: indica la imagen (${(allowed ?? ["metricas", "flyer", "diseno", "fija"]).filter((t) => t !== "ninguna").join(", ")}).` };
+    if (conImagen && tipo === "ninguna") return { error: `La plantilla "${template.nombre}" lleva imagen de encabezado: indica la imagen (${(allowed ?? ["afiche", "metricas", "flyer", "diseno", "fija"]).filter((t) => t !== "ninguna").join(", ")}).` };
     if (!conImagen && tipo !== "ninguna") return { error: `La plantilla "${template.nombre}" no tiene encabezado de imagen (${template.encabezado ?? "sin encabezado"}). Usa una con imagen o envía sin imagen.` };
   }
   return {
@@ -556,7 +656,7 @@ type Args = Filtros &
     idioma?: string;
     variables?: string[];
     botonVariable?: string;
-    imagen?: "ninguna" | "metricas" | "flyer" | "diseno" | "fija";
+    imagen?: "ninguna" | "afiche" | "metricas" | "flyer" | "diseno" | "fija";
     diseno?: string;
     tarjetaMetricas?: boolean;
     incluirFoto?: boolean;
@@ -576,7 +676,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         "Manda un WhatsApp a uno o varios perfiles (usuario, lista de usuarios, o filtros de perfil / segmento), con una imagen opcional por perfil. " +
         "Dos vías: (a) con `plantilla` = nombre de una plantilla aprobada en Meta (vía oficial, Cloud API; normalmente de marketing): la imagen va como encabezado, `variables` llena {{1}}, {{2}}... del cuerpo y `botonVariable` el final de la URL del botón si es dinámica. Revisa antes plantillas_whatsapp para ver cuáles hay, cuántas variables piden y si llevan encabezado de imagen. " +
         "(b) sin plantilla, con `mensaje`: texto libre desde el bot (Baileys, número propio), la imagen con el mensaje de pie de foto. " +
-        "Imagen: imagen=diseno usa un diseño SVG propio del equipo (diseno=<nombre>, los disponibles salen en estado_whatsapp) con sus textos {{nombre}}, {{visitas}}... llenados con los datos de cada perfil; imagen=metricas es una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior); imagen=flyer es un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto. incluirFoto=false quita la foto del perfil. " +
+        "Imagen: imagen=afiche (recomendada) es un afiche con la foto de la profesional, sus visitas, contactos por WhatsApp, apariciones y favoritos con su variación, barras de visitantes, cuántos de cada N le escribieron vs el promedio de UZEED, consejos y su link; imagen=diseno usa un diseño SVG propio del equipo (diseno=<nombre>, los disponibles salen en estado_whatsapp) con sus textos {{nombre}}, {{visitas}}... llenados con los datos de cada perfil; imagen=metricas es una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior); imagen=flyer es un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto. incluirFoto=false quita la foto del perfil. " +
         "mensaje, variables, botonVariable, flyerTitulo y flyerTexto aceptan {nombre}, {usuario}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
         "SIEMPRE en dos pasos: 1) sin `confirmacion` devuelve la vista previa (cuántos, a quiénes, el texto y la imagen del primero) y un código: muéstrasela al usuario. " +
         "2) Sólo si la aprueba, repite la llamada igual con confirmacion=<código>. El envío corre en segundo plano; mira el avance con estado_whatsapp. " +
@@ -591,7 +691,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         idioma: z.string().trim().optional().describe("Idioma de la plantilla (ej. es, es_CL). Por defecto el de la plantilla o WHATSAPP_TEMPLATE_LANG."),
         variables: z.array(z.string().max(1000)).max(20).optional().describe("Vía plantilla: valores de {{1}}, {{2}}... del cuerpo, en orden."),
         botonVariable: z.string().max(200).optional().describe("Vía plantilla: sufijo de la URL dinámica del botón, ej. profesional/{usuario}."),
-        imagen: z.enum(["ninguna", "metricas", "flyer", "diseno", "fija"]).optional().describe("Imagen por perfil. Por defecto ninguna."),
+        imagen: z.enum(["ninguna", "afiche", "metricas", "flyer", "diseno", "fija"]).optional().describe("Imagen por perfil. afiche = el afiche de estadísticas de UZEED (recomendado). Por defecto ninguna."),
         imagenFija: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional().describe("Para imagen=fija: nombre de la imagen PNG/JPG del equipo, igual para todos."),
         diseno: z.string().regex(/^[a-z0-9_-]{1,40}$/).optional().describe("Para imagen=diseno: nombre del diseño SVG propio (ver estado_whatsapp → disenos)."),
         tarjetaMetricas: z.boolean().optional().describe("Equivale a imagen=metricas."),
@@ -687,7 +787,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
             tipo,
             fotoDelPerfil: img.foto,
             sinFoto: img.foto ? list.filter((r) => !r.avatarUrl).length : undefined,
-            periodo: tipo === "metricas" || tipo === "diseno" ? period.label : undefined,
+            periodo: tipo === "metricas" || tipo === "afiche" || tipo === "diseno" ? period.label : undefined,
             diseno: diseno ? { nombre: diseno.nombre, marcadoresSinDato: unknownPlaceholders(diseno.svg) } : undefined,
             ejemplo: first.username,
           },

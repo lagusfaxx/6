@@ -171,6 +171,21 @@ entregar marketing a quien ya recibió muchos (error 131049). Topes propios:
 `WHATSAPP_TEMPLATE_BROADCAST_MAX` (1000 por envío) y
 `WHATSAPP_TEMPLATE_BROADCAST_DAILY` (1000 por día).
 
+### Afiche de estadísticas por perfil
+
+`imagen=afiche` arma, para cada profesional, un afiche con su foto, sus
+visitas, contactos por WhatsApp, apariciones y favoritos (con la variación
+contra el periodo anterior), barras de visitantes (por día, semana o mes según
+el periodo), "1 de cada N te escribió" contra el promedio de UZEED y el
+promedio de las 10 más contactadas, consejos y el link a su perfil. Va como
+encabezado de una plantilla con imagen, por ejemplo `uzeed_metricas`:
+
+> Manda la plantilla uzeed_metricas con el afiche de los últimos 7 días a
+> todas las profesionales activas; {{1}} el nombre, {{2}} las visitas, botón
+> profesional/{usuario}
+
+Usa la fuente Inter (`fonts-inter` en el Dockerfile).
+
 ### Diseño propio para la imagen (SVG)
 
 En vez de la tarjeta de UZEED se puede usar un diseño propio hecho en Figma o
