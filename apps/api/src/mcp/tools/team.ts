@@ -33,6 +33,7 @@ const BANDEJA_TIPOS = [
   "face_verification_submitted",
   "stats_alert",
   "mcp_authorized",
+  "whatsapp_prospect_replied",
 ] as const;
 
 /** Los avisos traen correos de quien escribió: salen enmascarados. */
@@ -47,7 +48,7 @@ const MAX_RECIPIENTS = 1000;
 const MAX_EMAILS = 300;
 const DAILY_CAP = 2000;
 
-const avisoFiltros = (({ region, ciudad, comuna, categoria, tipoPerfil, tier, verificado, estadoPerfil, segmento }) => ({
+export const avisoFiltros = (({ region, ciudad, comuna, categoria, tipoPerfil, tier, verificado, estadoPerfil, segmento }) => ({
   region,
   ciudad,
   comuna,

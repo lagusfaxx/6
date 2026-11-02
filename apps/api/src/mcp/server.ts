@@ -18,6 +18,7 @@ import { registerLocationTools } from "./tools/locations";
 import { registerTeamTools } from "./tools/team";
 import { registerSearchConsoleTools } from "./tools/searchConsole";
 import { registerForumTools } from "./tools/forum";
+import { registerWhatsAppTools } from "./tools/whatsapp";
 
 const INSTRUCTIONS = `Herramientas de administración de UZEED (uzeed.cl): directorio de profesionales, establecimientos y tiendas, con mensajería, videollamadas, tokens, U-Mate (suscripciones a creadoras) y marketplace.
 - Para informes, parte por resumen_general o kpis_periodo y profundiza con serie_temporal, informe_ingresos, analitica_trafico, ranking_perfiles, pendientes, resumen_marketplace y resumen_umate.
@@ -26,7 +27,7 @@ const INSTRUCTIONS = `Herramientas de administración de UZEED (uzeed.cl): direc
 - Los números vienen limpios: sin bots, sin el equipo, sin páginas /admin y sin perfiles de prueba; los contactos por WhatsApp se cuentan una vez por persona, perfil y día; los ingresos no duplican los depósitos por Flow. Cada respuesta trae sus "criterios": cítalos cuando expliques una cifra.
 - Al comparar periodos, si "baseChica" es true la variación % no es concluyente: dilo. Si el periodo está "enCurso", la comparación es hasta la misma hora del periodo anterior.
 - El tier (Silver/Gold/Diamond) sale sólo de la tarifa del perfil: Gold de $50.000 a $99.999, Diamond (PREMIUM) desde $100.000. No se asigna a mano.
-- Las herramientas que cambian datos (cambiar_estado_perfil, aprobar_verificacion, rechazar_verificacion, bandeja_admin al marcar atendido, notas_internas al agregar) se aplican al instante y quedan en la bitácora: confirma con el usuario antes de ejecutarlas. enviar_aviso siempre devuelve primero una vista previa con un código; envía sólo si el usuario aprueba esa vista previa. No existen herramientas para mover dinero ni borrar: eso se hace desde el panel.
+- Las herramientas que cambian datos (cambiar_estado_perfil, aprobar_verificacion, rechazar_verificacion, bandeja_admin al marcar atendido, notas_internas al agregar) se aplican al instante y quedan en la bitácora: confirma con el usuario antes de ejecutarlas. enviar_aviso y enviar_whatsapp siempre devuelven primero una vista previa con un código; envía sólo si el usuario aprueba esa vista previa. enviar_whatsapp manda por el WhatsApp del bot texto y, si se pide, una tarjeta (imagen) con las métricas de cada perfil; el avance se ve con estado_whatsapp. No existen herramientas para mover dinero ni borrar: eso se hace desde el panel.
 - Filtros comunes en casi todas las herramientas: región/ciudad/comuna (normalizadas), categoría, tipo de perfil, tier, verificado, estado del perfil, dispositivo, PWA/web, fuente de tráfico, nuevo/recurrente, registrado/anónimo, y "segmento" (filtros guardados con segmentos). Periodos: hoy, ayer, 7d, 30d, mes, mes_anterior o desde/hasta; agrupación hora/día/semana/mes en serie_temporal.
 - Para comparar usa comparar (periodo anterior y año anterior, entidades lado a lado, perfil vs promedio, antes/después de una anotación). Para la vista de tarjetas usa tarjetas_kpi.
 - Anuncios: inventario_anuncios, exposicion_anuncios (impresiones, CTR, contactos, tasa, ranking, embudo, dispersión), calidad_anuncios, alertas_anuncios. Contactos: contactos_detalle. Profesionales: profesionales y ver_usuario (ficha 360). Clientes: clientes (base, comportamiento, favoritos, retención) y ubicacion_clientes (de dónde son, flujo zona del cliente → zona del perfil, búsquedas en otra zona, extranjeros). Mercado: oferta_demanda, monetizacion, verticales.
@@ -66,6 +67,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   registerActionTools(server, ctx);
   registerTeamTools(server, ctx);
   registerForumTools(server, ctx);
+  registerWhatsAppTools(server, ctx);
 
   server.registerPrompt(
     "informe_semanal",

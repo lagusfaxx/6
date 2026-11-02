@@ -112,6 +112,104 @@ async function sendCloudTemplate(to: string, template: string, params: string[])
   });
 }
 
+/* ── Plantillas de marketing (envíos masivos desde el MCP) ── */
+
+/** Sube una imagen a Meta y devuelve su media id para usarla en un envío. */
+export async function uploadCloudMedia(file: Buffer, mimeType: string, filename: string): Promise<SendResult & { mediaId?: string }> {
+  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    return { ok: false, error: "CLOUD_API_NOT_CONFIGURED" };
+  }
+  try {
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", mimeType);
+    form.append("file", new Blob([new Uint8Array(file)], { type: mimeType }), filename);
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+      body: form,
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.id) return { ok: false, status: res.status, error: json?.error?.message || `HTTP_${res.status}` };
+    return { ok: true, status: res.status, mediaId: String(json.id) };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "NETWORK_ERROR" };
+  }
+}
+
+/**
+ * Plantilla aprobada con encabezado de imagen opcional, variables de cuerpo
+ * {{1}}..{{n}} y, si la plantilla tiene un botón con URL dinámica, el sufijo
+ * de esa URL.
+ */
+export async function sendCloudTemplateMessage(
+  to: string,
+  template: { name: string; language: string },
+  opts: { body: string[]; headerImageId?: string; urlButtonSuffix?: string; urlButtonIndex?: number },
+): Promise<SendResult> {
+  const components: Record<string, any>[] = [];
+  if (opts.headerImageId) {
+    components.push({ type: "header", parameters: [{ type: "image", image: { id: opts.headerImageId } }] });
+  }
+  if (opts.body.length) {
+    components.push({ type: "body", parameters: opts.body.map((text) => ({ type: "text", text: sanitizeParam(text, 1000) })) });
+  }
+  if (opts.urlButtonSuffix) {
+    components.push({ type: "button", sub_type: "url", index: String(opts.urlButtonIndex ?? 0), parameters: [{ type: "text", text: opts.urlButtonSuffix }] });
+  }
+  return cloudSend({ to, type: "template", template: { name: template.name, language: { code: template.language }, components } });
+}
+
+export type CloudTemplateInfo = {
+  nombre: string;
+  idioma: string;
+  estado: string;
+  categoria: string;
+  encabezado: string | null; // IMAGE, TEXT, VIDEO, DOCUMENT...
+  cuerpo: string;
+  variablesCuerpo: number;
+  /** Un botón URL lleva una variable ({{1}} al final de la URL). */
+  botonUrlDinamico: boolean;
+  /** Posición de ese botón entre los botones de la plantilla. */
+  indiceBotonUrl: number | null;
+  formatoNombrado: boolean;
+};
+
+/**
+ * Plantillas de la cuenta de WhatsApp Business. Necesita
+ * WHATSAPP_BUSINESS_ACCOUNT_ID; sin él devuelve null y no se valida nada.
+ */
+export async function listCloudTemplates(): Promise<CloudTemplateInfo[] | null> {
+  const waba = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  if (!waba || !process.env.WHATSAPP_TOKEN) return null;
+  const res = await fetch(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${waba}/message_templates?fields=name,language,status,category,components,parameter_format&limit=200`,
+    { headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` } },
+  );
+  const json: any = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error?.message || `HTTP_${res.status}`);
+  return (json?.data ?? []).map((t: any) => {
+    const comps: any[] = Array.isArray(t.components) ? t.components : [];
+    const header = comps.find((c) => c.type === "HEADER");
+    const body = String(comps.find((c) => c.type === "BODY")?.text ?? "");
+    const buttons: any[] = comps.find((c) => c.type === "BUTTONS")?.buttons ?? [];
+    const vars = new Set(body.match(/\{\{\s*[^}]+\s*\}\}/g) ?? []);
+    const urlIdx = buttons.findIndex((b) => b.type === "URL" && /\{\{/.test(String(b.url ?? "")));
+    return {
+      nombre: String(t.name),
+      idioma: String(t.language),
+      estado: String(t.status),
+      categoria: String(t.category),
+      encabezado: header ? String(header.format) : null,
+      cuerpo: body,
+      variablesCuerpo: vars.size,
+      botonUrlDinamico: urlIdx >= 0,
+      indiceBotonUrl: urlIdx >= 0 ? urlIdx : null,
+      formatoNombrado: String(t.parameter_format ?? "").toUpperCase() === "NAMED",
+    };
+  });
+}
+
 /** Texto libre: Meta solo lo entrega dentro de las 24 h desde que el número escribió. */
 export async function sendCloudText(to: string, text: string): Promise<SendResult> {
   return cloudSend({ to, type: "text", text: { body: text, preview_url: false } });
@@ -257,7 +355,7 @@ async function relayedMessageText(prisma: PrismaClient, payload: Record<string, 
 }
 
 /** Guarda a qué chat pertenece un aviso enviado, para enrutar la respuesta. */
-async function saveRelay(
+export async function saveRelay(
   prisma: PrismaClient,
   wamid: string | undefined,
   userId: string,

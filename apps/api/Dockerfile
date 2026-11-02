@@ -38,13 +38,16 @@ RUN pnpm --filter @uzeed/api build
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg && rm -rf /var/lib/apt/lists/*
+# fonts-dejavu-core: sharp dibuja el texto de las tarjetas de métricas (SVG → PNG)
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg fonts-dejavu-core fonts-inter fontconfig && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma/node_modules ./prisma/node_modules
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+# Diseños SVG propios para las imágenes de WhatsApp (enviar_whatsapp imagen=diseno)
+COPY apps/api/assets ./apps/api/assets
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 COPY apps/api/scripts/migrate-umate-premium-to-private.js /app/apps/api/scripts/migrate-umate-premium-to-private.js

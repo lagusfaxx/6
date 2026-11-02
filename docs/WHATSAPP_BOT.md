@@ -135,6 +135,99 @@ escanear el QR otra vez. Para que la sesión sobreviva:
    (`{{1}}` profesional, `{{2}}` cliente, `{{3}}` texto. Se cambia con
    `WHATSAPP_MESSAGE_TEMPLATE_NAME`.)
 
+### Envíos masivos desde Claude (plantilla de marketing)
+
+La herramienta MCP `enviar_whatsapp` manda a muchos perfiles a la vez una
+plantilla aprobada, con una imagen por perfil de encabezado (tarjeta con sus
+métricas o un flyer, con su foto). Para eso:
+
+1. WhatsApp Manager → *Message templates* → crear, por ejemplo:
+   - Categoría **Marketing** · Nombre `uzeed_metricas` · Idioma **es**
+   - Encabezado: **Imagen** (sube una de muestra; en cada envío va la del perfil)
+   - Cuerpo:
+
+     ```
+     Hola {{1}} 👋 Esta semana {{2}} personas vieron tu perfil en UZEED.
+     Sube historias nuevas para aparecer más arriba.
+     ```
+
+   - Botón (opcional): *Visitar sitio web* con URL dinámica
+     `https://uzeed.cl/{{1}}` (se llena con `botonVariable`, ej.
+     `profesional/{usuario}`).
+2. Agrega `WHATSAPP_BUSINESS_ACCOUNT_ID` (WhatsApp Manager → Configuración
+   de la cuenta). Con él, Claude ve las plantillas (`plantillas_whatsapp`) y
+   revisa antes de enviar que esté aprobada, que tenga imagen y que calcen
+   las variables. Sin él igual envía, pero si algo no calza Meta rechaza cada
+   mensaje.
+3. Pídele a Claude, por ejemplo: *"manda la plantilla uzeed_metricas con la
+   tarjeta de métricas de los últimos 7 días a las Gold de Santiago; {{1}} es
+   el nombre y {{2}} las visitas"*. Muestra una vista previa y sólo envía si
+   la apruebas.
+
+Meta cobra cada plantilla de marketing entregada, exige que las personas
+hayan aceptado recibir mensajes del negocio, limita cuántas conversaciones
+se inician por día según el nivel de la cuenta (parte en 250) y puede no
+entregar marketing a quien ya recibió muchos (error 131049). Topes propios:
+`WHATSAPP_TEMPLATE_BROADCAST_MAX` (1000 por envío) y
+`WHATSAPP_TEMPLATE_BROADCAST_DAILY` (1000 por día).
+
+### Afiche de estadísticas por perfil
+
+`imagen=afiche` arma, para cada profesional, un afiche con su foto, sus
+visitas, contactos por WhatsApp, apariciones y favoritos (con la variación
+contra el periodo anterior), barras de visitantes (por día, semana o mes según
+el periodo), "1 de cada N te escribió" contra el promedio de UZEED y el
+promedio de las 10 más contactadas, consejos y el link a su perfil. Va como
+encabezado de una plantilla con imagen, por ejemplo `uzeed_metricas`:
+
+> Manda la plantilla uzeed_metricas con el afiche de los últimos 7 días a
+> todas las profesionales activas; {{1}} el nombre, {{2}} las visitas, botón
+> profesional/{usuario}
+
+Usa la fuente Inter (`fonts-inter` en el Dockerfile).
+
+Para elegir a quiénes: `orden` (`mas_visitas`, `menos_visitas`,
+`mas_contactos`, `menos_contactos` en el periodo; `mas_nuevas`,
+`mas_antiguas` por fecha de registro) y `cantidad`. Para probar antes:
+`prueba="mi_numero"` (o un teléfono) manda el mensaje y el afiche de cada
+perfil elegido (hasta 5) a ese número, sin confirmación, sin gastar el cupo
+del día y sin que a las profesionales les llegue nada.
+
+### Diseño propio para la imagen (SVG)
+
+En vez de la tarjeta de UZEED se puede usar un diseño propio hecho en Figma o
+Canva: `imagen=diseno` con `diseno=<nombre>`. Los diseños son SVG en
+`apps/api/assets/whatsapp/<nombre>.svg` (hay uno de ejemplo, `ejemplo.svg`).
+
+- Tamaño 1080×1350 (vertical) o 1080×1080. Exportar como SVG con el texto
+  como texto (no contornos).
+- Textos variables, se reemplazan por los datos de cada perfil:
+  `{{nombre}}`, `{{usuario}}`, `{{periodo}}`, `{{visitas}}`, `{{contactos}}`,
+  `{{apariciones}}`, `{{mensajes}}`, `{{favoritos}}`, `{{tasa}}` y
+  `{{variacion_visitas}}`, `{{variacion_contactos}}`… (ej. "▲ 27% vs anterior").
+- Foto del perfil: una capa llamada `foto` (en el SVG, `id="foto"`): imagen,
+  rectángulo, círculo o elipse; la foto toma esa forma.
+- Gráfico de visitantes por día: un rectángulo llamado `grafico`. Si su color
+  es claro, el gráfico usa colores para fondo claro.
+- Fuentes: DejaVu Sans viene instalada; otra fuente hay que agregarla al
+  Dockerfile.
+
+### Invitar contactos sin cuenta (ej. un Excel)
+
+`enviar_whatsapp_contactos` manda una plantilla aprobada a una lista de
+teléfonos que todavía no tienen cuenta. Usa una plantilla aparte (ej.
+`uzeed_invitacion`), porque a estos contactos no se les pueden mostrar
+métricas. Cada contacto recibe el mensaje una sola vez: queda guardado en
+`WhatsAppProspect`, igual que quien responde BAJA o STOP, que no vuelve a
+recibir nada. Si responde otra cosa, le llega el link para publicarse
+(`WHATSAPP_PROSPECT_URL`, por defecto https://uzeed.cl/publicate) y el equipo
+recibe un aviso en la bandeja. Tope: `WHATSAPP_PROSPECT_DAILY` (100 por día).
+
+Para la imagen de la invitación lo recomendado es una **imagen fija**
+(`imagen=fija`, `imagenFija=<nombre>`): un PNG o JPG igual para todos,
+guardado en `apps/api/assets/whatsapp/` (viene `invitacion.png` de ejemplo).
+Se sube a Meta una sola vez por envío.
+
 ### Responder desde WhatsApp
 
 Con la Cloud API, cuando un cliente escribe, a la profesional le llega su
