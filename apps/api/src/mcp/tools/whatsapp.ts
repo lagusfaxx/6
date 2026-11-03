@@ -11,7 +11,9 @@ import { actorKeySql, realActionSql, realPageViewSql, realUserSql, staffIdsSql, 
 import { localTs } from "../metrics";
 import {
   getWhatsAppProvider,
+  getWabaId,
   listCloudTemplates,
+  templateErrorHint,
   logDelivery,
   normalizePhoneForWhatsApp,
   saveRelay,
@@ -538,8 +540,13 @@ async function runJob(job: Job, list: Recipient[], send: Sender, metrics: Map<st
       await logDelivery(prisma, { userId: isProspect(r) ? null : r.id, channel: "WHATSAPP", type: lim.deliveryType, result });
       if (result.ok) job.enviados++;
       else job.fallidos.push({ usuario: isProspect(r) ? `${r.nombre || "contacto"} (+${r.phone})` : r.username, error: result.error || "ERROR" });
-      // Bot desconectado o credenciales de Meta inválidas: no seguir quemando la lista.
-      if (!result.ok && /^NOT_CONNECTED|CLOUD_API_NOT_CONFIGURED|access token/i.test(result.error || "")) break;
+      // Bot desconectado, credenciales inválidas o error de la plantilla (#132xxx,
+      // falla igual para todos): no seguir quemando la lista.
+      if (!result.ok && /^NOT_CONNECTED|CLOUD_API_NOT_CONFIGURED|access token|#132\d{3}/i.test(result.error || "")) {
+        const hint = templateErrorHint(result.error);
+        if (hint) job.fallidos[job.fallidos.length - 1].error += ` — ${hint}`;
+        break;
+      }
       if (i < list.length - 1) await sleep(lim.minDelayMs + Math.random() * (lim.maxDelayMs - lim.minDelayMs));
     }
   } finally {
@@ -585,7 +592,7 @@ type ImageArgs = {
   imagenFija?: string;
 };
 
-/** Busca la plantilla en Meta (si hay WHATSAPP_BUSINESS_ACCOUNT_ID) y arma el envío. */
+/** Busca la plantilla en Meta (si se conoce la cuenta de WhatsApp Business) y arma el envío. */
 async function resolveTemplate(args: TemplateArgs): Promise<{ template: CloudTemplateInfo | null; plantilla: Plantilla } | { error: string }> {
   if (!cloudConfigured()) return { error: "La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID)." };
   if (!args.plantilla) return { error: "Indica la plantilla de Meta (ver plantillas_whatsapp)." };
@@ -694,6 +701,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
         "(b) sin plantilla, con `mensaje`: texto libre desde el bot (Baileys, número propio), la imagen con el mensaje de pie de foto. " +
         "Imagen: imagen=afiche (recomendada) es un afiche con la foto de la profesional, sus visitas, contactos por WhatsApp, apariciones y favoritos con su variación, barras de visitantes, cuántos de cada N le escribieron vs el promedio de UZEED, consejos y su link; imagen=diseno usa un diseño SVG propio del equipo (diseno=<nombre>, los disponibles salen en estado_whatsapp) con sus textos {{nombre}}, {{visitas}}... llenados con los datos de cada perfil; imagen=metricas es una tarjeta con SU foto y SUS métricas del periodo (personas que vieron su perfil, contactos por WhatsApp, apariciones en listados, mensajes, favoritos, tasa de contacto, y variación vs periodo anterior); imagen=flyer es un flyer con su foto grande, su nombre, flyerTitulo y flyerTexto. incluirFoto=false quita la foto del perfil. " +
         "mensaje, variables, botonVariable, flyerTitulo y flyerTexto aceptan {nombre}, {usuario}, {visitas}, {contactos}, {favoritos}, {mensajes}, {impresiones}. " +
+        "Con plantilla: llama antes a plantillas_whatsapp y pasa exactamente tantas `variables` como {{n}} tenga el cuerpo, más `botonVariable` si el botón es dinámico. Si no puedes leer la plantilla, pregúntale al usuario el cuerpo; nunca pruebes combinaciones de variables a ver cuál pasa. " +
         "SIEMPRE en dos pasos: 1) sin `confirmacion` devuelve la vista previa (cuántos, a quiénes, el texto y la imagen del primero) y un código: muéstrasela al usuario. " +
         "2) Sólo si la aprueba, repite la llamada igual con confirmacion=<código>. El envío corre en segundo plano; mira el avance con estado_whatsapp. " +
         `Bot: máximo ${LIMITS.bot.maxPerSend} por envío y ${LIMITS.bot.dailyCap} por día, con pausas de 8-20 s. Plantilla: máximo ${LIMITS.plantilla.maxPerSend} por envío y ${LIMITS.plantilla.dailyCap} por día; Meta cobra cada mensaje. ` +
@@ -828,6 +836,27 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
           }
           await logDelivery(prisma, { userId: r.id, channel: "WHATSAPP", type: "MCP_TEST", result: res });
           resultados.push({ perfil: r.username, nombre: r.nombre, enviado: res.ok, error: res.ok ? undefined : res.error });
+          // Un error de la plantilla fallaría igual con los demás: se corta aquí.
+          if (!res.ok) {
+            return jsonResult({
+              prueba: true,
+              enviadoA: `+${to}`,
+              detenida: "Se detuvo en el primer error; no se intentó con los demás perfiles.",
+              resultados,
+              queSignifica: templateErrorHint(res.error) ?? res.error,
+              loQueSeMando: plantilla
+                ? {
+                    plantilla: plantilla.name,
+                    idioma: plantilla.language,
+                    variablesCuerpo: plantilla.variables.length,
+                    variables: plantilla.variables,
+                    botonVariable: plantilla.botonVariable ?? null,
+                    imagenEncabezado: img.tipo !== "ninguna",
+                  }
+                : { mensaje: args.mensaje },
+              plantillaValidada: Boolean(template),
+            });
+          }
           await sleep(1_000);
         }
         return jsonResult({
@@ -886,7 +915,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
                 botonEjemplo: plantilla.botonVariable ? personalize(plantilla.botonVariable, first, m) : undefined,
                 validada: template
                   ? true
-                  : "No: falta WHATSAPP_BUSINESS_ACCOUNT_ID, no pude revisar que exista, esté aprobada y calcen las variables. Si algo no calza, Meta rechazará cada envío.",
+                  : "No: no pude leer las plantillas de la cuenta (falta WHATSAPP_BUSINESS_ACCOUNT_ID y el token no lo entrega). Pregúntale al usuario cuántas variables {{n}} tiene el cuerpo y si el botón es dinámico; no adivines. Si no calza, Meta rechaza cada envío.",
                 costo: "Meta cobra cada plantilla entregada (marketing es la categoría más cara) y limita los envíos por día según el nivel de la cuenta.",
               }
             : undefined,
@@ -1042,7 +1071,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
               cuerpoEjemplo: template ? fillTemplateBody(template.cuerpo, values) : undefined,
               variablesEjemplo: values,
               botonEjemplo: plantilla.botonVariable ? personalize(plantilla.botonVariable, first, null) : undefined,
-              validada: template ? true : "No: falta WHATSAPP_BUSINESS_ACCOUNT_ID; si algo no calza, Meta rechazará cada envío.",
+              validada: template ? true : "No: no pude leer las plantillas de la cuenta; confirma con el usuario las variables. Si algo no calza, Meta rechazará cada envío.",
             },
             costoAprox: `${batch.length} plantillas de marketing; Meta cobra cada una entregada.`,
             duracionEstimadaMin: etaMin,
@@ -1127,7 +1156,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
     {
       title: "Plantillas de WhatsApp aprobadas en Meta",
       description:
-        "Lista las plantillas de la cuenta de WhatsApp Business (nombre, idioma, estado, categoría, si llevan imagen de encabezado, el cuerpo y cuántas variables {{n}} pide). Úsala antes de enviar_whatsapp con plantilla. Necesita WHATSAPP_BUSINESS_ACCOUNT_ID.",
+        "Lista las plantillas de la cuenta de WhatsApp Business (nombre, idioma, estado, categoría, si llevan imagen de encabezado, el cuerpo y cuántas variables {{n}} pide). Úsala SIEMPRE antes de enviar_whatsapp con plantilla. La cuenta sale de WHATSAPP_BUSINESS_ACCOUNT_ID o, si no está, del token de Meta.",
       inputSchema: {
         soloAprobadas: z.boolean().optional().describe("Por defecto sí."),
         categoria: z.enum(["MARKETING", "UTILITY", "AUTHENTICATION"]).optional(),
@@ -1137,7 +1166,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
     guarded("plantillas_whatsapp", ctx, async ({ soloAprobadas, categoria }: { soloAprobadas?: boolean; categoria?: string }) => {
       if (!cloudConfigured()) return errorResult("La Cloud API de Meta no está configurada (WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID).");
       const all = await listCloudTemplates();
-      if (!all) return errorResult("Falta WHATSAPP_BUSINESS_ACCOUNT_ID (WhatsApp Manager → Configuración de la cuenta → ID de la cuenta de WhatsApp Business).");
+      if (!all) return errorResult("No pude saber la cuenta de WhatsApp Business: el token no la entrega (le falta el permiso whatsapp_business_management). Agrega WHATSAPP_BUSINESS_ACCOUNT_ID (WhatsApp Manager → Configuración de la cuenta). Mientras tanto, pregúntale al usuario el cuerpo de la plantilla y no adivines las variables.");
       const list = all.filter((t) => (soloAprobadas === false || t.estado === "APPROVED") && (!categoria || t.categoria === categoria));
       return jsonResult({
         plantillas: list,
@@ -1170,7 +1199,7 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       return jsonResult({
         proveedor: getWhatsAppProvider(),
         bot,
-        cloudApi: { configurada: cloudConfigured(), validaPlantillas: Boolean(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID) },
+        cloudApi: { configurada: cloudConfigured(), validaPlantillas: cloudConfigured() ? Boolean(await getWabaId()) : false },
         disenos: listDesigns(),
         imagenesFijas: listFixedImages(),
         enviosHoy: {
