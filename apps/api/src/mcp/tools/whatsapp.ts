@@ -570,6 +570,22 @@ function jobView(j: Job) {
   };
 }
 
+/**
+ * Qué variables de WhatsApp ve este proceso, sin mostrar valores: sirve para
+ * saber si una variable puesta en el panel de despliegue llegó de verdad
+ * (nombre mal escrito, con espacios, sólo de build o sin redeploy).
+ */
+function envDiagnostics() {
+  const names = Object.keys(process.env).filter((k) => /whats|waba/i.test(k));
+  const waba = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  const parecidas = names.filter((k) => k !== "WHATSAPP_BUSINESS_ACCOUNT_ID" && /business|account|waba/i.test(k));
+  return {
+    WHATSAPP_BUSINESS_ACCOUNT_ID: waba === undefined ? "no llega al proceso" : waba.trim() ? `termina en …${waba.trim().slice(-4)}` : "llega vacía",
+    variablesWhatsappQueVe: names.sort().map((k) => (k !== k.trim() ? `"${k}" (tiene espacios)` : k)),
+    ...(parecidas.length ? { ojoNombresParecidos: parecidas } : {}),
+  };
+}
+
 function cloudConfigured(): boolean {
   return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 }
@@ -1199,7 +1215,11 @@ export function registerWhatsAppTools(server: McpServer, ctx: McpContext) {
       return jsonResult({
         proveedor: getWhatsAppProvider(),
         bot,
-        cloudApi: { configurada: cloudConfigured(), validaPlantillas: cloudConfigured() ? Boolean(await getWabaId()) : false },
+        cloudApi: {
+          configurada: cloudConfigured(),
+          validaPlantillas: cloudConfigured() ? Boolean(await getWabaId()) : false,
+          ...envDiagnostics(),
+        },
         disenos: listDesigns(),
         imagenesFijas: listFixedImages(),
         enviosHoy: {
