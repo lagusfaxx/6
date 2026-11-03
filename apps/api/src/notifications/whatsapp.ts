@@ -64,6 +64,21 @@ function sanitizeParam(text: string, max = 200): string {
   return String(text || "").replace(/\s+/g, " ").trim().slice(0, max) || "-";
 }
 
+/**
+ * Explicación en simple de los errores de plantilla de Meta. Los 132xxx son de
+ * la plantilla misma: fallan igual para todos los destinatarios.
+ */
+export function templateErrorHint(error: string | undefined): string | null {
+  const e = String(error || "");
+  if (/#132000\b/.test(e)) return "La cantidad de variables no calza con la plantilla: revisa cuántas {{n}} tiene el cuerpo y si el botón tiene URL dinámica (botonVariable).";
+  if (/#132001\b/.test(e)) return "La plantilla no existe con ese nombre o en ese idioma (ej. Spanish (CHL) es es_CL).";
+  if (/#132005\b/.test(e)) return "Algún texto de las variables es demasiado largo para la plantilla.";
+  if (/#132007\b/.test(e)) return "El contenido de las variables infringe las políticas de Meta.";
+  if (/#132012\b/.test(e)) return "Un parámetro no tiene el formato que pide la plantilla (ej. falta la imagen del encabezado o sobra).";
+  if (/#132015\b|#132016\b/.test(e)) return "La plantilla está pausada o deshabilitada en Meta por baja calidad.";
+  return null;
+}
+
 /** POST a la Cloud API de Meta con el número del bot. */
 async function cloudSend(payload: Record<string, any>): Promise<SendResult> {
   if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
@@ -175,12 +190,57 @@ export type CloudTemplateInfo = {
   formatoNombrado: boolean;
 };
 
+let wabaCache: { id: string | null; at: number } | null = null;
+const WABA_CACHE_MS = 6 * 60 * 60 * 1000;
+
 /**
- * Plantillas de la cuenta de WhatsApp Business. Necesita
- * WHATSAPP_BUSINESS_ACCOUNT_ID; sin él devuelve null y no se valida nada.
+ * ID de la cuenta de WhatsApp Business: WHATSAPP_BUSINESS_ACCOUNT_ID o, si no
+ * está, el que Meta asocia al token (debug_token → granular_scopes), quedándose
+ * con la cuenta a la que pertenece WHATSAPP_PHONE_NUMBER_ID. null si no se
+ * pudo saber (ej. el token no tiene whatsapp_business_management).
+ */
+export async function getWabaId(): Promise<string | null> {
+  if (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID) return process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!token) return null;
+  if (wabaCache && Date.now() - wabaCache.at < WABA_CACHE_MS) return wabaCache.id;
+  let id: string | null = null;
+  try {
+    const t = encodeURIComponent(token);
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/debug_token?input_token=${t}&access_token=${t}`);
+    const json: any = await res.json().catch(() => ({}));
+    const scopes: any[] = json?.data?.granular_scopes ?? [];
+    const candidates = [
+      ...new Set(
+        scopes
+          .filter((sc) => sc?.scope === "whatsapp_business_management" || sc?.scope === "whatsapp_business_messaging")
+          .flatMap((sc) => (Array.isArray(sc?.target_ids) ? sc.target_ids.map(String) : [])),
+      ),
+    ];
+    for (const c of candidates) {
+      const r = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${c}/phone_numbers?fields=id&limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j: any = await r.json().catch(() => ({}));
+      if (r.ok && (j?.data ?? []).some((p: any) => String(p?.id) === process.env.WHATSAPP_PHONE_NUMBER_ID)) {
+        id = c;
+        break;
+      }
+    }
+    if (!id && candidates.length === 1) id = candidates[0];
+  } catch (err: any) {
+    console.error("[whatsapp] no pude obtener el ID de la cuenta de WhatsApp Business:", err?.message || err);
+  }
+  wabaCache = { id, at: Date.now() };
+  return id;
+}
+
+/**
+ * Plantillas de la cuenta de WhatsApp Business (ver getWabaId). Sin ID de
+ * cuenta devuelve null y no se valida nada.
  */
 export async function listCloudTemplates(): Promise<CloudTemplateInfo[] | null> {
-  const waba = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  const waba = await getWabaId();
   if (!waba || !process.env.WHATSAPP_TOKEN) return null;
   const res = await fetch(
     `https://graph.facebook.com/${GRAPH_VERSION}/${waba}/message_templates?fields=name,language,status,category,components,parameter_format&limit=200`,
