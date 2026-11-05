@@ -93,6 +93,11 @@ async function readFromDb(): Promise<BillingSettings> {
   };
 }
 
+/** Campaigns must stop if billing cannot be read; never fall back to cache. */
+export async function getBillingSettingsStrict(): Promise<BillingSettings> {
+  return readFromDb();
+}
+
 /** Lee la configuración (con caché de 30 s). */
 export async function getBillingSettings(force = false): Promise<BillingSettings> {
   if (!force && Date.now() - loadedAt < REFRESH_MS) return cache;
