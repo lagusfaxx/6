@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { CreditCard, Loader2, Lock, LogOut } from "lucide-react";
+import { CreditCard, Loader2, Lock, LogOut, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import useMe from "../hooks/useMe";
 
@@ -134,11 +134,20 @@ export function PlanLockLayout({ access, children }: { access: Access | null; ch
 }
 
 /**
- * Perfil recién creado: elige cómo empezar su prueba. La opción con tarjeta
- * (más días) va destacada; sin tarjeta queda como alternativa. Mientras no
- * elija, el perfil no se muestra y esta pantalla aparece cada vez que entra.
+ * Perfil recién creado que no elige cómo empezar su prueba: puede usar la app,
+ * pero su perfil no se muestra y este aviso aparece en cada pantalla que
+ * visita (se cierra con "Ahora no"). La opción con tarjeta (más días) va
+ * destacada; sin tarjeta queda como alternativa.
  */
-export function TrialChoiceScreen({ access, onChosen }: { access: Access | null; onChosen: () => void }) {
+export function TrialChoiceModal({
+  access,
+  onChosen,
+  onClose,
+}: {
+  access: Access | null;
+  onChosen: () => void;
+  onClose: () => void;
+}) {
   const card = access?.cardTrialDays ?? 30;
   const free = access?.trialDays ?? 14;
   const price = access?.priceClp ? `$${access.priceClp.toLocaleString("es-CL")}` : null;
@@ -178,12 +187,25 @@ export function TrialChoiceScreen({ access, onChosen }: { access: Access | null;
   };
 
   return (
-    <div className="flex min-h-[100svh] w-full items-center justify-center px-4 py-10 text-white">
-      <div className="w-full max-w-md">
-        <div className="mb-5 text-center">
-          <h1 className="text-2xl font-bold">Tu perfil ya está creado</h1>
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/75 px-4 py-6 text-white backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trial-choice-title"
+    >
+      <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#120a1c] p-5 pt-6 shadow-2xl">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-3 top-3 rounded-full p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white/80"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div className="mb-6 pr-6 text-center">
+          <h2 id="trial-choice-title" className="text-xl font-bold">Tu perfil todavía no aparece</h2>
           <p className="mt-2 text-sm text-white/60">
-            Lo estamos revisando. Para que aparezca en UZEED, elige cómo quieres empezar tu prueba gratis.
+            Elige cómo empezar tu prueba gratis para que los clientes te puedan ver.
           </p>
         </div>
 
@@ -229,12 +251,27 @@ export function TrialChoiceScreen({ access, onChosen }: { access: Access | null;
           )}
         </div>
 
-        <div className="mt-8 flex justify-center">
-          <button type="button" onClick={logout} className="inline-flex items-center gap-1 text-xs text-white/35 hover:text-white/70">
-            <LogOut className="h-3.5 w-3.5" /> Cerrar sesión
+        <div className="mt-6 flex justify-center">
+          <button type="button" onClick={onClose} className="text-xs text-white/35 transition hover:text-white/70">
+            Ahora no
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+/** El aviso de elegir la prueba, que se vuelve a abrir en cada pantalla nueva. */
+export function TrialChoiceNudge({
+  access,
+  pathname,
+  onChosen,
+}: {
+  access: Access | null;
+  pathname: string;
+  onChosen: () => void;
+}) {
+  const [closedOn, setClosedOn] = useState<string | null>(null);
+  if (!access?.needsTrialChoice || closedOn === pathname) return null;
+  return <TrialChoiceModal access={access} onChosen={onChosen} onClose={() => setClosedOn(pathname)} />;
 }
