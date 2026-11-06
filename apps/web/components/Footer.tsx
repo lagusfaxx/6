@@ -14,7 +14,7 @@ const footerLinks = {
     { label: "Creadoras de contenido", href: "/contenido" },
   ],
   "Ciudades": [
-    { label: "Escorts en Santiago", href: "/escorts/santiago" },
+    { label: "Escort Santiago", href: "/escorts/santiago" },
     { label: "Escorts en Viña del Mar", href: "/escorts/vina-del-mar" },
     { label: "Escorts en Valparaíso", href: "/escorts/valparaiso" },
     { label: "Escorts en Concepción", href: "/escorts/concepcion" },
