@@ -15,6 +15,7 @@ type Settings = {
   priceClp: number;
   graceDays: number;
   trialDays: number;
+  cardTrialDays: number;
   graceEndsAt: string | null;
   enforced: boolean;
   flowPlanId: string | null;
@@ -44,7 +45,7 @@ export default function AdminCobrosPage() {
   const [data, setData] = useState<Resp | null>(null);
   const [flowConfigured, setFlowConfigured] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState({ graceDays: "", trialDays: "", receiptWhatsapp: "" });
+  const [form, setForm] = useState({ graceDays: "", trialDays: "", cardTrialDays: "", receiptWhatsapp: "" });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirming, setConfirming] = useState<null | "on" | "off">(null);
@@ -55,6 +56,7 @@ export default function AdminCobrosPage() {
     setForm({
       graceDays: String(r.settings.graceDays),
       trialDays: String(r.settings.trialDays),
+      cardTrialDays: String(r.settings.cardTrialDays ?? 0),
       receiptWhatsapp: r.settings.receiptWhatsapp || "",
     });
   };
@@ -92,6 +94,8 @@ export default function AdminCobrosPage() {
     const trial = Number(form.trialDays);
     if (grace !== data.settings.graceDays) patch.graceDays = grace;
     if (trial !== data.settings.trialDays) patch.trialDays = trial;
+    const cardTrial = Number(form.cardTrialDays);
+    if (cardTrial !== data.settings.cardTrialDays) patch.cardTrialDays = cardTrial;
     if (form.receiptWhatsapp !== (data.settings.receiptWhatsapp || "")) patch.receiptWhatsapp = form.receiptWhatsapp;
     if (!Object.keys(patch).length) {
       setNotice({ ok: true, text: "No hay cambios que guardar." });
@@ -118,6 +122,7 @@ export default function AdminCobrosPage() {
     s &&
     (Number(form.graceDays) !== s.graceDays ||
       Number(form.trialDays) !== s.trialDays ||
+      Number(form.cardTrialDays) !== s.cardTrialDays ||
       form.receiptWhatsapp !== (s.receiptWhatsapp || ""));
 
   return (
@@ -290,6 +295,12 @@ export default function AdminCobrosPage() {
                 hint="Gratis para perfiles nuevos, desde que se registran."
                 value={form.trialDays}
                 onChange={(v) => setForm((f) => ({ ...f, trialDays: v }))}
+              />
+              <Field
+                label="Días de prueba con tarjeta (PAC)"
+                hint="Desde el registro, para quien registra su tarjeta en Flow. El primer cobro llega al terminar. Si no supera los días de prueba, no hay bono."
+                value={form.cardTrialDays}
+                onChange={(v) => setForm((f) => ({ ...f, cardTrialDays: v }))}
               />
               <Field
                 label="WhatsApp para comprobantes"

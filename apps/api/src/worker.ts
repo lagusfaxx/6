@@ -4,7 +4,7 @@ import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
-import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt } from "./lib/billingSettings";
+import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt, hasPacCharge } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
 import {
@@ -436,6 +436,10 @@ async function tickSyncPacSubscriptions() {
     try {
       const flowSub = await getFlowSubscription(user.flowSubscriptionId!);
       const statusNum = Number(flowSub.status);
+      // Antes del primer cobro (PAC en prueba, p. ej. con el bono por tarjeta)
+      // no se regala un mes: si Flow no logró cobrar al terminar la prueba, el
+      // perfil deja de mostrarse hasta que llegue el webhook del pago.
+      if (!(await hasPacCharge(user.id, user.flowSubscriptionId!))) continue;
       // If subscription is alive (not canceled/completed) and membership already expired or about to
       if (statusNum !== 3 && statusNum !== 4 && user.membershipExpiresAt && user.membershipExpiresAt.getTime() < now.getTime()) {
         // Membership expired but PAC is alive — webhook was missed, extend now
@@ -449,7 +453,7 @@ async function tickSyncPacSubscriptions() {
           data: {
             userId: user.id,
             type: "SUBSCRIPTION_RENEWED",
-            data: { source: "pac_sync_worker", previousExpiry: user.membershipExpiresAt.toISOString() },
+            data: { subscriptionId: user.flowSubscriptionId, source: "pac_sync_worker", previousExpiry: user.membershipExpiresAt.toISOString() },
           },
         });
         console.log("[worker] PAC sync: extended membership (missed webhook)", { userId: user.id, newExpiry: expiresAt.toISOString() });
@@ -547,11 +551,12 @@ export async function tickTrialEnding() {
         },
       ],
     },
-    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true },
+    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true, flowSubscriptionId: true },
     take: 1000,
   });
 
   const price = `$${s.priceClp.toLocaleString("es-CL")}`;
+  const appUrl = config.appUrl.replace(/\/$/, "");
   for (const u of candidates) {
     const end = new Date(
       Math.max(u.shopTrialEndsAt?.getTime() ?? 0, u.createdAt.getTime() + trialMs, grace?.getTime() ?? 0),
@@ -564,12 +569,22 @@ export async function tickTrialEnding() {
     await markReminderSent(u.id, key);
     const when = end.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
     const title = lastDay ? "Tu prueba gratis termina hoy" : "Tu prueba gratis termina pronto";
-    const body = `Tu perfil deja de mostrarse el ${when} si no activas tu plan (desde ${price} al mes).`;
-    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: "/planes", tag: key }).catch(() => undefined);
+    // Si todavía le sirve el bono por registrar la tarjeta (PAC), se le ofrece:
+    // sigue gratis hasta el fin de la prueba con tarjeta y el cobro es automático.
+    const cardEnd = s.cardTrialDays > s.trialDays && !u.flowSubscriptionId
+      ? new Date(u.createdAt.getTime() + s.cardTrialDays * DAY)
+      : null;
+    const offerCard = Boolean(cardEnd && cardEnd.getTime() - end.getTime() >= DAY);
+    const cardWhen = cardEnd?.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
+    const body = offerCard
+      ? `Tu perfil deja de mostrarse el ${when}. Registra tu tarjeta y sigue gratis hasta el ${cardWhen}: hoy no se cobra nada y después ${price} al mes automático.`
+      : `Tu perfil deja de mostrarse el ${when} si no activas tu plan (desde ${price} al mes).`;
+    const path = offerCard ? "/pago" : "/planes";
+    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: path, tag: key }).catch(() => undefined);
     if (u.email) {
       await sendBillingNoticeEmail(u.email, {
         subject: title,
-        text: `${body}\n\nActívalo aquí: ${config.appUrl.replace(/\/$/, "")}/planes`,
+        text: `${body}\n\nActívalo aquí: ${appUrl}${path}`,
       }).catch(() => undefined);
     }
   }

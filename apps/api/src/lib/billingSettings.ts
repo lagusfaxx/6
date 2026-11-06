@@ -21,6 +21,9 @@ export type BillingSettings = {
   priceClp: number;
   graceDays: number;
   trialDays: number;
+  /** Días de prueba, contados desde el registro, para quien activa el PAC
+   *  (registra su tarjeta en Flow). Si no supera `trialDays`, no hay bono. */
+  cardTrialDays: number;
   /** Plan de Flow vigente para el cobro automático (PAC). */
   flowPlanId: string;
   flowPlanPriceClp: number | null;
@@ -37,6 +40,7 @@ const KEYS = {
   priceClp: "billing_price_clp",
   graceDays: "billing_grace_days",
   trialDays: "billing_trial_days",
+  cardTrialDays: "billing_card_trial_days",
   flowPlanId: "billing_flow_plan_id",
   flowPlanPriceClp: "billing_flow_plan_price_clp",
   receiptWhatsapp: "billing_receipt_whatsapp",
@@ -52,6 +56,7 @@ function defaults(): BillingSettings {
     priceClp: config.membershipPriceClp,
     graceDays: 7,
     trialDays: config.freeTrialDays,
+    cardTrialDays: config.cardTrialDays,
     flowPlanId: config.flowPlanId,
     flowPlanPriceClp: null,
     receiptWhatsapp: "",
@@ -87,6 +92,7 @@ async function readFromDb(): Promise<BillingSettings> {
     priceClp: silver?.priceClp ?? toInt(get(KEYS.priceClp), d.priceClp, 1),
     graceDays: toInt(get(KEYS.graceDays), d.graceDays),
     trialDays: toInt(get(KEYS.trialDays), d.trialDays),
+    cardTrialDays: toInt(get(KEYS.cardTrialDays), d.cardTrialDays),
     flowPlanId: get(KEYS.flowPlanId) || d.flowPlanId,
     flowPlanPriceClp: get(KEYS.flowPlanPriceClp) ? toInt(get(KEYS.flowPlanPriceClp), 0) : null,
     receiptWhatsapp: (get(KEYS.receiptWhatsapp) || "").replace(/\D/g, ""),
@@ -127,7 +133,7 @@ export function getBillingSettingsSync(): BillingSettings {
 export type BillingSettingsPatch = Partial<
   Pick<
     BillingSettings,
-    "enabled" | "priceClp" | "graceDays" | "trialDays" | "flowPlanId" | "flowPlanPriceClp" | "receiptWhatsapp"
+    "enabled" | "priceClp" | "graceDays" | "trialDays" | "cardTrialDays" | "flowPlanId" | "flowPlanPriceClp" | "receiptWhatsapp"
   >
 >;
 
@@ -148,6 +154,9 @@ export async function updateBillingSettings(patch: BillingSettingsPatch): Promis
   }
   if (patch.graceDays !== undefined) writes.push({ key: KEYS.graceDays, value: String(Math.round(patch.graceDays)) });
   if (patch.trialDays !== undefined) writes.push({ key: KEYS.trialDays, value: String(Math.round(patch.trialDays)) });
+  if (patch.cardTrialDays !== undefined) {
+    writes.push({ key: KEYS.cardTrialDays, value: String(Math.round(patch.cardTrialDays)) });
+  }
   if (patch.receiptWhatsapp !== undefined) {
     writes.push({ key: KEYS.receiptWhatsapp, value: patch.receiptWhatsapp.replace(/\D/g, "") });
   }
@@ -246,5 +255,59 @@ export async function userHasActivePlan(userId: string): Promise<boolean> {
   const extra = planActiveWhere();
   if (!("OR" in extra)) return true;
   const n = await prisma.user.count({ where: { AND: [{ id: userId }, extra] } });
+  return n > 0;
+}
+
+/**
+ * Fin de la prueba extendida por activar el PAC: `cardTrialDays` contados
+ * desde el registro. Se ancla a `createdAt`, así que activar, cancelar y
+ * volver a activar nunca suma días: el tope es siempre el mismo.
+ * Devuelve null si no hay bono (desactivado o no supera la prueba normal).
+ */
+export function cardTrialEndsAt(
+  user: { createdAt?: Date | null },
+  s: BillingSettings = getBillingSettingsSync()
+): Date | null {
+  if (!user.createdAt || s.cardTrialDays <= s.trialDays) return null;
+  return new Date(user.createdAt.getTime() + s.cardTrialDays * DAY_MS);
+}
+
+/**
+ * Días de prueba que se le pasan a Flow al crear la suscripción PAC: lo que le
+ * queda de acceso o, si es mayor, lo que le falta para cumplir la prueba con
+ * tarjeta. `bonusDays` es lo que gana por activar el PAC (0 si nada).
+ */
+export function pacTrialDays(
+  user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt?: Date | null },
+  now = new Date()
+): { trialDays: number; bonusDays: number; bonusEndsAt: Date | null } {
+  const remaining = remainingAccessDays(user, now);
+  const end = cardTrialEndsAt(user);
+  const untilBonus = end && end.getTime() > now.getTime() ? Math.ceil((end.getTime() - now.getTime()) / DAY_MS) : 0;
+  return {
+    trialDays: Math.max(remaining, untilBonus),
+    bonusDays: Math.max(0, untilBonus - remaining),
+    bonusEndsAt: untilBonus > remaining ? end : null,
+  };
+}
+
+/** Fuentes de notificación que significan "Flow cobró esta suscripción". */
+export const PAC_CHARGE_SOURCES = ["flow_subscription", "flow_subscription_token", "flow_pac_charged", "pac_sync_worker"];
+
+/**
+ * ¿Flow ya cobró al menos una vez esta suscripción PAC? Se mira el registro de
+ * renovaciones que dejan el webhook y /billing/subscription/start.
+ */
+export async function hasPacCharge(userId: string, subscriptionId: string): Promise<boolean> {
+  const n = await prisma.notification.count({
+    where: {
+      userId,
+      type: "SUBSCRIPTION_RENEWED",
+      AND: [
+        { data: { path: ["subscriptionId"], equals: subscriptionId } },
+        { OR: PAC_CHARGE_SOURCES.map((source) => ({ data: { path: ["source"], equals: source } })) },
+      ],
+    },
+  });
   return n > 0;
 }

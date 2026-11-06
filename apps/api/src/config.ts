@@ -40,6 +40,8 @@ export const config = {
   membershipPriceClp: Number(process.env.MEMBERSHIP_PRICE_CLP || 45000),
   shopMonthlyPriceClp: Number(process.env.SHOP_MONTHLY_PRICE_CLP || 4990),
   freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 90),
+  /** Prueba (desde el registro) para quien activa el PAC; se edita en /admin/cobros. */
+  cardTrialDays: Number(process.env.CARD_TRIAL_DAYS || 30),
   storageDir: process.env.UPLOAD_DIR || process.env.STORAGE_DIR || process.env.UPLOADS_DIR || "./uploads",
   adminEmail: process.env.ADMIN_EMAIL || "admin@uzeed.cl",
   adminPassword: required("ADMIN_PASSWORD"),
