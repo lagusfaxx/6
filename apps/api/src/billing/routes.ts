@@ -20,6 +20,7 @@ import {
   PAID_PROFILE_TYPES,
   trialChoiceData,
   pendingTrialChoice,
+  getBillingSettingsSync,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
@@ -337,6 +338,7 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
 billingRouter.post("/billing/trial/start-free", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const billing = await getBillingSettings();
+  if (!billing.enabled || !billing.trialChoiceEnabled) return res.json({ ok: true, alreadyChosen: true });
   const updated = await prisma.user.updateMany({
     where: { id: userId, needsTrialChoice: true },
     data: trialChoiceData(new Date(), billing),
@@ -375,6 +377,7 @@ async function billingImpact(trialDays: number) {
         AND: [
           { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
           { OR: [{ shopTrialEndsAt: { gt: now } }, { createdAt: { gt: trialCutoff } }] },
+          ...(getBillingSettingsSync().trialChoiceEnabled ? [{ needsTrialChoice: false }] : []),
         ],
       },
     }),

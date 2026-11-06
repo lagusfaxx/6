@@ -241,7 +241,7 @@ authRouter.post(
     const trialDays = requiresPayment ? getBillingSettingsSync().trialDays : 90;
     // Con el cobro encendido, la prueba parte cuando elige cómo empezarla
     // (con tarjeta o sin tarjeta); hasta entonces el perfil queda apagado.
-    const needsTrialChoice = requiresTrialChoice(profileType);
+    const needsTrialChoice = await requiresTrialChoice(profileType);
     const shopTrialEndsAt = requiresPayment && !needsTrialChoice
       ? addDays(new Date(), trialDays)
       : null;

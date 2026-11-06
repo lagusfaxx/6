@@ -589,7 +589,7 @@ googleAuthRouter.post(
 
     const username = await pickUniqueUsername(data.displayName);
     // La prueba parte cuando elige cómo empezarla (con o sin tarjeta).
-    const needsTrialChoice = requiresTrialChoice("PROFESSIONAL");
+    const needsTrialChoice = await requiresTrialChoice("PROFESSIONAL");
     const shopTrialEndsAt = needsTrialChoice ? null : addDays(new Date(), getBillingSettingsSync().trialDays);
 
     let user;

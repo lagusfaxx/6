@@ -83,6 +83,20 @@ export default function PagoPage() {
     }
   };
 
+  // ── Prueba sin tarjeta (perfil nuevo que todavía no elige) ─────────
+  const [freeBusy, setFreeBusy] = useState(false);
+  const handleFreeTrial = async () => {
+    setPacError(null);
+    setFreeBusy(true);
+    try {
+      await apiFetch("/billing/trial/start-free", { method: "POST", body: JSON.stringify({}) });
+      router.push("/cuenta");
+    } catch (err: any) {
+      setPacError(err?.body?.message || "No se pudo activar tu prueba. Intenta de nuevo.");
+      setFreeBusy(false);
+    }
+  };
+
   // ── Cancel PAC ───────────────────────────────────────────────────
   const handleCancelPAC = async () => {
     setCancelBusy(true);
@@ -294,11 +308,14 @@ export default function PagoPage() {
               {cardBonusDays > 0 && cardBonusEnds && (
                 <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3">
                   <p className="text-sm font-semibold text-emerald-300">
-                    Te regalamos {cardBonusDays} días más
+                    {sub?.needsTrialChoice ? `${cardBonusDays} días gratis con tu tarjeta` : `Te regalamos ${cardBonusDays} días más`}
                   </p>
                   <p className="mt-1 text-xs text-white/55">
-                    Registra tu tarjeta y tu perfil sigue gratis hasta el {cardBonusEnds}. El primer cobro de $
-                    {price.toLocaleString("es-CL")} es ese día. Si cancelas antes, no pagas nada y vuelves a tu prueba normal.
+                    Registra tu tarjeta y tu perfil {sub?.needsTrialChoice ? "queda" : "sigue"} gratis hasta el {cardBonusEnds}. El primer cobro de $
+                    {price.toLocaleString("es-CL")} es ese día.{" "}
+                    {sub?.needsTrialChoice
+                      ? "Puedes cancelar antes sin pagar nada."
+                      : "Si cancelas antes, no pagas nada y vuelves a tu prueba normal."}
                   </p>
                 </div>
               )}
@@ -335,11 +352,24 @@ export default function PagoPage() {
                 ) : (
                   <><CreditCard className="h-4 w-4" />{" "}
                     {cardBonusDays > 0
-                      ? `Registrar tarjeta (+${cardBonusDays} días gratis)`
+                      ? sub?.needsTrialChoice
+                        ? `Registrar tarjeta y tener ${cardBonusDays} días gratis`
+                        : `Registrar tarjeta (+${cardBonusDays} días gratis)`
                       : `Registrar tarjeta y activar PAC — $${price.toLocaleString("es-CL")}/mes`}
                   </>
                 )}
               </button>
+
+              {sub?.needsTrialChoice && (
+                <button
+                  type="button"
+                  onClick={handleFreeTrial}
+                  disabled={pacBusy || freeBusy}
+                  className="w-full text-center text-xs text-white/45 underline underline-offset-4 transition hover:text-white/75 disabled:opacity-50"
+                >
+                  {freeBusy ? "Activando…" : `Prefiero no dejar tarjeta: ${sub?.cardTrial?.trialDays ?? 14} días gratis`}
+                </button>
+              )}
             </div>
           )}
 

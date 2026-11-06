@@ -13,7 +13,7 @@ import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
-import { PlanLockLayout, PlanLockScreen, TrialChoiceNudge, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
+import { PlanLockLayout, PlanLockScreen, TrialChoiceNudge, isPlanLockAllowedPath, isTrialNudgeHiddenPath, usePlanLock } from "./PlanLock";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -95,7 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
      pantalla que visita aparece el aviso para elegirla (menos en /pago, que
      es donde se elige con tarjeta). */
   const trialNudge =
-    planLock.access?.needsTrialChoice && !isAuthRoute && !isPlanLockAllowedPath(pathname) ? (
+    planLock.access?.needsTrialChoice && !isAuthRoute && !isTrialNudgeHiddenPath(pathname) ? (
       <TrialChoiceNudge access={planLock.access} pathname={pathname} onChosen={planLock.refresh} />
     ) : null;
 

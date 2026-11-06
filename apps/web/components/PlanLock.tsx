@@ -18,6 +18,13 @@ const PAID_PROFILE_TYPES = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 /** Rutas que se pueden abrir con la cuenta bloqueada. */
 const ALLOWED_PREFIXES = ["/pago", "/ayuda", "/contacto", "/terminos", "/privacidad"];
 
+/** Pantallas donde no se abre el aviso de elegir la prueba (pagar, verificarse, contraseña). */
+const NO_NUDGE_PREFIXES = [...ALLOWED_PREFIXES, "/verificacion", "/crear-contrasena", "/reenviar-contrasena"];
+
+export function isTrialNudgeHiddenPath(pathname: string) {
+  return NO_NUDGE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function isPlanLockAllowedPath(pathname: string) {
   return ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
