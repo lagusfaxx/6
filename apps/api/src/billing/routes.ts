@@ -23,6 +23,7 @@ import {
   getBillingSettingsSync,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
+import { planOffNoticeStats, resendMissingPlanOffEmails, tickPlanOffNotices } from "../worker/planOffNotices";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
 import {
   createFlowCustomer,
@@ -414,6 +415,27 @@ billingRouter.get("/admin/billing/settings", requireAdmin, asyncHandler(async (_
     impact: await billingImpact(s.trialDays),
     flowConfigured: Boolean(config.flowApiKey),
   });
+}));
+
+// ── Admin: avisos de perfil apagado (correo + WhatsApp + app) ───────────────
+
+billingRouter.get("/admin/billing/notices", requireAdmin, asyncHandler(async (_req, res) => {
+  return res.json(await planOffNoticeStats());
+}));
+
+/* Corre ahora la misma pasada que el worker hace cada hora: a cada perfil
+   apagado le llega el aviso que le toque, sin repetir los ya enviados. */
+billingRouter.post("/admin/billing/notices/run", requireAdmin, asyncHandler(async (req, res) => {
+  const summary = await tickPlanOffNotices();
+  console.log("[billing] avisos de perfil apagado enviados a mano", { by: (req as any).user?.email, summary });
+  return res.json({ summary, stats: await planOffNoticeStats() });
+}));
+
+/* Reenvía por correo el último aviso a quienes no lo recibieron por correo. */
+billingRouter.post("/admin/billing/notices/resend-emails", requireAdmin, asyncHandler(async (req, res) => {
+  const summary = await resendMissingPlanOffEmails();
+  console.log("[billing] correos de perfil apagado reenviados a mano", { by: (req as any).user?.email, summary });
+  return res.json({ summary, stats: await planOffNoticeStats() });
 }));
 
 billingRouter.put("/admin/billing/settings", requireAdmin, asyncHandler(async (req, res) => {

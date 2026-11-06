@@ -1,4 +1,4 @@
-import { sendMail, type MailPriority } from "./mailer";
+import { sendMail, type MailPriority, type MailResult } from "./mailer";
 import { config } from "../config";
 
 /* ─── HTML escape to prevent XSS in email templates ─── */
@@ -77,6 +77,29 @@ async function send(to: string, subject: string, html: string, priority: MailPri
   if (!result.ok && priority !== "bulk") {
     console.error("[notificationEmail] failed", { to, subject, reason: result.reason });
   }
+}
+
+/* ─── Avisos de cobro (prueba, perfil apagado, membresía) ─── */
+
+/**
+ * Correo de aviso con el diseño de UZEED. Los párrafos son texto plano: se
+ * escapan y sus enlaces se vuelven clicables. Devuelve el resultado del envío
+ * para poder registrarlo.
+ */
+export async function sendNoticeEmail(
+  to: string,
+  opts: { subject: string; title: string; paragraphs: string[]; cta?: { text: string; url: string }; text?: string },
+): Promise<MailResult> {
+  const linkify = (p: string) =>
+    esc(p).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, (u) => `<a href="${u}" style="color:#f0abfc;">${u}</a>`);
+  const html = wrapEmail(
+    esc(opts.title),
+    [
+      ...opts.paragraphs.map((p) => paragraph(linkify(p))),
+      ...(opts.cta ? [ctaButton(esc(opts.cta.text), opts.cta.url)] : []),
+    ].join(""),
+  );
+  return sendMail({ to, subject: opts.subject, html, text: opts.text, priority: "normal" });
 }
 
 /* ─── Aviso de mensajes sin leer ─── */

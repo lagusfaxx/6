@@ -8,6 +8,7 @@ import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 import { isFullAdmin } from "../../../lib/adminAccess";
 import PromoAdmin from "./PromoAdmin";
 import TransfersAdmin from "./TransfersAdmin";
+import NoticesAdmin from "./NoticesAdmin";
 
 type Settings = {
   enabled: boolean;
@@ -328,6 +329,8 @@ export default function AdminCobrosPage() {
               </button>
             </div>
           </section>
+
+          <NoticesAdmin />
 
           {/* Tarifa */}
           <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">

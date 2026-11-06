@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
 import {
@@ -6,10 +7,12 @@ import {
   graceEndsAt,
   hasPacCharge,
   isBillingEnforced,
+  type BillingSettings,
 } from "../lib/billingSettings";
+import type { MailResult } from "../lib/mailer";
 import { sendInAppAndPush } from "../lib/sendReminder";
 import { getWhatsAppProvider, logDelivery, normalizePhoneForWhatsApp, sendWhatsAppNotification } from "../notifications/whatsapp";
-import { sendBillingNoticeEmail, smtpEnabled } from "./email";
+import { mailEnabled, sendBillingNoticeEmail } from "./email";
 
 /*
  * Avisos de "tu perfil está apagado" (sin plan vigente, no se muestra en el
@@ -22,7 +25,9 @@ import { sendBillingNoticeEmail, smtpEnabled } from "./email";
  *   3. 7 días después del segundo: correo + WhatsApp + push (último).
  * Si paga y más adelante se le vuelve a apagar, la secuencia parte de nuevo.
  *
- * Se apaga con PLAN_OFF_NOTICES=off.
+ * Correo por Resend (lib/mailer), WhatsApp por la Cloud API de Meta. Cada
+ * envío queda en NotificationDelivery (canal EMAIL o WHATSAPP, tipo PLAN_OFF_n).
+ * También se corre a mano desde /admin/cobros. Se apaga con PLAN_OFF_NOTICES=off.
  */
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -53,7 +58,7 @@ function content(step: Step, o: { name: string; price: string; paidBefore: boole
         `Como ${why}, tu perfil dejó de aparecer en UZEED. Los clientes no te pueden ver ni escribir.`,
         `Para volver a aparecer, activa tu plan (${o.price} al mes). Si lo pagas con tarjeta queda automático y no tienes que acordarte cada mes.`,
         `Actívalo acá: ${o.url}`,
-        "Si tienes dudas, responde este correo.",
+        `Si tienes dudas, escríbenos desde ${o.url.replace(/\/pago$/, "/contacto")}.`,
       ],
       whatsapp: `tu perfil está apagado porque ${why} y los clientes ya no te ven. Actívalo en uzeed.cl/pago para volver a aparecer`,
     };
@@ -89,56 +94,175 @@ function content(step: Step, o: { name: string; price: string; paidBefore: boole
   };
 }
 
-export async function tickPlanOffNotices() {
-  if (process.env.PLAN_OFF_NOTICES === "off") return;
-  const s = await getBillingSettings();
-  const now = new Date();
-  if (!s.enabled || !isBillingEnforced(s, now)) return;
-
+/** Perfiles con el perfil apagado por falta de plan (mismo criterio que oculta el perfil del sitio). */
+function planOffWhere(s: BillingSettings, now: Date): Prisma.UserWhereInput {
   const trialCutoff = new Date(now.getTime() - s.trialDays * DAY);
-  // Mismo criterio que oculta el perfil del sitio (planActiveWhere), escrito
-  // explícito por los NULL: `NOT (x > now)` descarta las filas sin fecha.
+  // Escrito explícito por los NULL: `NOT (x > now)` descarta las filas sin fecha.
+  return {
+    profileType: { in: [...PAID_PROFILE_TYPES] },
+    role: "USER",
+    adminManaged: false,
+    // Sólo perfiles que estuvieron publicados (no los que nunca se aprobaron).
+    isActive: true,
+    // Los que todavía no eligen su prueba reciben otros avisos (más abajo).
+    ...(s.trialChoiceEnabled ? { needsTrialChoice: false } : {}),
+    AND: [
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+      { createdAt: { lte: trialCutoff } },
+    ],
+  };
+}
+
+const offSelect = {
+  id: true,
+  email: true,
+  phone: true,
+  displayName: true,
+  username: true,
+  profileViews: true,
+  createdAt: true,
+  membershipExpiresAt: true,
+  shopTrialEndsAt: true,
+  flowSubscriptionId: true,
+} as const;
+
+type OffUser = Prisma.UserGetPayload<{ select: typeof offSelect }>;
+
+/** Marca el aviso como enviado. Falso si ya estaba (otra pasada lo tomó): así nunca sale dos veces. */
+async function claim(userId: string, type: string): Promise<boolean> {
+  try {
+    await prisma.reminderLog.create({ data: { userId, type } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function logEmail(userId: string, type: string, result: MailResult) {
+  await prisma.notificationDelivery
+    .create({
+      data: {
+        userId,
+        channel: "EMAIL",
+        type,
+        ok: result.ok,
+        error: result.ok ? null : String(result.reason || "ERROR").slice(0, 300),
+      },
+    })
+    .catch((err: any) => console.error("[plan-off] email log failed:", err?.message || err));
+}
+
+async function paidBefore(u: OffUser): Promise<boolean> {
+  const n = await prisma.paymentIntent.count({
+    where: { subscriberId: u.id, purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] }, status: "PAID" },
+  });
+  return n > 0 || (u.flowSubscriptionId ? await hasPacCharge(u.id, u.flowSubscriptionId) : false);
+}
+
+export type NoticeRunSummary = {
+  ran: boolean;
+  reason?: string;
+  avisos: number;
+  correos: { ok: number; fallidos: number };
+  whatsapp: { ok: number; fallidos: number };
+  sinCorreo: number;
+  sinWhatsapp: number;
+  eligePrueba: number;
+};
+
+function emptySummary(reason?: string): NoticeRunSummary {
+  return {
+    ran: !reason,
+    ...(reason ? { reason } : {}),
+    avisos: 0,
+    correos: { ok: 0, fallidos: 0 },
+    whatsapp: { ok: 0, fallidos: 0 },
+    sinCorreo: 0,
+    sinWhatsapp: 0,
+    eligePrueba: 0,
+  };
+}
+
+async function sendStep(
+  u: OffUser,
+  step: Step,
+  tag: string,
+  ctx: { price: string; url: string; canEmail: boolean; canWhatsApp: boolean; allowWhatsApp: boolean },
+  summary: NoticeRunSummary,
+  channels: { push: boolean; email: boolean; whatsapp: boolean } = { push: true, email: true, whatsapp: true },
+) {
+  const name = firstName(u.displayName, u.username);
+  const c = content(step, { name, price: ctx.price, paidBefore: await paidBefore(u), views: u.profileViews, url: ctx.url });
+
+  if (channels.push) {
+    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title: c.title, body: c.push, url: "/pago", tag }).catch(
+      () => undefined,
+    );
+  }
+
+  if (channels.email) {
+    if (ctx.canEmail && u.email) {
+      const result = await sendBillingNoticeEmail(u.email, {
+        subject: c.subject,
+        title: c.title,
+        text: c.email.join("\n\n"),
+        ctaText: "Activar mi plan",
+      });
+      await logEmail(u.id, `PLAN_OFF_${step}`, result);
+      if (result.ok) summary.correos.ok++;
+      else summary.correos.fallidos++;
+    } else {
+      summary.sinCorreo++;
+    }
+  }
+
+  if (channels.whatsapp && c.whatsapp) {
+    if (ctx.canWhatsApp && ctx.allowWhatsApp && normalizePhoneForWhatsApp(u.phone)) {
+      const result = await sendWhatsAppNotification(u.phone!, name, c.whatsapp).catch((err: any) => ({
+        ok: false,
+        error: String(err?.message || err),
+      }));
+      await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: `PLAN_OFF_${step}`, result });
+      if (result.ok) summary.whatsapp.ok++;
+      else summary.whatsapp.fallidos++;
+    } else {
+      summary.sinWhatsapp++;
+    }
+  }
+}
+
+/**
+ * Una pasada de avisos: la corre el worker cada hora y el botón "Enviar avisos
+ * ahora" de /admin/cobros. Manda a cada perfil apagado el aviso que le toque.
+ */
+export async function tickPlanOffNotices(): Promise<NoticeRunSummary> {
+  if (process.env.PLAN_OFF_NOTICES === "off") return emptySummary("Los avisos están apagados (PLAN_OFF_NOTICES=off).");
+  const s = await getBillingSettings(true);
+  const now = new Date();
+  if (!s.enabled) return emptySummary("El cobro está apagado: no hay perfiles apagados por falta de pago.");
+  if (!isBillingEnforced(s, now)) return emptySummary("El cobro está en periodo de gracia: todavía no se apaga ningún perfil.");
+
   const users = await prisma.user.findMany({
-    where: {
-      profileType: { in: [...PAID_PROFILE_TYPES] },
-      role: "USER",
-      adminManaged: false,
-      // Sólo perfiles que estuvieron publicados (no los que nunca se aprobaron).
-      isActive: true,
-      // Los que todavía no eligen su prueba reciben los avisos de abajo.
-      ...(s.trialChoiceEnabled ? { needsTrialChoice: false } : {}),
-      AND: [
-        { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
-        { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
-        { createdAt: { lte: trialCutoff } },
-      ],
-    },
-    select: {
-      id: true,
-      email: true,
-      phone: true,
-      displayName: true,
-      username: true,
-      profileViews: true,
-      createdAt: true,
-      membershipExpiresAt: true,
-      shopTrialEndsAt: true,
-      flowSubscriptionId: true,
-    },
+    where: planOffWhere(s, now),
+    select: offSelect,
     orderBy: { createdAt: "desc" },
     take: 1000,
   });
 
   const grace = graceEndsAt(s);
-  const price = `$${s.priceClp.toLocaleString("es-CL")}`;
-  const url = `${config.appUrl.replace(/\/$/, "")}/pago`;
-  const canWhatsApp = getWhatsAppProvider() !== null;
-  const canEmail = smtpEnabled();
-  let sent = 0;
+  const ctx = {
+    price: `$${s.priceClp.toLocaleString("es-CL")}`,
+    url: `${config.appUrl.replace(/\/$/, "")}/pago`,
+    canEmail: mailEnabled(),
+    canWhatsApp: getWhatsAppProvider() !== null,
+    allowWhatsApp: true,
+  };
+  const summary = emptySummary();
   let whatsapps = 0;
 
   for (const u of users) {
-    if (sent >= MAX_PER_TICK) break;
+    if (summary.avisos >= MAX_PER_TICK) break;
     // Cuándo se apagó: el mayor entre membresía, prueba y gracia general.
     const end = new Date(
       Math.max(
@@ -166,43 +290,108 @@ export async function tickPlanOffNotices() {
       if (now.getTime() - at(2)!.getTime() >= STEP_GAP_DAYS[3] * DAY) step = 3;
     }
     if (!step) continue;
+    if (!(await claim(u.id, keys[step]))) continue;
+    summary.avisos++;
 
-    // Se marca antes de enviar: si algo falla a medias no se repite el aviso.
-    await prisma.reminderLog.create({ data: { userId: u.id, type: keys[step] } }).catch(() => null);
-    sent++;
-
-    const paidBefore =
-      (await prisma.paymentIntent.count({
-        where: { subscriberId: u.id, purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] }, status: "PAID" },
-      })) > 0 || (u.flowSubscriptionId ? await hasPacCharge(u.id, u.flowSubscriptionId) : false);
-    const name = firstName(u.displayName, u.username);
-    const c = content(step, { name, price, paidBefore, views: u.profileViews, url });
-
-    await sendInAppAndPush(u.id, {
-      type: "SUBSCRIPTION_RENEWED",
-      title: c.title,
-      body: c.push,
-      url: "/pago",
-      tag: keys[step],
-    }).catch(() => undefined);
-
-    if (canEmail && u.email) {
-      await sendBillingNoticeEmail(u.email, { subject: c.subject, text: c.email.join("\n\n") }).catch(() => undefined);
-    }
-
-    if (c.whatsapp && canWhatsApp && whatsapps < MAX_WHATSAPP_PER_TICK && normalizePhoneForWhatsApp(u.phone)) {
-      whatsapps++;
-      const result = await sendWhatsAppNotification(u.phone!, name, c.whatsapp).catch((err: any) => ({
-        ok: false,
-        error: String(err?.message || err),
-      }));
-      await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: `PLAN_OFF_${step}`, result });
-    }
+    const wantsWhatsApp = Boolean(content(step, { name: "", price: "", paidBefore: false, views: 0, url: "" }).whatsapp);
+    await sendStep(u, step, keys[step], { ...ctx, allowWhatsApp: whatsapps < MAX_WHATSAPP_PER_TICK }, summary);
+    if (wantsWhatsApp) whatsapps++;
   }
 
-  if (sent) console.log(`[worker] plan off notices sent: ${sent} (whatsapp: ${whatsapps})`);
+  if (summary.avisos) console.log("[worker] plan off notices", JSON.stringify(summary));
 
-  if (s.trialChoiceEnabled) await tickTrialChoiceNotices(s.trialDays, Math.max(s.cardTrialDays, s.trialDays), price, canEmail, canWhatsApp);
+  if (s.trialChoiceEnabled) {
+    summary.eligePrueba = await tickTrialChoiceNotices(s.trialDays, Math.max(s.cardTrialDays, s.trialDays), ctx.price, ctx.canEmail, ctx.canWhatsApp);
+  }
+  return summary;
+}
+
+/**
+ * Reenvía el correo del primer aviso a quienes lo recibieron por WhatsApp y
+ * en la app pero no por correo (hasta el 6/11 los correos de cobro salían
+ * sólo por SMTP, que no está configurado, así que no salió ninguno).
+ */
+export async function resendMissingPlanOffEmails(): Promise<NoticeRunSummary> {
+  const s = await getBillingSettings(true);
+  const now = new Date();
+  if (!s.enabled || !isBillingEnforced(s, now)) return emptySummary("El cobro no está apagando perfiles ahora.");
+  if (!mailEnabled()) return emptySummary("El correo no está configurado (falta RESEND_API_KEY).");
+
+  const pending = await pendingEmailUsers(s, now);
+  const ctx = { price: `$${s.priceClp.toLocaleString("es-CL")}`, url: `${config.appUrl.replace(/\/$/, "")}/pago`, canEmail: true, canWhatsApp: false, allowWhatsApp: false };
+  const summary = emptySummary();
+  for (const { user, step } of pending.slice(0, 300)) {
+    if (!(await claim(user.id, `plan_off_email_${step}_${now.toISOString().slice(0, 10)}`))) continue;
+    summary.avisos++;
+    await sendStep(user, step, `plan_off_email_${step}`, ctx, summary, { push: false, email: true, whatsapp: false });
+  }
+  return summary;
+}
+
+/** Perfiles todavía apagados a los que se les mandó un aviso pero el correo de ese aviso no salió. */
+async function pendingEmailUsers(s: BillingSettings, now: Date): Promise<{ user: OffUser; step: Step }[]> {
+  const users = await prisma.user.findMany({ where: { ...planOffWhere(s, now), email: { not: "" } }, select: offSelect, take: 1000 });
+  if (!users.length) return [];
+  const ids = users.map((u) => u.id);
+  const [logs, emails] = await Promise.all([
+    prisma.reminderLog.findMany({
+      where: { userId: { in: ids }, type: { startsWith: "plan_off_" }, NOT: { type: { startsWith: "plan_off_email_" } } },
+      select: { userId: true, type: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.notificationDelivery.findMany({
+      where: { userId: { in: ids }, channel: "EMAIL", ok: true, type: { startsWith: "PLAN_OFF_" } },
+      select: { userId: true, type: true },
+    }),
+  ]);
+  const gotEmail = new Set(emails.map((e) => `${e.userId}:${e.type}`));
+  const out: { user: OffUser; step: Step }[] = [];
+  for (const u of users) {
+    // El último aviso que se le mandó: si ese correo no salió, se reenvía.
+    const last = logs.find((l) => l.userId === u.id);
+    if (!last) continue;
+    const step = Number(last.type.split("_")[2]) as Step;
+    if (![1, 2, 3].includes(step)) continue;
+    if (!gotEmail.has(`${u.id}:PLAN_OFF_${step}`)) out.push({ user: u, step });
+  }
+  return out;
+}
+
+/** Números para la sección de avisos de /admin/cobros. */
+export async function planOffNoticeStats() {
+  const s = await getBillingSettings(true);
+  const now = new Date();
+  const active = s.enabled && isBillingEnforced(s, now) && process.env.PLAN_OFF_NOTICES !== "off";
+  const since = new Date(now.getTime() - 60 * DAY);
+  const [apagados, porPaso, entregas, pendientes] = await Promise.all([
+    s.enabled && isBillingEnforced(s, now) ? prisma.user.count({ where: planOffWhere(s, now) }) : Promise.resolve(0),
+    prisma.reminderLog.groupBy({
+      by: ["type"],
+      where: { type: { startsWith: "plan_off_" }, NOT: { type: { startsWith: "plan_off_email_" } }, createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+    prisma.notificationDelivery.groupBy({
+      by: ["channel", "ok"],
+      where: { type: { startsWith: "PLAN_OFF_" }, createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+    s.enabled && isBillingEnforced(s, now) && mailEnabled() ? pendingEmailUsers(s, now).then((p) => p.length) : Promise.resolve(0),
+  ]);
+  const step = (n: number) =>
+    porPaso.filter((r) => r.type.startsWith(`plan_off_${n}_`)).reduce((acc, r) => acc + r._count._all, 0);
+  const count = (channel: string, ok: boolean) =>
+    entregas.find((e) => e.channel === channel && e.ok === ok)?._count._all ?? 0;
+  return {
+    activo: active,
+    motivo: !s.enabled ? "cobro apagado" : !isBillingEnforced(s, now) ? "en periodo de gracia" : process.env.PLAN_OFF_NOTICES === "off" ? "PLAN_OFF_NOTICES=off" : null,
+    correoConfigurado: mailEnabled(),
+    whatsappConfigurado: getWhatsAppProvider() !== null,
+    perfilesApagados: apagados,
+    avisos: { primero: step(1), segundo: step(2), tercero: step(3) },
+    correos: { ok: count("EMAIL", true), fallidos: count("EMAIL", false) },
+    whatsapp: { ok: count("WHATSAPP", true), fallidos: count("WHATSAPP", false) },
+    correosPendientes: pendientes,
+  };
 }
 
 /*
@@ -216,7 +405,7 @@ async function tickTrialChoiceNotices(
   price: string,
   canEmail: boolean,
   canWhatsApp: boolean,
-) {
+): Promise<number> {
   const now = new Date();
   const users = await prisma.user.findMany({
     where: {
@@ -233,6 +422,7 @@ async function tickTrialChoiceNotices(
   });
   const url = `${config.appUrl.replace(/\/$/, "")}/pago`;
   const bonus = cardTrialDays > trialDays;
+  let sent = 0;
 
   for (const u of users) {
     const logs = await prisma.reminderLog.findMany({
@@ -243,7 +433,8 @@ async function tickTrialChoiceNotices(
     const second = logs.find((l) => l.type === "trial_choice_2");
     const step = !first ? 1 : !second && now.getTime() - first.createdAt.getTime() >= 3 * DAY ? 2 : null;
     if (!step) continue;
-    await prisma.reminderLog.create({ data: { userId: u.id, type: `trial_choice_${step}` } }).catch(() => null);
+    if (!(await claim(u.id, `trial_choice_${step}`))) continue;
+    sent++;
 
     const name = firstName(u.displayName, u.username);
     const offer = bonus
@@ -256,8 +447,10 @@ async function tickTrialChoiceNotices(
       () => undefined,
     );
     if (canEmail && u.email) {
-      await sendBillingNoticeEmail(u.email, {
+      const result = await sendBillingNoticeEmail(u.email, {
         subject: step === 1 ? "Falta un paso para que tu perfil aparezca en UZEED" : "Tu perfil en UZEED sigue apagado",
+        title,
+        ctaText: "Elegir mi prueba",
         text: [
           `Hola ${name}:`,
           "Tu perfil ya está creado, pero no aparece en UZEED hasta que elijas cómo empezar tu prueba gratis.",
@@ -266,7 +459,8 @@ async function tickTrialChoiceNotices(
             : `Tienes ${trialDays} días gratis.`,
           `Elige acá: ${url}`,
         ].join("\n\n"),
-      }).catch(() => undefined);
+      });
+      await logEmail(u.id, `TRIAL_CHOICE_${step}`, result);
     }
     if (step === 1 && canWhatsApp && normalizePhoneForWhatsApp(u.phone)) {
       const info = bonus
@@ -279,4 +473,5 @@ async function tickTrialChoiceNotices(
       await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: "TRIAL_CHOICE_1", result });
     }
   }
+  return sent;
 }
