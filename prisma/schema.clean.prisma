@@ -120,6 +120,12 @@ model User {
   serviceDescription  String?
   subscriptionPrice   Int?              @default(2500)
   shopTrialEndsAt     DateTime?
+  /// Perfil nuevo que todavía no elige cómo empezar su prueba: con tarjeta
+  /// (PAC, cardTrialDays) o sin tarjeta (trialDays). Mientras sea true el
+  /// perfil no se muestra y la app le pide elegir.
+  needsTrialChoice    Boolean           @default(false)
+  /// Cuándo eligió y empezó su prueba (los días se cuentan desde acá).
+  trialStartedAt      DateTime?
   termsAcceptedAt     DateTime?
   allowFreeMessages   Boolean           @default(false)
   role                Role              @default(USER)

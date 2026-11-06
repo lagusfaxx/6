@@ -203,8 +203,14 @@ export function planActiveWhere(now = new Date()): Prisma.UserWhereInput {
     OR: [
       { profileType: { notIn: [...PAID_PROFILE_TYPES] } },
       { membershipExpiresAt: { gt: now } },
-      { shopTrialEndsAt: { gt: now } },
-      { createdAt: { gt: new Date(now.getTime() - s.trialDays * DAY_MS) } },
+      // Perfil nuevo que no eligió su prueba: apagado hasta que elija.
+      {
+        needsTrialChoice: false,
+        OR: [
+          { shopTrialEndsAt: { gt: now } },
+          { createdAt: { gt: new Date(now.getTime() - s.trialDays * DAY_MS) } },
+        ],
+      },
     ],
   };
 }
@@ -236,16 +242,19 @@ export function membershipRenewalBase(current: Date | null | undefined, now = ne
 
 /** Días que le quedan a un perfil de acceso gratis/pagado (0 si ninguno). */
 export function remainingAccessDays(
-  user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt?: Date | null },
+  user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt?: Date | null; needsTrialChoice?: boolean },
   now = new Date()
 ): number {
   const s = getBillingSettingsSync();
-  const candidates = [
-    user.membershipExpiresAt?.getTime() ?? 0,
-    user.shopTrialEndsAt?.getTime() ?? 0,
-    user.createdAt ? user.createdAt.getTime() + s.trialDays * DAY_MS : 0,
-    graceEndsAt(s)?.getTime() ?? 0,
-  ];
+  // Sin elegir su prueba sólo cuenta una membresía pagada.
+  const candidates = user.needsTrialChoice
+    ? [user.membershipExpiresAt?.getTime() ?? 0]
+    : [
+        user.membershipExpiresAt?.getTime() ?? 0,
+        user.shopTrialEndsAt?.getTime() ?? 0,
+        user.createdAt ? user.createdAt.getTime() + s.trialDays * DAY_MS : 0,
+        graceEndsAt(s)?.getTime() ?? 0,
+      ];
   const end = Math.max(...candidates);
   return end > now.getTime() ? Math.ceil((end - now.getTime()) / DAY_MS) : 0;
 }
@@ -265,11 +274,36 @@ export async function userHasActivePlan(userId: string): Promise<boolean> {
  * Devuelve null si no hay bono (desactivado o no supera la prueba normal).
  */
 export function cardTrialEndsAt(
-  user: { createdAt?: Date | null },
-  s: BillingSettings = getBillingSettingsSync()
+  user: { createdAt?: Date | null; trialStartedAt?: Date | null; needsTrialChoice?: boolean },
+  s: BillingSettings = getBillingSettingsSync(),
+  now = new Date()
 ): Date | null {
-  if (!user.createdAt || s.cardTrialDays <= s.trialDays) return null;
-  return new Date(user.createdAt.getTime() + s.cardTrialDays * DAY_MS);
+  if (s.cardTrialDays <= s.trialDays) return null;
+  // Los días se cuentan desde que eligió su prueba (perfiles nuevos) o desde
+  // el registro (perfiles anteriores a la elección). Si todavía no elige,
+  // contarían desde hoy.
+  const anchor = user.needsTrialChoice ? now : user.trialStartedAt ?? user.createdAt;
+  if (!anchor) return null;
+  return new Date(anchor.getTime() + s.cardTrialDays * DAY_MS);
+}
+
+/** Datos que se graban al elegir la prueba (con o sin tarjeta). */
+export function trialChoiceData(now = new Date(), s: BillingSettings = getBillingSettingsSync()) {
+  return {
+    needsTrialChoice: false,
+    trialStartedAt: now,
+    shopTrialEndsAt: new Date(now.getTime() + s.trialDays * DAY_MS),
+  };
+}
+
+/**
+ * ¿Este perfil nuevo tiene que elegir su prueba al crearse? Sí para
+ * profesionales, locales y tiendas con el cobro encendido, salvo que ya
+ * vengan con membresía pagada (Gold al registrarse).
+ */
+export function requiresTrialChoice(profileType: string, hasPaidMembership = false): boolean {
+  const s = getBillingSettingsSync();
+  return s.enabled && !hasPaidMembership && (PAID_PROFILE_TYPES as readonly string[]).includes(profileType);
 }
 
 /**
@@ -278,11 +312,17 @@ export function cardTrialEndsAt(
  * tarjeta. `bonusDays` es lo que gana por activar el PAC (0 si nada).
  */
 export function pacTrialDays(
-  user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt?: Date | null },
+  user: {
+    membershipExpiresAt: Date | null;
+    shopTrialEndsAt: Date | null;
+    createdAt?: Date | null;
+    trialStartedAt?: Date | null;
+    needsTrialChoice?: boolean;
+  },
   now = new Date()
 ): { trialDays: number; bonusDays: number; bonusEndsAt: Date | null } {
   const remaining = remainingAccessDays(user, now);
-  const end = cardTrialEndsAt(user);
+  const end = cardTrialEndsAt(user, getBillingSettingsSync(), now);
   const untilBonus = end && end.getTime() > now.getTime() ? Math.ceil((end.getTime() - now.getTime()) / DAY_MS) : 0;
   return {
     trialDays: Math.max(remaining, untilBonus),

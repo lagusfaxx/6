@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettingsSync, requiresTrialChoice } from "../lib/billingSettings";
 import { tierFromRate } from "../lib/professionalLevel";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
@@ -147,7 +147,9 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   // Gold pagado al registrarse: dura lo que diga el catálogo (plan Gold).
   const isGold = input.tier === "GOLD";
   const goldDays = isGold ? await getGoldPlanDays() : 0;
-  const shopTrialEndsAt = isGold ? null : addDays(now, getBillingSettingsSync().trialDays);
+  // Sin Gold pagado, la prueba parte cuando elige cómo empezarla (con o sin tarjeta).
+  const needsTrialChoice = requiresTrialChoice("PROFESSIONAL", isGold);
+  const shopTrialEndsAt = isGold || needsTrialChoice ? null : addDays(now, getBillingSettingsSync().trialDays);
   const membershipExpiresAt = isGold ? addDays(now, goldDays) : null;
 
   const passwordSetToken = crypto.randomBytes(32).toString("hex");
@@ -182,6 +184,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
         acceptsOutcalls: input.acceptsOutcalls ?? null,
         termsAcceptedAt: now,
         shopTrialEndsAt,
+        needsTrialChoice,
         subscriptionPrice: 2500,
         // El rango sale de la tarifa (ya no se vende); el Gold pagado al
         // registrarse sólo trae los días de membresía.

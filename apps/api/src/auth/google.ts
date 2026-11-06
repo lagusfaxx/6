@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettingsSync, requiresTrialChoice } from "../lib/billingSettings";
 import crypto from "crypto";
 import path from "path";
 import multer from "multer";
@@ -588,7 +588,9 @@ googleAuthRouter.post(
     }
 
     const username = await pickUniqueUsername(data.displayName);
-    const shopTrialEndsAt = addDays(new Date(), getBillingSettingsSync().trialDays);
+    // La prueba parte cuando elige cómo empezarla (con o sin tarjeta).
+    const needsTrialChoice = requiresTrialChoice("PROFESSIONAL");
+    const shopTrialEndsAt = needsTrialChoice ? null : addDays(new Date(), getBillingSettingsSync().trialDays);
 
     let user;
     try {
@@ -617,6 +619,7 @@ googleAuthRouter.post(
           birthdate: parsedBirthdate,
           termsAcceptedAt: new Date(),
           shopTrialEndsAt,
+          needsTrialChoice,
           subscriptionPrice: 2500,
           isOnline: true,
           lastSeen: new Date(),

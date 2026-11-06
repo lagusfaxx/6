@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Lock, LogOut } from "lucide-react";
+import { CreditCard, Loader2, Lock, LogOut } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import useMe from "../hooks/useMe";
 
@@ -22,7 +22,15 @@ export function isPlanLockAllowedPath(pathname: string) {
   return ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-type Access = { blocked: boolean; priceClp?: number; expiredAt?: string | null };
+type Access = {
+  blocked: boolean;
+  priceClp?: number;
+  expiredAt?: string | null;
+  /** Perfil nuevo que todavía no elige cómo empezar su prueba. */
+  needsTrialChoice?: boolean;
+  trialDays?: number;
+  cardTrialDays?: number;
+};
 
 export function usePlanLock(pathname: string) {
   const { me } = useMe();
@@ -46,7 +54,12 @@ export function usePlanLock(pathname: string) {
     };
   }, [applies, pathname]);
 
-  return { blocked: Boolean(applies && access?.blocked), access };
+  const refresh = () =>
+    apiFetch<Access>("/billing/access")
+      .then(setAccess)
+      .catch(() => undefined);
+
+  return { blocked: Boolean(applies && access?.blocked), access, refresh };
 }
 
 async function logout() {
@@ -55,6 +68,7 @@ async function logout() {
 }
 
 function reasonText(access: Access | null) {
+  if (access?.needsTrialChoice) return "Tu perfil está apagado hasta que elijas cómo empezar tu prueba gratis";
   if (access?.expiredAt) {
     const when = new Date(access.expiredAt).toLocaleDateString("es-CL", { day: "numeric", month: "long" });
     return `Tu plan venció el ${when}`;
@@ -103,7 +117,7 @@ export function PlanLockLayout({ access, children }: { access: Access | null; ch
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <p className="text-xs text-white/70">
             <Lock className="mr-1 inline h-3.5 w-3.5 text-fuchsia-300" />
-            {reasonText(access)}. Activa tu plan para volver a aparecer.
+            {reasonText(access)}{access?.needsTrialChoice ? "." : ". Activa tu plan para volver a aparecer."}
           </p>
           <button
             type="button"
@@ -115,6 +129,112 @@ export function PlanLockLayout({ access, children }: { access: Access | null; ch
         </div>
       </div>
       <main className="px-4 pb-10 pt-4">{children}</main>
+    </div>
+  );
+}
+
+/**
+ * Perfil recién creado: elige cómo empezar su prueba. La opción con tarjeta
+ * (más días) va destacada; sin tarjeta queda como alternativa. Mientras no
+ * elija, el perfil no se muestra y esta pantalla aparece cada vez que entra.
+ */
+export function TrialChoiceScreen({ access, onChosen }: { access: Access | null; onChosen: () => void }) {
+  const card = access?.cardTrialDays ?? 30;
+  const free = access?.trialDays ?? 14;
+  const price = access?.priceClp ? `$${access.priceClp.toLocaleString("es-CL")}` : null;
+  const hasBonus = card > free;
+  const [busy, setBusy] = useState<"card" | "free" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const withCard = async () => {
+    setError(null);
+    setBusy("card");
+    try {
+      const r = await apiFetch<{ url: string }>("/billing/subscription/register-card", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (r?.url) {
+        window.location.href = r.url;
+        return;
+      }
+      setError("No se pudo abrir el registro de tarjeta. Intenta de nuevo.");
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudo abrir el registro de tarjeta. Intenta de nuevo.");
+    }
+    setBusy(null);
+  };
+
+  const withoutCard = async () => {
+    setError(null);
+    setBusy("free");
+    try {
+      await apiFetch("/billing/trial/start-free", { method: "POST", body: JSON.stringify({}) });
+      onChosen();
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudo activar tu prueba. Intenta de nuevo.");
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="flex min-h-[100svh] w-full items-center justify-center px-4 py-10 text-white">
+      <div className="w-full max-w-md">
+        <div className="mb-5 text-center">
+          <h1 className="text-2xl font-bold">Tu perfil ya está creado</h1>
+          <p className="mt-2 text-sm text-white/60">
+            Lo estamos revisando. Para que aparezca en UZEED, elige cómo quieres empezar tu prueba gratis.
+          </p>
+        </div>
+
+        <div className="relative rounded-3xl border-2 border-fuchsia-500/60 bg-gradient-to-br from-violet-600/20 via-fuchsia-500/10 to-transparent p-5 shadow-[0_0_32px_rgba(217,70,239,0.18)]">
+          {hasBonus && (
+            <span className="absolute -top-3 left-5 rounded-full bg-fuchsia-500 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+              Recomendado
+            </span>
+          )}
+          <p className="text-3xl font-bold">{card} días gratis</p>
+          <p className="mt-1 text-sm font-medium text-fuchsia-200">Registrando tu tarjeta</p>
+          <ul className="mt-3 space-y-1.5 text-sm text-white/70">
+            <li>Hoy no se cobra nada.</li>
+            <li>
+              El primer cobro{price ? ` de ${price}` : ""} es el día {card} y después se renueva solo cada mes.
+            </li>
+            <li>Puedes cancelar cuando quieras desde tu cuenta.</li>
+          </ul>
+          <button
+            type="button"
+            onClick={withCard}
+            disabled={busy !== null}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-4 text-base font-semibold text-white transition hover:shadow-[0_0_24px_rgba(168,85,247,0.4)] disabled:opacity-60"
+          >
+            {busy === "card" ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
+            Registrar tarjeta y tener {card} días
+          </button>
+        </div>
+
+        {error && <p className="mt-3 text-center text-sm text-red-300">{error}</p>}
+
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={withoutCard}
+            disabled={busy !== null}
+            className="text-sm text-white/50 underline underline-offset-4 transition hover:text-white/80 disabled:opacity-60"
+          >
+            {busy === "free" ? "Activando…" : `Prefiero no dejar tarjeta: ${free} días gratis`}
+          </button>
+          {hasBonus && (
+            <p className="mt-1 text-xs text-white/35">Al terminar los {free} días tendrás que pagar a mano para seguir apareciendo.</p>
+          )}
+        </div>
+
+        <div className="mt-8 flex justify-center">
+          <button type="button" onClick={logout} className="inline-flex items-center gap-1 text-xs text-white/35 hover:text-white/70">
+            <LogOut className="h-3.5 w-3.5" /> Cerrar sesión
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettings, getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettings, getBillingSettingsSync, requiresTrialChoice } from "../lib/billingSettings";
 import argon2 from "argon2";
 import crypto from "crypto";
 import multer from "multer";
@@ -239,7 +239,10 @@ authRouter.post(
       profileType,
     );
     const trialDays = requiresPayment ? getBillingSettingsSync().trialDays : 90;
-    const shopTrialEndsAt = requiresPayment
+    // Con el cobro encendido, la prueba parte cuando elige cómo empezarla
+    // (con tarjeta o sin tarjeta); hasta entonces el perfil queda apagado.
+    const needsTrialChoice = requiresTrialChoice(profileType);
+    const shopTrialEndsAt = requiresPayment && !needsTrialChoice
       ? addDays(new Date(), trialDays)
       : null;
 
@@ -392,6 +395,7 @@ authRouter.post(
           bio: bio || null,
           birthdate: safeBirthdate,
           shopTrialEndsAt,
+          needsTrialChoice,
           subscriptionPrice:
             profileType === "CREATOR" || profileType === "PROFESSIONAL"
               ? 2500

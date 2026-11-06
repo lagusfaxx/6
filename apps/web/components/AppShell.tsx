@@ -13,7 +13,7 @@ import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
-import { PlanLockLayout, PlanLockScreen, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
+import { PlanLockLayout, PlanLockScreen, TrialChoiceScreen, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -97,6 +97,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <ScrollToTop />
         {isPlanLockAllowedPath(pathname) ? (
           <PlanLockLayout access={planLock.access}>{children}</PlanLockLayout>
+        ) : planLock.access?.needsTrialChoice ? (
+          <TrialChoiceScreen access={planLock.access} onChosen={planLock.refresh} />
         ) : (
           <PlanLockScreen access={planLock.access} />
         )}

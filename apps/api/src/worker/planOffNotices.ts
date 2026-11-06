@@ -105,6 +105,8 @@ export async function tickPlanOffNotices() {
       adminManaged: false,
       // Sólo perfiles que estuvieron publicados (no los que nunca se aprobaron).
       isActive: true,
+      // Los que todavía no eligen su prueba reciben los avisos de abajo.
+      needsTrialChoice: false,
       AND: [
         { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
         { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
@@ -199,4 +201,81 @@ export async function tickPlanOffNotices() {
   }
 
   if (sent) console.log(`[worker] plan off notices sent: ${sent} (whatsapp: ${whatsapps})`);
+
+  await tickTrialChoiceNotices(s.trialDays, Math.max(s.cardTrialDays, s.trialDays), price, canEmail, canWhatsApp);
+}
+
+/*
+ * Perfil creado que no eligió cómo empezar su prueba (con tarjeta o sin
+ * tarjeta): está apagado. Dos recordatorios, al día siguiente del registro y
+ * 3 días después del primero. La app igual se lo pide cada vez que entra.
+ */
+async function tickTrialChoiceNotices(
+  trialDays: number,
+  cardTrialDays: number,
+  price: string,
+  canEmail: boolean,
+  canWhatsApp: boolean,
+) {
+  const now = new Date();
+  const users = await prisma.user.findMany({
+    where: {
+      profileType: { in: [...PAID_PROFILE_TYPES] },
+      role: "USER",
+      adminManaged: false,
+      needsTrialChoice: true,
+      createdAt: { lte: new Date(now.getTime() - DAY), gte: new Date(now.getTime() - MAX_AGE_DAYS * DAY) },
+    },
+    select: { id: true, email: true, phone: true, displayName: true, username: true },
+    orderBy: { createdAt: "desc" },
+    take: MAX_PER_TICK,
+  });
+  const url = `${config.appUrl.replace(/\/$/, "")}/pago`;
+  const bonus = cardTrialDays > trialDays;
+
+  for (const u of users) {
+    const logs = await prisma.reminderLog.findMany({
+      where: { userId: u.id, type: { in: ["trial_choice_1", "trial_choice_2"] } },
+      select: { type: true, createdAt: true },
+    });
+    const first = logs.find((l) => l.type === "trial_choice_1");
+    const second = logs.find((l) => l.type === "trial_choice_2");
+    const step = !first ? 1 : !second && now.getTime() - first.createdAt.getTime() >= 3 * DAY ? 2 : null;
+    if (!step) continue;
+    await prisma.reminderLog.create({ data: { userId: u.id, type: `trial_choice_${step}` } }).catch(() => null);
+
+    const name = firstName(u.displayName, u.username);
+    const offer = bonus
+      ? `Con tarjeta tienes ${cardTrialDays} días gratis (hoy no se cobra nada) y sin tarjeta ${trialDays}.`
+      : `Tienes ${trialDays} días gratis.`;
+    const title = step === 1 ? "Activa tu perfil" : "Tu perfil sigue apagado";
+    const body = `Tu perfil ya está creado, pero no aparece hasta que elijas cómo empezar tu prueba gratis. ${offer}`;
+
+    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: "/pago", tag: `trial_choice_${step}` }).catch(
+      () => undefined,
+    );
+    if (canEmail && u.email) {
+      await sendBillingNoticeEmail(u.email, {
+        subject: step === 1 ? "Falta un paso para que tu perfil aparezca en UZEED" : "Tu perfil en UZEED sigue apagado",
+        text: [
+          `Hola ${name}:`,
+          "Tu perfil ya está creado, pero no aparece en UZEED hasta que elijas cómo empezar tu prueba gratis.",
+          bonus
+            ? `Si registras tu tarjeta tienes ${cardTrialDays} días gratis. Hoy no se cobra nada: el primer cobro de ${price} es al terminar la prueba y puedes cancelar antes. Si prefieres no dejar tarjeta, tienes ${trialDays} días gratis.`
+            : `Tienes ${trialDays} días gratis.`,
+          `Elige acá: ${url}`,
+        ].join("\n\n"),
+      }).catch(() => undefined);
+    }
+    if (step === 1 && canWhatsApp && normalizePhoneForWhatsApp(u.phone)) {
+      const info = bonus
+        ? `tu perfil ya está creado pero no aparece hasta que elijas tu prueba gratis: ${cardTrialDays} días con tarjeta o ${trialDays} sin tarjeta. Elige en uzeed.cl/pago`
+        : `tu perfil ya está creado pero no aparece hasta que actives tu prueba gratis en uzeed.cl/pago`;
+      const result = await sendWhatsAppNotification(u.phone!, name, info).catch((err: any) => ({
+        ok: false,
+        error: String(err?.message || err),
+      }));
+      await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: "TRIAL_CHOICE_1", result });
+    }
+  }
 }

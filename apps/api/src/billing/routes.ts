@@ -18,6 +18,7 @@ import {
   getPacTrial,
   userHasActivePlan,
   PAID_PROFILE_TYPES,
+  trialChoiceData,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
@@ -287,15 +288,33 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { profileType: true, role: true, adminManaged: true, membershipExpiresAt: true, flowSubscriptionId: true },
+    select: {
+      profileType: true, role: true, adminManaged: true, membershipExpiresAt: true, flowSubscriptionId: true,
+      needsTrialChoice: true,
+    },
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
   const paid = (PAID_PROFILE_TYPES as readonly string[]).includes(user.profileType);
   if (!paid || user.role !== "USER" || user.adminManaged) return res.json({ blocked: false });
 
-  const blocked = !(await userHasActivePlan(userId));
   const billing = await getBillingSettings();
+  // Perfil nuevo sin elegir su prueba: la app le pide elegir (con tarjeta o
+  // sin tarjeta) y el perfil queda apagado hasta entonces.
+  // (Si igual pagó un mes, por ejemplo con pago único, ya no hay nada que elegir.)
+  const hasMembership = Boolean(user.membershipExpiresAt && user.membershipExpiresAt.getTime() > Date.now());
+  if (billing.enabled && user.needsTrialChoice && !hasMembership) {
+    return res.json({
+      blocked: true,
+      needsTrialChoice: true,
+      priceClp: billing.priceClp,
+      trialDays: billing.trialDays,
+      cardTrialDays: Math.max(billing.cardTrialDays, billing.trialDays),
+      expiredAt: null,
+    });
+  }
+
+  const blocked = !(await userHasActivePlan(userId));
   // "Tu plan venció el …" sólo si alguna vez pagó; si no (p. ej. la tarjeta
   // falló al terminar la prueba con PAC), es una prueba que terminó.
   let paidBefore = false;
@@ -311,6 +330,19 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
     priceClp: billing.priceClp,
     expiredAt: paidBefore ? user.membershipExpiresAt?.toISOString() ?? null : null,
   });
+}));
+
+// Perfil nuevo que elige empezar la prueba sin tarjeta (la corta).
+billingRouter.post("/billing/trial/start-free", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const billing = await getBillingSettings();
+  const updated = await prisma.user.updateMany({
+    where: { id: userId, needsTrialChoice: true },
+    data: trialChoiceData(new Date(), billing),
+  });
+  if (!updated.count) return res.json({ ok: true, alreadyChosen: true });
+  console.log("[billing] trial started without card", { userId, trialDays: billing.trialDays });
+  return res.json({ ok: true, trialDays: billing.trialDays });
 }));
 
 billingRouter.get("/billing/transfer-info", requireAuth, asyncHandler(async (_req, res) => {
@@ -661,10 +693,15 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     where: { id: userId },
     select: {
       id: true, profileType: true, flowCustomerId: true, flowSubscriptionId: true,
-      membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true
+      membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true,
+      needsTrialChoice: true, trialStartedAt: true,
     }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+  // Si es la elección de prueba de un perfil nuevo, los días se calculan como
+  // si ya hubiera elegido hoy; se graba recién cuando Flow crea la suscripción.
+  const choice = user.needsTrialChoice ? trialChoiceData() : null;
+  const effectiveUser = choice ? { ...user, ...choice } : user;
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
     return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
@@ -692,7 +729,7 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
   // gracia o mes pagado) o, si es más tarde, cuando se cumple la prueba con
   // tarjeta (`cardTrialDays` desde el registro): no se cobra dos veces el mismo
   // periodo y el bono por activar el PAC se da una sola vez.
-  const { trialDays, bonusDays } = pacTrialDays(user);
+  const { trialDays, bonusDays } = pacTrialDays(effectiveUser);
 
   let subscription;
   try {
@@ -708,6 +745,12 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
       return res.status(400).json({ error: "CARD_NOT_REGISTERED", message: "Tu tarjeta ya no está registrada. Debes registrarla nuevamente." });
     }
     throw err;
+  }
+
+  // Eligió la prueba con tarjeta: parte hoy (y si después cancela el PAC,
+  // le queda la prueba sin tarjeta contada desde hoy).
+  if (choice) {
+    await prisma.user.update({ where: { id: userId }, data: choice });
   }
 
   // Check subscription status from Flow to determine activation
@@ -839,7 +882,9 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       shopTrialEndsAt: true,
       flowCustomerId: true,
       flowSubscriptionId: true,
-      createdAt: true
+      createdAt: true,
+      needsTrialChoice: true,
+      trialStartedAt: true,
     }
   });
 
@@ -992,6 +1037,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     flowSubscriptionStatus,
     flowCardType,
     flowCardLast4,
+    needsTrialChoice: user.needsTrialChoice,
     // Bono por activar el PAC: días extra de prueba que gana hoy si registra
     // la tarjeta (0 si ya no le suma nada) y hasta cuándo quedaría.
     cardTrial: (() => {
