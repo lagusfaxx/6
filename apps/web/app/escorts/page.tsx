@@ -85,7 +85,10 @@ export default async function EscortsPage() {
             ...TAG_LANDINGS.map((l) => ({ href: tagLandingHref(l.slug), label: l.name })),
             // Todas las ciudades: Las Condes, Ñuñoa o Maipú tenían un solo
             // enlace interno (Semrush "Pages with only one internal link").
-            ...CITY_LANDINGS.map((c) => ({ href: `/escorts/${c.slug}`, label: `Escorts en ${c.name}` })),
+            ...CITY_LANDINGS.map((c) => ({
+              href: `/escorts/${c.slug}`,
+              label: c.slug === "santiago" ? "Escort Santiago" : `Escorts en ${c.name}`,
+            })),
           ].map((l) => (
             <li key={l.href}>
               <Link

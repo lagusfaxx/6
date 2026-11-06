@@ -87,3 +87,31 @@ export function getCity(slug: string): CityGeo | undefined {
 export function isCitySlug(slug: string): boolean {
   return CITY_BY_SLUG.has(slug.toLowerCase());
 }
+
+const RM = "Región Metropolitana";
+
+function normalizeName(value?: string | null) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+const CITY_BY_NAME = new Map(CITY_LANDINGS.map((c) => [normalizeName(c.name), c]));
+
+/** Landing /escorts/{slug} que corresponde a la ciudad escrita en un perfil (ej. "La Florida"). */
+export function cityLandingForPlace(place?: string | null): CityGeo | undefined {
+  const key = normalizeName(place);
+  if (!key) return undefined;
+  return CITY_BY_NAME.get(key) || CITY_BY_SLUG.get(key.replace(/ /g, "-"));
+}
+
+/** ¿La landing es una comuna del Gran Santiago (sin contar Santiago mismo)? */
+export function isSantiagoComuna(city: CityGeo): boolean {
+  return city.region === RM && city.slug !== "santiago";
+}
+
+/** Comunas del Gran Santiago con landing propia, para enlazarlas desde /escorts/santiago. */
+export const SANTIAGO_COMUNAS: CityGeo[] = CITY_LANDINGS.filter(isSantiagoComuna);

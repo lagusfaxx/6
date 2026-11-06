@@ -145,7 +145,7 @@ export default async function HomePage() {
                 href={`/escorts/${city.slug}`}
                 className="inline-block rounded-lg border border-white/[0.08] px-2.5 py-1 text-[13px] text-white/55 transition hover:border-fuchsia-500/30 hover:text-fuchsia-300"
               >
-                Escorts en {city.name}
+                {city.slug === "santiago" ? "Escort Santiago" : `Escorts en ${city.name}`}
               </Link>
             </li>
           ))}

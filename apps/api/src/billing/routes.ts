@@ -10,6 +10,14 @@ import {
   membershipRenewalBase,
   isBillingEnforced,
   remainingAccessDays,
+  pacTrialDays,
+  cardTrialEndsAt,
+  hasPacCharge,
+  markPacCharge,
+  markPacTrial,
+  getPacTrial,
+  userHasActivePlan,
+  PAID_PROFILE_TYPES,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
@@ -270,6 +278,41 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 }));
 
 // ── Datos para pagar por transferencia (comprobante por WhatsApp) ─────────────
+// ── ¿La app está bloqueada por falta de pago? ───────────────────────────────
+// La consulta la web en cada cambio de página de una profesional, así que no
+// llama a Flow: usa el mismo filtro que oculta el perfil del sitio. Si el
+// perfil no se muestra por falta de plan, la cuenta queda bloqueada y lo único
+// que puede hacer en la app es pagar.
+billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { profileType: true, role: true, adminManaged: true, membershipExpiresAt: true, flowSubscriptionId: true },
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  const paid = (PAID_PROFILE_TYPES as readonly string[]).includes(user.profileType);
+  if (!paid || user.role !== "USER" || user.adminManaged) return res.json({ blocked: false });
+
+  const blocked = !(await userHasActivePlan(userId));
+  const billing = await getBillingSettings();
+  // "Tu plan venció el …" sólo si alguna vez pagó; si no (p. ej. la tarjeta
+  // falló al terminar la prueba con PAC), es una prueba que terminó.
+  let paidBefore = false;
+  if (blocked && user.membershipExpiresAt) {
+    paidBefore =
+      (await prisma.paymentIntent.count({
+        where: { subscriberId: userId, purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] }, status: "PAID" },
+      })) > 0 ||
+      (user.flowSubscriptionId ? await hasPacCharge(userId, user.flowSubscriptionId) : false);
+  }
+  return res.json({
+    blocked,
+    priceClp: billing.priceClp,
+    expiredAt: paidBefore ? user.membershipExpiresAt?.toISOString() ?? null : null,
+  });
+}));
+
 billingRouter.get("/billing/transfer-info", requireAuth, asyncHandler(async (_req, res) => {
   const [billing, market] = await Promise.all([getBillingSettings(), getMarketSettings()]);
   // Misma cuenta de UZEED que usa el marketplace para las transferencias.
@@ -315,6 +358,7 @@ function serializeSettings(s: Awaited<ReturnType<typeof getBillingSettings>>) {
     priceClp: s.priceClp,
     graceDays: s.graceDays,
     trialDays: s.trialDays,
+    cardTrialDays: s.cardTrialDays,
     graceEndsAt: grace?.toISOString() ?? null,
     enforced: isBillingEnforced(s),
     flowPlanId: s.flowPlanPriceClp === s.priceClp ? s.flowPlanId : null,
@@ -358,6 +402,11 @@ billingRouter.put("/admin/billing/settings", requireAdmin, asyncHandler(async (r
     const n = Number(body.trialDays);
     if (!Number.isInteger(n) || n < 0 || n > 365) return bad("Los días de prueba deben estar entre 0 y 365.");
     patch.trialDays = n;
+  }
+  if (body.cardTrialDays !== undefined) {
+    const n = Number(body.cardTrialDays);
+    if (!Number.isInteger(n) || n < 0 || n > 365) return bad("Los días de prueba con tarjeta deben estar entre 0 y 365.");
+    patch.cardTrialDays = n;
   }
 
   const before = await getBillingSettings(true);
@@ -640,9 +689,10 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
   // Plan de Flow con la tarifa vigente (se crea si cambió el precio).
   const planId = await ensureFlowPlanForPrice(billing.priceClp);
   // El primer cargo llega cuando se acaba el acceso que ya tiene (prueba,
-  // gracia o mes pagado): no se cobra dos veces el mismo periodo ni se regalan
-  // días de más.
-  const trialDays = remainingAccessDays(user);
+  // gracia o mes pagado) o, si es más tarde, cuando se cumple la prueba con
+  // tarjeta (`cardTrialDays` desde el registro): no se cobra dos veces el mismo
+  // periodo y el bono por activar el PAC se da una sola vez.
+  const { trialDays, bonusDays } = pacTrialDays(user);
 
   let subscription;
   try {
@@ -680,8 +730,16 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
   }
 
   const now = new Date();
+  // Si Flow no devuelve `trial_end`, el acceso igual dura los días de prueba
+  // que le pasamos: sin esto, quien activa el PAC con bono perdería la
+  // visibilidad al terminar la prueba normal aunque Flow cobre más adelante.
+  if (!trialEnd && trialDays > 0) {
+    trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+  }
 
-  if (flowSubStatus === 1) {
+  // Si le pedimos días de prueba a Flow, no cobró nada todavía aunque informe
+  // la suscripción como activa: no se da el mes ni se marca como cobrada.
+  if (flowSubStatus === 1 && trialDays === 0) {
     // Status 1 = active: Flow already charged successfully.
     // Safe to activate full membership period.
     await prisma.$transaction(async (tx) => {
@@ -707,10 +765,11 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
           data: { subscriptionId: subscription.subscriptionId, source: "flow_pac_charged" }
         }
       });
+      await markPacCharge(userId, subscription.subscriptionId, tx);
     });
 
     console.log("[billing] Flow PAC subscription active (charged) — full membership activated", { userId, subscriptionId: subscription.subscriptionId });
-  } else if (flowSubStatus === 0 && trialEnd) {
+  } else if (trialEnd && flowSubStatus !== 3 && flowSubStatus !== 4) {
     // Status 0 with trial: subscription in trial period.
     // Only grant access until trial ends — full membership activates via webhook
     // when Flow successfully charges after trial.
@@ -738,12 +797,22 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
         data: {
           userId,
           type: "SUBSCRIPTION_RENEWED",
-          data: { subscriptionId: subscription.subscriptionId, source: "flow_pac_trial", trialEnd: trialEnd!.toISOString() }
+          data: {
+            subscriptionId: subscription.subscriptionId,
+            source: "flow_pac_trial",
+            trialEnd: trialEnd!.toISOString(),
+            bonusDays,
+            previousExpiry: current?.membershipExpiresAt?.toISOString() ?? null,
+          }
         }
       });
+      // Para deshacer el bono si cancela antes del primer cobro.
+      if (bonusDays > 0) {
+        await markPacTrial(userId, subscription.subscriptionId, bonusDays, current?.membershipExpiresAt ?? null, tx);
+      }
     });
 
-    console.log("[billing] Flow PAC subscription in trial — access until trial end", { userId, subscriptionId: subscription.subscriptionId, trialEnd: trialEnd.toISOString() });
+    console.log("[billing] Flow PAC subscription in trial — access until trial end", { userId, subscriptionId: subscription.subscriptionId, trialEnd: trialEnd.toISOString(), bonusDays });
   } else {
     // Status 0 without trial, or status 2/3/4 — just save subscription ID.
     // Full activation happens when Flow webhook confirms payment.
@@ -755,7 +824,7 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     console.log("[billing] Flow PAC subscription created — waiting for webhook confirmation", { userId, subscriptionId: subscription.subscriptionId, flowSubStatus });
   }
 
-  return res.json({ subscriptionId: subscription.subscriptionId, subscription });
+  return res.json({ subscriptionId: subscription.subscriptionId, subscription, trialDays, bonusDays });
 }));
 
 // Get subscription status for current user
@@ -825,7 +894,11 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       status: "PAID",
     },
   });
-  const isLegacyTrial = membershipActive && !trialActive && hasPaidPayment === 0;
+  // Con el PAC en prueba (tarjeta registrada, Flow todavía no cobra) la
+  // membresía llega hasta el primer cobro, pero sigue siendo prueba.
+  const pacInTrial = membershipActive && hasPaidPayment === 0 && Boolean(user.flowSubscriptionId)
+    && !(await hasPacCharge(userId, user.flowSubscriptionId!));
+  const isLegacyTrial = (membershipActive && !trialActive && hasPaidPayment === 0) || pacInTrial;
   const effectiveTrialActive = trialActive || isLegacyTrial;
   const effectiveMembershipActive = isLegacyTrial ? false : membershipActive;
   // Además de membresía y prueba, cuenta la gracia general que se da al
@@ -919,6 +992,19 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     flowSubscriptionStatus,
     flowCardType,
     flowCardLast4,
+    // Bono por activar el PAC: días extra de prueba que gana hoy si registra
+    // la tarjeta (0 si ya no le suma nada) y hasta cuándo quedaría.
+    cardTrial: (() => {
+      const end = cardTrialEndsAt(user);
+      const { bonusDays, bonusEndsAt } = pacTrialDays(user, now);
+      return {
+        days: billing.cardTrialDays > billing.trialDays ? billing.cardTrialDays : 0,
+        trialDays: billing.trialDays,
+        endsAt: end?.toISOString() ?? null,
+        bonusDays: flowSubscriptionStatus === "active" ? 0 : bonusDays,
+        bonusEndsAt: flowSubscriptionStatus === "active" ? null : bonusEndsAt?.toISOString() ?? null,
+      };
+    })(),
   });
 }));
 
@@ -935,9 +1021,18 @@ billingRouter.post("/billing/subscription/cancel", requireAuth, asyncHandler(asy
     return res.status(400).json({ error: "NO_SUBSCRIPTION", message: "No tienes una suscripción activa para cancelar" });
   }
 
+  // Si cancela antes del primer cobro, pierde el bono de prueba por tarjeta:
+  // vuelve a la prueba normal (o a la membresía que tenía antes de activar).
+  // Así no se puede registrar la tarjeta, cancelar al tiro y quedarse con los
+  // días extra. En ese caso se cancela de inmediato en Flow (no hay nada pagado
+  // que conservar): así puede volver a activarlo y la app no lo muestra activo.
+  const subscriptionId = user.flowSubscriptionId;
+  const pacTrial = await getPacTrial(userId, subscriptionId);
+  const removeBonus = Boolean(pacTrial && pacTrial.bonusDays > 0 && !(await hasPacCharge(userId, subscriptionId)));
+
   try {
     // Cancel at period end so the user keeps access until expiry
-    await cancelFlowSubscription(user.flowSubscriptionId, true);
+    await cancelFlowSubscription(user.flowSubscriptionId, !removeBonus);
   } catch (err: any) {
     // If already canceled or not found, treat as success (idempotent)
     const errMsg = err?.message || "";
@@ -949,6 +1044,17 @@ billingRouter.post("/billing/subscription/cancel", requireAuth, asyncHandler(asy
     console.log("[billing] subscription already canceled (idempotent)", { userId, subscriptionId: user.flowSubscriptionId });
   }
 
-  console.log("[billing] subscription canceled", { userId, subscriptionId: user.flowSubscriptionId });
+  if (removeBonus) {
+    const previous = pacTrial!.previousExpiry;
+    await prisma.user.update({ where: { id: userId }, data: { membershipExpiresAt: previous, flowSubscriptionId: null } });
+    console.log("[billing] PAC canceled during card trial — bonus removed", { userId, subscriptionId, restoredExpiry: previous?.toISOString() ?? null });
+    return res.json({
+      ok: true,
+      bonusRemoved: true,
+      message: "Listo, cancelaste el pago automático y no se te cobró nada. Como fue antes del primer cobro, vuelves a tu prueba normal.",
+    });
+  }
+
+  console.log("[billing] subscription canceled", { userId, subscriptionId });
   return res.json({ ok: true, message: "Tu suscripción se canceló. Mantendrás acceso hasta el fin del periodo actual." });
 }));

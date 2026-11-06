@@ -14,6 +14,7 @@ function TarjetaRegistradaContent() {
   const [status, setStatus] = useState<"loading" | "activating" | "done" | "pending" | "rejected" | "error">("loading");
   const [cardInfo, setCardInfo] = useState<{ type?: string; last4?: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [trialInfo, setTrialInfo] = useState<{ trialDays: number; bonusDays: number } | null>(null);
 
   useEffect(() => {
     if (!token) { setStatus("error"); return; }
@@ -36,7 +37,11 @@ function TarjetaRegistradaContent() {
 
         // Step 2: Auto-create subscription immediately
         try {
-          await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+          const r = await apiFetch<{ trialDays?: number; bonusDays?: number }>("/billing/subscription/start", {
+            method: "POST",
+            body: JSON.stringify({}),
+          });
+          setTrialInfo({ trialDays: r?.trialDays ?? 0, bonusDays: r?.bonusDays ?? 0 });
           setStatus("done");
         } catch (err: any) {
           console.error("[tarjeta-registrada] subscription start error", err);
@@ -78,9 +83,21 @@ function TarjetaRegistradaContent() {
                 ? `${cardInfo.type} terminada en ${cardInfo.last4}`
                 : "Tu tarjeta fue registrada exitosamente."}
             </p>
-            <p className="mt-1 text-sm text-white/50">
-              Tu plan se renovara automaticamente cada mes. No necesitas hacer nada mas.
-            </p>
+            {trialInfo && trialInfo.trialDays > 0 ? (
+              <p className="mt-1 text-sm text-white/50">
+                {trialInfo.bonusDays > 0 ? `Listo, tienes ${trialInfo.bonusDays} días más gratis. ` : ""}
+                Te cobramos el{" "}
+                {new Date(Date.now() + trialInfo.trialDays * 24 * 60 * 60 * 1000).toLocaleDateString("es-CL", {
+                  day: "numeric",
+                  month: "long",
+                })}{" "}
+                y después cada mes, sin que tengas que hacer nada.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-white/50">
+                Tu plan se renovara automaticamente cada mes. No necesitas hacer nada mas.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2 pt-2">
             <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white hover:shadow-[0_0_20px_rgba(168,85,247,0.35)] transition">

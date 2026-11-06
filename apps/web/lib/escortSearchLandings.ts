@@ -1,3 +1,4 @@
+import { SANTIAGO_COMUNAS } from "./cities";
 /**
  * Contenido SEO del lado DEMANDA para /escorts/[tag] y /escorts/[ciudad].
  *
@@ -437,10 +438,18 @@ export type CitySeoCopy = Omit<SeoCopy, "title" | "description"> & {
 
 export const CITY_SEO: Record<string, CitySeoCopy> = {
   santiago: {
+    /* "escort santiago" (110k) es la búsqueda más grande y la página estaba
+       en la posición ~30 con el título de plantilla ("Escorts en Santiago -
+       Verificadas Hoy"). El título parte con la búsqueda exacta y conserva
+       "Verificadas Hoy", que es con lo que rankea para "escort verificada(s)"
+       en el top 10. */
+    title: "Escort Santiago: Escorts y Putas Verificadas Hoy",
+    description:
+      "Escort Santiago con fotos reales y perfiles verificados en Santiago Centro, Providencia, Las Condes y Ñuñoa. Mira tarifas y escríbeles directo por WhatsApp.",
     keywords: ["escort santiago", "escorts santiago", "putas santiago", "escort santiago centro", "escorts en santiago de chile"],
     h1: "Escorts en Santiago de Chile",
     paragraphs: [
-      "Directorio de escorts verificadas en Santiago con fotos reales, tarifa, horario y contacto directo por WhatsApp. Las que están conectadas o disponibles hoy aparecen primero.",
+      "¿Buscas escort en Santiago? Acá están las escorts verificadas de Santiago con fotos reales, tarifa, horario y contacto directo por WhatsApp. Las que están conectadas o disponibles hoy aparecen primero.",
       "Las zonas con más perfiles son Santiago Centro (Plaza de Armas, metro Santa Lucía, Toesca y Baquedano), Providencia (Los Leones, Tobalaba, Parque Bustamante) y Las Condes (Manquehue, El Golf). Cada ficha dice si recibe en su departamento o atiende a domicilio y en hoteles.",
       "¿Buscas algo específico? Revisa las escorts a domicilio, maduras o las que atienden en tu comuna desde los enlaces de abajo.",
     ],
@@ -460,11 +469,10 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
         answer: `Sí: identidad y fotos reales. ${ADULTS_ONLY}`,
       },
     ],
+    /* Santiago es el centro del grupo: enlaza a todas las comunas del Gran
+       Santiago con página propia (y cada una vuelve a Santiago). */
     related: [
-      { href: "/escorts/santiago-centro", label: "Escorts en Santiago Centro" },
-      { href: "/escorts/las-condes", label: "Escorts en Las Condes" },
-      { href: "/escorts/providencia", label: "Escorts en Providencia" },
-      { href: "/escorts/nunoa", label: "Escorts en Ñuñoa" },
+      ...SANTIAGO_COMUNAS.map((c) => ({ href: `/escorts/${c.slug}`, label: `Escort ${c.name}` })),
       { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
       { href: "/escorts/maduras", label: "Escorts maduras" },
     ],

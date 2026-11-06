@@ -34,6 +34,7 @@ export default function PagoPage() {
   const [pacError, setPacError] = useState<string | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelDone, setCancelDone] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState<string | null>(null);
 
   // Flow payment state
   const [flowBusy, setFlowBusy] = useState(false);
@@ -55,6 +56,11 @@ export default function PagoPage() {
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
   const isTrialPeriod = sub?.trialActive && !sub?.membershipActive;
+  // Bono por registrar la tarjeta: días extra de prueba y fecha del primer cobro.
+  const cardBonusDays = sub?.cardTrial?.bonusDays ?? 0;
+  const cardBonusEnds = sub?.cardTrial?.bonusEndsAt
+    ? new Date(sub.cardTrial.bonusEndsAt).toLocaleDateString("es-CL", { day: "numeric", month: "long" })
+    : null;
 
   // ── PAC: Step 1 — Register card (redirects to Flow) ──────────────
   const handleStartPAC = async () => {
@@ -81,7 +87,8 @@ export default function PagoPage() {
   const handleCancelPAC = async () => {
     setCancelBusy(true);
     try {
-      await apiFetch("/billing/subscription/cancel", { method: "POST" });
+      const r = await apiFetch<{ message?: string }>("/billing/subscription/cancel", { method: "POST" });
+      setCancelMsg(r?.message || null);
       setCancelDone(true);
       refetchSub();
     } catch (err: any) {
@@ -223,7 +230,9 @@ export default function PagoPage() {
 
       {cancelDone && (
         <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
-          <p className="text-sm text-amber-300">Suscripción cancelada. Mantendrás acceso hasta el fin del periodo actual.</p>
+          <p className="text-sm text-amber-300">
+            {cancelMsg || "Suscripción cancelada. Mantendrás acceso hasta el fin del periodo actual."}
+          </p>
         </div>
       )}
 
@@ -282,6 +291,18 @@ export default function PagoPage() {
                 </p>
               </div>
 
+              {cardBonusDays > 0 && cardBonusEnds && (
+                <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3">
+                  <p className="text-sm font-semibold text-emerald-300">
+                    Te regalamos {cardBonusDays} días más
+                  </p>
+                  <p className="mt-1 text-xs text-white/55">
+                    Registra tu tarjeta y tu perfil sigue gratis hasta el {cardBonusEnds}. El primer cobro de $
+                    {price.toLocaleString("es-CL")} es ese día. Si cancelas antes, no pagas nada y vuelves a tu prueba normal.
+                  </p>
+                </div>
+              )}
+
               <div className="rounded-2xl border border-fuchsia-500/10 bg-fuchsia-500/[0.04] p-3 space-y-2">
                 <div className="flex items-center gap-2 text-xs text-fuchsia-300">
                   <CheckCircle className="h-3.5 w-3.5 shrink-0" />
@@ -312,7 +333,11 @@ export default function PagoPage() {
                 {pacBusy ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Redirigiendo a Flow...</>
                 ) : (
-                  <><CreditCard className="h-4 w-4" /> Registrar tarjeta y activar PAC — ${price.toLocaleString("es-CL")}/mes</>
+                  <><CreditCard className="h-4 w-4" />{" "}
+                    {cardBonusDays > 0
+                      ? `Registrar tarjeta (+${cardBonusDays} días gratis)`
+                      : `Registrar tarjeta y activar PAC — $${price.toLocaleString("es-CL")}/mes`}
+                  </>
                 )}
               </button>
             </div>

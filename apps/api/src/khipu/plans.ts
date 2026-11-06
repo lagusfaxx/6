@@ -6,7 +6,7 @@ import { config } from "../config";
 import { prisma } from "../db";
 import { confirmOrderPaid, rejectOrderPayment } from "../market/orders";
 import { applyPromoPurchase, invalidateBoostCache } from "../lib/promo";
-import { membershipRenewalBase } from "../lib/billingSettings";
+import { membershipRenewalBase, markPacCharge, flowTrialRunning } from "../lib/billingSettings";
 import {
   createProfessionalUser,
   EmailInUseError,
@@ -403,6 +403,12 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       return res.status(200).send("OK");
     }
 
+    // Con la prueba corriendo (p. ej. el bono por tarjeta) no hubo cobro.
+    if (flowTrialRunning(subData)) {
+      console.log("[flow] subscription webhook (token): trial still running, not extending", { subId, trialEnd: subData.trial_end });
+      return res.status(200).send("OK");
+    }
+
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       const current = await tx.user.findUnique({ where: { id: user.id }, select: { membershipExpiresAt: true } });
@@ -412,6 +418,7 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       await tx.notification.create({
         data: { userId: user.id, type: "SUBSCRIPTION_RENEWED", data: { subscriptionId: subId, source: "flow_subscription_token" } }
       });
+      await markPacCharge(user.id, subId, tx);
     });
 
     console.log("[flow] membership extended via subscription webhook (token)", { userId: user.id, subId });
@@ -475,6 +482,18 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false });
   }
 
+  // Con la prueba corriendo (p. ej. el bono por tarjeta) Flow no cobró nada:
+  // no se suma un mes. Si no se puede consultar a Flow, se sigue como antes.
+  try {
+    const subData = await getFlowSubscription(subscriptionId);
+    if (flowTrialRunning(subData)) {
+      console.log("[flow] webhook: trial still running, not extending", { subscriptionId, trialEnd: subData.trial_end });
+      return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false, trial: true });
+    }
+  } catch (err: any) {
+    console.error("[flow] webhook: could not check trial, continuing", { subscriptionId, error: err?.message });
+  }
+
   // For PAC (recurring): Flow sends this webhook each billing cycle, so we must
   // ALWAYS extend the membership, even if it's currently active.
   const now = new Date();
@@ -499,6 +518,7 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
         data: { subscriptionId, source: "flow_subscription", previousExpiry: current?.membershipExpiresAt?.toISOString() || null }
       }
     });
+    await markPacCharge(user.id, subscriptionId, tx);
 
     return { extended: true, previousExpiry: current?.membershipExpiresAt, newExpiry: expiresAt };
   });
