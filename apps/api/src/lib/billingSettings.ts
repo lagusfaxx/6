@@ -291,14 +291,89 @@ export function pacTrialDays(
   };
 }
 
-/** Fuentes de notificación que significan "Flow cobró esta suscripción". */
+/*
+ * Registro del PAC. Va en ReminderLog y no en las notificaciones porque la
+ * usuaria puede borrar todas sus notificaciones desde la app: con eso podía
+ * hacer desaparecer la marca de "prueba con bono" y quedarse con los días al
+ * cancelar, o la de "ya cobrado" y cortar sus renovaciones.
+ */
+type Db = Pick<typeof prisma, "reminderLog">;
+
+const PAC_CHARGED = (subscriptionId: string) => `pac_charged:${subscriptionId}`;
+const PAC_TRIAL_PREFIX = (subscriptionId: string) => `pac_trial:${subscriptionId}:`;
+
+/** Marca que Flow cobró esta suscripción (webhook, /start o sync). */
+export async function markPacCharge(userId: string, subscriptionId: string, db: Db = prisma): Promise<void> {
+  const type = PAC_CHARGED(subscriptionId);
+  await db.reminderLog.upsert({
+    where: { userId_type: { userId, type } },
+    update: {},
+    create: { userId, type },
+  });
+}
+
+/** Guarda la prueba PAC con bono y la membresía que tenía antes, para deshacerla si cancela. */
+export async function markPacTrial(
+  userId: string,
+  subscriptionId: string,
+  bonusDays: number,
+  previousExpiry: Date | null,
+  db: Db = prisma
+): Promise<void> {
+  const type = `${PAC_TRIAL_PREFIX(subscriptionId)}${bonusDays}:${previousExpiry ? previousExpiry.getTime() : "none"}`;
+  await db.reminderLog.upsert({
+    where: { userId_type: { userId, type } },
+    update: {},
+    create: { userId, type },
+  });
+}
+
+/** Lee la prueba PAC guardada por `markPacTrial` (null si no hay). */
+export async function getPacTrial(
+  userId: string,
+  subscriptionId: string
+): Promise<{ bonusDays: number; previousExpiry: Date | null } | null> {
+  const prefix = PAC_TRIAL_PREFIX(subscriptionId);
+  const row = await prisma.reminderLog.findFirst({
+    where: { userId, type: { startsWith: prefix } },
+    orderBy: { createdAt: "desc" },
+    select: { type: true },
+  });
+  if (!row) return null;
+  const [bonus, prev] = row.type.slice(prefix.length).split(":");
+  const ms = Number(prev);
+  return {
+    bonusDays: Number(bonus) || 0,
+    previousExpiry: prev && prev !== "none" && Number.isFinite(ms) ? new Date(ms) : null,
+  };
+}
+
+/**
+ * ¿La suscripción de Flow sigue en su periodo de prueba? Un aviso de Flow con
+ * la prueba corriendo no es un cobro y no debe sumar un mes. Si Flow no trae la
+ * fecha o no se entiende, se asume que no (se comporta como antes).
+ */
+export function flowTrialRunning(sub: { trial_end?: string | null }, now = new Date()): boolean {
+  if (!sub.trial_end) return false;
+  const end = new Date(String(sub.trial_end).replace(" ", "T"));
+  if (Number.isNaN(end.getTime())) return false;
+  // Margen de un día por la zona horaria con que Flow informa la fecha.
+  return end.getTime() - now.getTime() > 24 * 60 * 60 * 1000;
+}
+
+/** Fuentes de notificación que significan "Flow cobró esta suscripción" (registro antiguo). */
 export const PAC_CHARGE_SOURCES = ["flow_subscription", "flow_subscription_token", "flow_pac_charged", "pac_sync_worker"];
 
 /**
- * ¿Flow ya cobró al menos una vez esta suscripción PAC? Se mira el registro de
- * renovaciones que dejan el webhook y /billing/subscription/start.
+ * ¿Flow ya cobró al menos una vez esta suscripción PAC? Mira el registro del
+ * PAC y, para suscripciones anteriores a él, las notificaciones de renovación.
  */
 export async function hasPacCharge(userId: string, subscriptionId: string): Promise<boolean> {
+  const marked = await prisma.reminderLog.findUnique({
+    where: { userId_type: { userId, type: PAC_CHARGED(subscriptionId) } },
+    select: { id: true },
+  });
+  if (marked) return true;
   const n = await prisma.notification.count({
     where: {
       userId,
