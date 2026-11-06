@@ -1014,7 +1014,7 @@ billingRouter.post("/billing/subscription/cancel", requireAuth, asyncHandler(asy
     return res.json({
       ok: true,
       bonusRemoved: true,
-      message: "Cancelaste el pago automático antes del primer cobro, así que se quitaron los días extra de prueba por registrar la tarjeta. No se te cobrará nada.",
+      message: "Listo, cancelaste el pago automático y no se te cobró nada. Como fue antes del primer cobro, vuelves a tu prueba normal.",
     });
   }
 

@@ -577,7 +577,7 @@ export async function tickTrialEnding() {
     const offerCard = Boolean(cardEnd && cardEnd.getTime() - end.getTime() >= DAY);
     const cardWhen = cardEnd?.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
     const body = offerCard
-      ? `Tu perfil deja de mostrarse el ${when}. Registra tu tarjeta y sigue gratis hasta el ${cardWhen}: hoy no se cobra nada y después ${price} al mes automático.`
+      ? `Tu perfil se oculta el ${when}. Si registras tu tarjeta, sigues gratis hasta el ${cardWhen}. Recién ese día parte el cobro de ${price} al mes.`
       : `Tu perfil deja de mostrarse el ${when} si no activas tu plan (desde ${price} al mes).`;
     const path = offerCard ? "/pago" : "/planes";
     await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: path, tag: key }).catch(() => undefined);

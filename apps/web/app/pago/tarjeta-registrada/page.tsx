@@ -85,13 +85,13 @@ function TarjetaRegistradaContent() {
             </p>
             {trialInfo && trialInfo.trialDays > 0 ? (
               <p className="mt-1 text-sm text-white/50">
-                {trialInfo.bonusDays > 0 ? `Sumaste ${trialInfo.bonusDays} días gratis. ` : ""}
-                Hoy no se cobra nada: el primer cargo llega el{" "}
+                {trialInfo.bonusDays > 0 ? `Listo, tienes ${trialInfo.bonusDays} días más gratis. ` : ""}
+                Te cobramos el{" "}
                 {new Date(Date.now() + trialInfo.trialDays * 24 * 60 * 60 * 1000).toLocaleDateString("es-CL", {
                   day: "numeric",
                   month: "long",
                 })}{" "}
-                y después se renueva solo cada mes.
+                y después cada mes, sin que tengas que hacer nada.
               </p>
             ) : (
               <p className="mt-1 text-sm text-white/50">

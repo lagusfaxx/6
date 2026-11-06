@@ -294,12 +294,11 @@ export default function PagoPage() {
               {cardBonusDays > 0 && cardBonusEnds && (
                 <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3">
                   <p className="text-sm font-semibold text-emerald-300">
-                    +{cardBonusDays} días gratis por registrar tu tarjeta
+                    Te regalamos {cardBonusDays} días más
                   </p>
                   <p className="mt-1 text-xs text-white/55">
-                    Tu perfil sigue visible gratis hasta el {cardBonusEnds}. Hoy no se cobra nada: el primer cargo de $
-                    {price.toLocaleString("es-CL")} llega ese día y puedes cancelar antes sin costo (si cancelas antes del
-                    primer cobro, se quitan los días extra).
+                    Registra tu tarjeta y tu perfil sigue gratis hasta el {cardBonusEnds}. El primer cobro de $
+                    {price.toLocaleString("es-CL")} es ese día. Si cancelas antes, no pagas nada y vuelves a tu prueba normal.
                   </p>
                 </div>
               )}
@@ -336,7 +335,7 @@ export default function PagoPage() {
                 ) : (
                   <><CreditCard className="h-4 w-4" />{" "}
                     {cardBonusDays > 0
-                      ? `Registrar tarjeta y sumar ${cardBonusDays} días gratis`
+                      ? `Registrar tarjeta (+${cardBonusDays} días gratis)`
                       : `Registrar tarjeta y activar PAC — $${price.toLocaleString("es-CL")}/mes`}
                   </>
                 )}
