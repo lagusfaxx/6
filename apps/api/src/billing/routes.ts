@@ -13,6 +13,8 @@ import {
   pacTrialDays,
   cardTrialEndsAt,
   hasPacCharge,
+  userHasActivePlan,
+  PAID_PROFILE_TYPES,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
@@ -273,6 +275,31 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 }));
 
 // ── Datos para pagar por transferencia (comprobante por WhatsApp) ─────────────
+// ── ¿La app está bloqueada por falta de pago? ───────────────────────────────
+// La consulta la web en cada cambio de página de una profesional, así que no
+// llama a Flow: usa el mismo filtro que oculta el perfil del sitio. Si el
+// perfil no se muestra por falta de plan, la cuenta queda bloqueada y lo único
+// que puede hacer en la app es pagar.
+billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { profileType: true, role: true, adminManaged: true, membershipExpiresAt: true },
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  const paid = (PAID_PROFILE_TYPES as readonly string[]).includes(user.profileType);
+  if (!paid || user.role !== "USER" || user.adminManaged) return res.json({ blocked: false });
+
+  const blocked = !(await userHasActivePlan(userId));
+  const billing = await getBillingSettings();
+  return res.json({
+    blocked,
+    priceClp: billing.priceClp,
+    expiredAt: blocked ? user.membershipExpiresAt?.toISOString() ?? null : null,
+  });
+}));
+
 billingRouter.get("/billing/transfer-info", requireAuth, asyncHandler(async (_req, res) => {
   const [billing, market] = await Promise.all([getBillingSettings(), getMarketSettings()]);
   // Misma cuenta de UZEED que usa el marketplace para las transferencias.

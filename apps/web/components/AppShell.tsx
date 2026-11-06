@@ -13,6 +13,7 @@ import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
+import { PlanLockLayout, PlanLockScreen, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -42,6 +43,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const timer = setTimeout(() => setDeferredReady(true), 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Profesional sin plan vigente: la app queda bloqueada y sólo puede pagar.
+  const planLock = usePlanLock(pathname);
 
   const isAuthRoute =
     pathname === "/login" ||
@@ -86,6 +90,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const iosTextSizeFix: React.CSSProperties = {
     WebkitTextSizeAdjust: "100%",
   };
+
+  if (planLock.blocked && !isAuthRoute) {
+    return (
+      <div style={iosTextSizeFix}>
+        <ScrollToTop />
+        {isPlanLockAllowedPath(pathname) ? (
+          <PlanLockLayout access={planLock.access}>{children}</PlanLockLayout>
+        ) : (
+          <PlanLockScreen access={planLock.access} />
+        )}
+      </div>
+    );
+  }
 
   if (isAuthRoute) {
     return (
