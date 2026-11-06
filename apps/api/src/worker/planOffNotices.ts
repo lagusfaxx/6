@@ -224,6 +224,7 @@ async function tickTrialChoiceNotices(
       role: "USER",
       adminManaged: false,
       needsTrialChoice: true,
+      OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }],
       createdAt: { lte: new Date(now.getTime() - DAY), gte: new Date(now.getTime() - MAX_AGE_DAYS * DAY) },
     },
     select: { id: true, email: true, phone: true, displayName: true, username: true },

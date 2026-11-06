@@ -29,6 +29,8 @@ type SubscriptionStatus = {
   flowSubscriptionStatus?: string | null;
   flowCardType?: string | null;
   flowCardLast4?: string | null;
+  /** Perfil nuevo que todavía no elige su prueba (con o sin tarjeta). */
+  needsTrialChoice?: boolean;
   /** Bono por activar el PAC (registrar la tarjeta). */
   cardTrial?: {
     /** Días de prueba con tarjeta, desde el registro (0 = sin bono). */

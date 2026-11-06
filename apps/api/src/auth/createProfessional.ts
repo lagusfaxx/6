@@ -148,7 +148,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   const isGold = input.tier === "GOLD";
   const goldDays = isGold ? await getGoldPlanDays() : 0;
   // Sin Gold pagado, la prueba parte cuando elige cómo empezarla (con o sin tarjeta).
-  const needsTrialChoice = requiresTrialChoice("PROFESSIONAL", isGold);
+  const needsTrialChoice = await requiresTrialChoice("PROFESSIONAL", isGold);
   const shopTrialEndsAt = isGold || needsTrialChoice ? null : addDays(now, getBillingSettingsSync().trialDays);
   const membershipExpiresAt = isGold ? addDays(now, goldDays) : null;
 

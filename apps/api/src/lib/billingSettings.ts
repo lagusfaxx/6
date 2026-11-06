@@ -311,8 +311,8 @@ export function trialChoiceData(now = new Date(), s: BillingSettings = getBillin
  * profesionales, locales y tiendas con el cobro encendido, salvo que ya
  * vengan con membresía pagada (Gold al registrarse).
  */
-export function requiresTrialChoice(profileType: string, hasPaidMembership = false): boolean {
-  const s = getBillingSettingsSync();
+export async function requiresTrialChoice(profileType: string, hasPaidMembership = false): Promise<boolean> {
+  const s = await getBillingSettings();
   return s.enabled && s.trialChoiceEnabled && !hasPaidMembership && (PAID_PROFILE_TYPES as readonly string[]).includes(profileType);
 }
 
