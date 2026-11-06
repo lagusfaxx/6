@@ -292,7 +292,7 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
     where: { id: userId },
     select: {
       profileType: true, role: true, adminManaged: true, membershipExpiresAt: true, flowSubscriptionId: true,
-      needsTrialChoice: true,
+      needsTrialChoice: true, isActive: true,
     },
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -315,6 +315,10 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
       expiredAt: null,
     });
   }
+
+  // El bloqueo por falta de pago es sólo para perfiles publicados: uno que
+  // nunca se aprobó o que el equipo desactivó no se arregla pagando.
+  if (!user.isActive) return res.json({ blocked: false });
 
   const blocked = !(await userHasActivePlan(userId));
   // "Tu plan venció el …" sólo si alguna vez pagó; si no (p. ej. la tarjeta
