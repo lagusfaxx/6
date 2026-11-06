@@ -106,7 +106,7 @@ export async function tickPlanOffNotices() {
       // Sólo perfiles que estuvieron publicados (no los que nunca se aprobaron).
       isActive: true,
       // Los que todavía no eligen su prueba reciben los avisos de abajo.
-      needsTrialChoice: false,
+      ...(s.trialChoiceEnabled ? { needsTrialChoice: false } : {}),
       AND: [
         { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
         { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
@@ -202,7 +202,7 @@ export async function tickPlanOffNotices() {
 
   if (sent) console.log(`[worker] plan off notices sent: ${sent} (whatsapp: ${whatsapps})`);
 
-  await tickTrialChoiceNotices(s.trialDays, Math.max(s.cardTrialDays, s.trialDays), price, canEmail, canWhatsApp);
+  if (s.trialChoiceEnabled) await tickTrialChoiceNotices(s.trialDays, Math.max(s.cardTrialDays, s.trialDays), price, canEmail, canWhatsApp);
 }
 
 /*

@@ -19,6 +19,7 @@ import {
   userHasActivePlan,
   PAID_PROFILE_TYPES,
   trialChoiceData,
+  pendingTrialChoice,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
@@ -303,7 +304,7 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
   // sin tarjeta) y el perfil queda apagado hasta entonces.
   // (Si igual pagó un mes, por ejemplo con pago único, ya no hay nada que elegir.)
   const hasMembership = Boolean(user.membershipExpiresAt && user.membershipExpiresAt.getTime() > Date.now());
-  if (billing.enabled && user.needsTrialChoice && !hasMembership) {
+  if (pendingTrialChoice(user, billing) && !hasMembership) {
     return res.json({
       blocked: true,
       needsTrialChoice: true,
@@ -391,6 +392,7 @@ function serializeSettings(s: Awaited<ReturnType<typeof getBillingSettings>>) {
     graceDays: s.graceDays,
     trialDays: s.trialDays,
     cardTrialDays: s.cardTrialDays,
+    trialChoiceEnabled: s.trialChoiceEnabled,
     graceEndsAt: grace?.toISOString() ?? null,
     enforced: isBillingEnforced(s),
     flowPlanId: s.flowPlanPriceClp === s.priceClp ? s.flowPlanId : null,
@@ -435,6 +437,7 @@ billingRouter.put("/admin/billing/settings", requireAdmin, asyncHandler(async (r
     if (!Number.isInteger(n) || n < 0 || n > 365) return bad("Los días de prueba deben estar entre 0 y 365.");
     patch.trialDays = n;
   }
+  if (body.trialChoiceEnabled !== undefined) patch.trialChoiceEnabled = body.trialChoiceEnabled === true;
   if (body.cardTrialDays !== undefined) {
     const n = Number(body.cardTrialDays);
     if (!Number.isInteger(n) || n < 0 || n > 365) return bad("Los días de prueba con tarjeta deben estar entre 0 y 365.");
@@ -700,7 +703,7 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
   // Si es la elección de prueba de un perfil nuevo, los días se calculan como
   // si ya hubiera elegido hoy; se graba recién cuando Flow crea la suscripción.
-  const choice = user.needsTrialChoice ? trialChoiceData() : null;
+  const choice = pendingTrialChoice(user, billing) ? trialChoiceData() : null;
   const effectiveUser = choice ? { ...user, ...choice } : user;
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
@@ -1037,14 +1040,14 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     flowSubscriptionStatus,
     flowCardType,
     flowCardLast4,
-    needsTrialChoice: user.needsTrialChoice,
+    needsTrialChoice: pendingTrialChoice(user, billing),
     // Bono por activar el PAC: días extra de prueba que gana hoy si registra
     // la tarjeta (0 si ya no le suma nada) y hasta cuándo quedaría.
     cardTrial: (() => {
       const end = cardTrialEndsAt(user);
       const { bonusDays, bonusEndsAt } = pacTrialDays(user, now);
       return {
-        days: billing.cardTrialDays > billing.trialDays ? billing.cardTrialDays : 0,
+        days: billing.trialChoiceEnabled && billing.cardTrialDays > billing.trialDays ? billing.cardTrialDays : 0,
         trialDays: billing.trialDays,
         endsAt: end?.toISOString() ?? null,
         bonusDays: flowSubscriptionStatus === "active" ? 0 : bonusDays,

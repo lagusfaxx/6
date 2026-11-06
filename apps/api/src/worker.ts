@@ -543,7 +543,7 @@ export async function tickTrialEnding() {
       profileType: { in: [...PAID_PROFILE_TYPES] },
       isActive: true,
       // Quien no eligió su prueba recibe otros avisos (worker/planOffNotices).
-      needsTrialChoice: false,
+      ...(s.trialChoiceEnabled ? { needsTrialChoice: false } : {}),
       OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }],
       AND: [
         {
@@ -574,7 +574,7 @@ export async function tickTrialEnding() {
     const title = lastDay ? "Tu prueba gratis termina hoy" : "Tu prueba gratis termina pronto";
     // Si todavía le sirve el bono por registrar la tarjeta (PAC), se le ofrece:
     // sigue gratis hasta el fin de la prueba con tarjeta y el cobro es automático.
-    const cardEnd = s.cardTrialDays > s.trialDays && !u.flowSubscriptionId
+    const cardEnd = s.trialChoiceEnabled && s.cardTrialDays > s.trialDays && !u.flowSubscriptionId
       ? new Date((u.trialStartedAt ?? u.createdAt).getTime() + s.cardTrialDays * DAY)
       : null;
     const offerCard = Boolean(cardEnd && cardEnd.getTime() - end.getTime() >= DAY);
