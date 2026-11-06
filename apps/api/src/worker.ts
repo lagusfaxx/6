@@ -4,6 +4,7 @@ import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
+import { tickPlanOffNotices } from "./worker/planOffNotices";
 import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt, hasPacCharge } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
@@ -541,6 +542,8 @@ export async function tickTrialEnding() {
     where: {
       profileType: { in: [...PAID_PROFILE_TYPES] },
       isActive: true,
+      // Quien no eligió su prueba recibe otros avisos (worker/planOffNotices).
+      ...(s.trialChoiceEnabled ? { needsTrialChoice: false } : {}),
       OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }],
       AND: [
         {
@@ -551,7 +554,7 @@ export async function tickTrialEnding() {
         },
       ],
     },
-    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true, flowSubscriptionId: true },
+    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true, trialStartedAt: true, flowSubscriptionId: true },
     take: 1000,
   });
 
@@ -571,8 +574,8 @@ export async function tickTrialEnding() {
     const title = lastDay ? "Tu prueba gratis termina hoy" : "Tu prueba gratis termina pronto";
     // Si todavía le sirve el bono por registrar la tarjeta (PAC), se le ofrece:
     // sigue gratis hasta el fin de la prueba con tarjeta y el cobro es automático.
-    const cardEnd = s.cardTrialDays > s.trialDays && !u.flowSubscriptionId
-      ? new Date(u.createdAt.getTime() + s.cardTrialDays * DAY)
+    const cardEnd = s.trialChoiceEnabled && s.cardTrialDays > s.trialDays && !u.flowSubscriptionId
+      ? new Date((u.trialStartedAt ?? u.createdAt).getTime() + s.cardTrialDays * DAY)
       : null;
     const offerCard = Boolean(cardEnd && cardEnd.getTime() - end.getTime() >= DAY);
     const cardWhen = cardEnd?.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
@@ -802,6 +805,7 @@ async function tick() {
       { name: "membershipExpiry", fn: tickMembershipExpiry },
       { name: "billingNotices", fn: tickBillingNotices },
       { name: "trialEnding", fn: tickTrialEnding },
+      { name: "planOffNotices", fn: tickPlanOffNotices },
       { name: "noPhotoReminder", fn: tickNoPhotoReminder },
       { name: "inactiveReminder", fn: tickInactiveReminder },
       { name: "videocallConfig", fn: tickVideocallConfigReminder },

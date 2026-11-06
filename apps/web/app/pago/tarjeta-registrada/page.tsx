@@ -85,7 +85,7 @@ function TarjetaRegistradaContent() {
             </p>
             {trialInfo && trialInfo.trialDays > 0 ? (
               <p className="mt-1 text-sm text-white/50">
-                {trialInfo.bonusDays > 0 ? `Listo, tienes ${trialInfo.bonusDays} días más gratis. ` : ""}
+                {trialInfo.bonusDays > 0 ? `Listo, tienes ${trialInfo.trialDays} días gratis. ` : ""}
                 Te cobramos el{" "}
                 {new Date(Date.now() + trialInfo.trialDays * 24 * 60 * 60 * 1000).toLocaleDateString("es-CL", {
                   day: "numeric",

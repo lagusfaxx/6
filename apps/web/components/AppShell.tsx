@@ -13,7 +13,7 @@ import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
-import { PlanLockLayout, PlanLockScreen, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
+import { PlanLockLayout, PlanLockScreen, TrialChoiceNudge, isPlanLockAllowedPath, usePlanLock } from "./PlanLock";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -91,7 +91,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     WebkitTextSizeAdjust: "100%",
   };
 
-  if (planLock.blocked && !isAuthRoute) {
+  /* Perfil nuevo sin elegir su prueba: usa la app normal, pero en cada
+     pantalla que visita aparece el aviso para elegirla (menos en /pago, que
+     es donde se elige con tarjeta). */
+  const trialNudge =
+    planLock.access?.needsTrialChoice && !isAuthRoute && !isPlanLockAllowedPath(pathname) ? (
+      <TrialChoiceNudge access={planLock.access} pathname={pathname} onChosen={planLock.refresh} />
+    ) : null;
+
+  if (planLock.blocked && !planLock.access?.needsTrialChoice && !isAuthRoute) {
     return (
       <div style={iosTextSizeFix}>
         <ScrollToTop />
@@ -135,6 +143,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {deferredReady && <PushNotificationsManager />}
         {deferredReady && <PresenceHeartbeat />}
         {children}
+        {trialNudge}
       </div>
     );
   }
@@ -153,6 +162,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <main className="min-h-[100svh]">
             {children}
           </main>
+          {trialNudge}
         </div>
       </LocationFilterProvider>
     );
@@ -196,6 +206,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </main>
             {!isCercaRoute && !isChatThreadRoute && <Footer />}
           </div>
+          {trialNudge}
         </div>
         </ChatNotificationProvider>
       </ForumNotificationProvider>

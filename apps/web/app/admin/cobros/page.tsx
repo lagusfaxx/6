@@ -16,6 +16,7 @@ type Settings = {
   graceDays: number;
   trialDays: number;
   cardTrialDays: number;
+  trialChoiceEnabled: boolean;
   graceEndsAt: string | null;
   enforced: boolean;
   flowPlanId: string | null;
@@ -273,6 +274,59 @@ export default function AdminCobrosPage() {
             <Stat label="Con membresía" value={impact.paying} tone="emerald" />
             <Stat label="En prueba gratis" value={impact.inTrial} tone="violet" />
             <Stat label="Sin plan" value={impact.withoutPlan} tone="amber" />
+          </section>
+
+          {/* Prueba 14/30: con tarjeta o sin tarjeta */}
+          <section
+            className={`mt-4 rounded-2xl border p-5 ${
+              s.trialChoiceEnabled ? "border-fuchsia-500/30 bg-fuchsia-500/[0.05]" : "border-white/10 bg-white/[0.03]"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Prueba con tarjeta</p>
+                <p className="mt-1 text-lg font-semibold">
+                  {s.trialChoiceEnabled
+                    ? `Activa · ${Math.max(s.cardTrialDays, s.trialDays)} días con tarjeta o ${s.trialDays} sin tarjeta`
+                    : "Apagada"}
+                </p>
+                <p className="mt-1 text-sm text-white/55">
+                  {s.trialChoiceEnabled
+                    ? "Las profesionales nuevas eligen al registrarse: registrar su tarjeta (más días, el cobro parte solo al terminar) o seguir sin tarjeta. Hasta que elijan, su perfil no se muestra y la app les recuerda elegir en cada pantalla."
+                    : `La prueba es de ${s.trialDays} días desde el registro, sin elegir nada y sin días extra por registrar la tarjeta.`}
+                </p>
+                {s.trialChoiceEnabled && !s.enabled && (
+                  <p className="mt-2 text-xs text-amber-300">Sólo funciona con el cobro encendido.</p>
+                )}
+                {s.trialChoiceEnabled && s.cardTrialDays <= s.trialDays && (
+                  <p className="mt-2 text-xs text-amber-300">
+                    Los días con tarjeta no superan los de sin tarjeta: no hay bono. Ajústalos abajo.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={s.trialChoiceEnabled}
+                aria-label="Prueba con tarjeta"
+                disabled={saving}
+                onClick={() =>
+                  save(
+                    { trialChoiceEnabled: !s.trialChoiceEnabled },
+                    s.trialChoiceEnabled ? "Prueba con tarjeta apagada." : "Prueba con tarjeta encendida.",
+                  )
+                }
+                className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                  s.trialChoiceEnabled ? "bg-fuchsia-500" : "bg-white/15"
+                } disabled:opacity-50`}
+              >
+                <span
+                  className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                    s.trialChoiceEnabled ? "left-7" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
           </section>
 
           {/* Tarifa */}
