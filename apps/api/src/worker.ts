@@ -4,6 +4,7 @@ import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
+import { tickPlanOffNotices } from "./worker/planOffNotices";
 import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt, hasPacCharge } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
@@ -802,6 +803,7 @@ async function tick() {
       { name: "membershipExpiry", fn: tickMembershipExpiry },
       { name: "billingNotices", fn: tickBillingNotices },
       { name: "trialEnding", fn: tickTrialEnding },
+      { name: "planOffNotices", fn: tickPlanOffNotices },
       { name: "noPhotoReminder", fn: tickNoPhotoReminder },
       { name: "inactiveReminder", fn: tickInactiveReminder },
       { name: "videocallConfig", fn: tickVideocallConfigReminder },
