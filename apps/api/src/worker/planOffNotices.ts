@@ -22,7 +22,6 @@ import { sendBillingNoticeEmail, smtpEnabled } from "./email";
  *   3. 7 días después del segundo: correo + WhatsApp + push (último).
  * Si paga y más adelante se le vuelve a apagar, la secuencia parte de nuevo.
  *
- * Sólo entre 10:00 y 20:59 hora de Chile, para no mandar WhatsApp de noche.
  * Se apaga con PLAN_OFF_NOTICES=off.
  */
 
@@ -32,12 +31,6 @@ const MAX_AGE_DAYS = 60;
 const STEP_GAP_DAYS = { 2: 3, 3: 7 } as const;
 const MAX_PER_TICK = 150;
 const MAX_WHATSAPP_PER_TICK = 60;
-
-function chileHour(now: Date): number {
-  return Number(
-    new Intl.DateTimeFormat("es-CL", { hour: "numeric", hourCycle: "h23", timeZone: "America/Santiago" }).format(now),
-  );
-}
 
 function firstName(name: string | null | undefined, username: string): string {
   const n = String(name || "").trim().split(/\s+/)[0];
@@ -101,8 +94,6 @@ export async function tickPlanOffNotices() {
   const s = await getBillingSettings();
   const now = new Date();
   if (!s.enabled || !isBillingEnforced(s, now)) return;
-  const hour = chileHour(now);
-  if (hour < 10 || hour > 20) return;
 
   const trialCutoff = new Date(now.getTime() - s.trialDays * DAY);
   // Mismo criterio que oculta el perfil del sitio (planActiveWhere), escrito
