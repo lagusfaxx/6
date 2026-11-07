@@ -35,6 +35,13 @@ import {
 } from "../profile/nameChange";
 import { safeUploadFilename } from "../lib/uploadFilename";
 import { EXAMS_ENABLED } from "../profile/professionalDocuments";
+import { getBillingSettingsStrict } from "../lib/billingSettings";
+import {
+  expiredProfessionalsWhere,
+  MAX_REVIEWED_RECIPIENTS,
+  reviewedRecipientsSchema,
+  sendExpiredProfessionalCampaign,
+} from "../lib/expiredProfessionalCampaign";
 import {
   CONTENT_CATEGORY,
   isContentOnly,
@@ -2244,6 +2251,32 @@ adminRouter.get(
   }),
 );
 
+adminRouter.get(
+  "/email-campaign/expired-professionals",
+  asyncHandler(async (_req, res) => {
+    const now = new Date();
+    const billing = await getBillingSettingsStrict();
+    const where = expiredProfessionalsWhere(billing, now);
+    if (!where) {
+      return res.json({
+        generatedAt: now.toISOString(), recipients: [],
+        blockedReason: "No se puede enviar este aviso con el cobro apagado, en gracia o sin una fecha de activación válida.",
+      });
+    }
+    const candidates = await prisma.user.findMany({
+      where,
+      orderBy: { id: "asc" },
+      take: MAX_REVIEWED_RECIPIENTS + 1,
+      select: { id: true, email: true, username: true, displayName: true },
+    });
+    if (candidates.length > MAX_REVIEWED_RECIPIENTS) {
+      return res.status(409).json({ error: "Hay demasiados destinatarios para revisar en una sola campaña. No se ha enviado ningún correo." });
+    }
+    const recipients = candidates.filter((r) => reviewedRecipientsSchema.element.safeParse(r).success);
+    return res.json({ generatedAt: now.toISOString(), recipients, blockedReason: null });
+  }),
+);
+
 adminRouter.post(
   "/email-campaign/preview",
   asyncHandler(async (req, res) => {
@@ -2327,11 +2360,30 @@ adminRouter.post(
       }
     }
 
+    if (audience === "expired_professionals") {
+      const reviewed = reviewedRecipientsSchema.safeParse(req.body?.reviewedRecipients);
+      if (!reviewed.success) {
+        return res.status(400).json({ error: "Revisa primero la lista de profesionales con prueba vencida." });
+      }
+      const result = await sendExpiredProfessionalCampaign(reviewed.data, {
+        loadSettings: getBillingSettingsStrict,
+        findEligible: async (recipient, eligibility) => {
+          const match = await prisma.user.findFirst({
+            where: { AND: [eligibility, { id: recipient.id, email: recipient.email }] },
+            select: { id: true },
+          });
+          return !!match;
+        },
+        send: (email) => sendCampaignEmail(email, subject, html),
+      });
+      return res.json({ ok: !result.stopped, mode: "campaign", audience, ...result });
+    }
+
     const where = audienceWhere(String(audience || ""));
     if (!where) {
       return res
         .status(400)
-        .json({ error: "audience debe ser 'professionals', 'clients' o 'all'" });
+        .json({ error: "audience debe ser 'professionals', 'clients', 'all' o 'expired_professionals'" });
     }
 
     const recipients = await prisma.user.findMany({
