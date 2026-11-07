@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
 import { CHILE_REGIONS } from "../lib/chileGeo";
+import { ESCORT_TAGS } from "../lib/escortTags";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
@@ -123,26 +124,7 @@ async function getEstablishmentIds(): Promise<string[]> {
     .filter((id): id is string => Boolean(id));
 }
 
-// Tags de perfil y servicio para generar landing pages /escorts/[tag]
-const ESCORT_TAGS = [
-  // Físico
-  "tetona", "culona", "delgada", "fitness", "gordita", "flaca", "curvy",
-  // Apariencia
-  "rubia", "morena", "pelirroja", "trigueña", "latina", "colombiana", "venezolana",
-  // Personalidad
-  "sumisa", "dominante", "caliente", "cariñosa", "natural", "discreta",
-  // Estilo
-  "tatuada", "piercing",
-  // Edad
-  "maduras", "jovenes",
-  // Servicios
-  "anal", "trios", "packs", "videollamada",
-  "masaje-erotico", "despedidas", "discapacitados", "fetiches",
-  "bdsm", "sexo-oral", "lluvia-dorada", "rol", "nuru", "tantra",
-  // Disponibilidad
-  "disponible-hoy", "24-horas",
-  // /escorts/domicilio redirige a /escorts/a-domicilio (landing curada).
-];
+
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getWebBaseUrl();
