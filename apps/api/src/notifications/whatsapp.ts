@@ -414,17 +414,24 @@ async function relayedMessageText(prisma: PrismaClient, payload: Record<string, 
   return body.trim().slice(0, 1000) || "-";
 }
 
-/** Guarda a qué chat pertenece un aviso enviado, para enrutar la respuesta. */
+/**
+ * Guarda a qué chat pertenece un aviso enviado, para enrutar la respuesta.
+ * Todo lo que el bot le manda a una profesional tiene que pasar por acá
+ * (peerId null si no es un chat): si no, una respuesta sin citar a ese aviso
+ * caería en su último chat con un cliente. `kind` es el tipo de aviso, para
+ * saber a qué respondió.
+ */
 export async function saveRelay(
   prisma: PrismaClient,
   wamid: string | undefined,
   userId: string,
   peerId: string | null,
   waId: string,
+  kind?: string,
 ): Promise<void> {
   if (!wamid) return;
   await prisma.whatsAppRelay
-    .create({ data: { wamid, userId, peerId, waId } })
+    .create({ data: { wamid, userId, peerId, waId, kind: kind ?? null } })
     .catch((err: any) => console.error("[whatsapp] relay save failed:", err?.message || err));
   // Limpieza ocasional: una respuesta a un aviso de hace más de 30 días ya no se enruta.
   if (Math.random() < 0.01) {
@@ -474,7 +481,7 @@ export async function sendTestChat(prisma: PrismaClient, adminId: string, phone:
     ? await sendCloudText(to, `💬 *Cliente de prueba*: ${text}\n\n↩️ Responde aquí para contestarle.`)
     : await sendCloudTemplate(to, MESSAGE_TEMPLATE_NAME, ["Admin", "Cliente de prueba", text]);
   await logDelivery(prisma, { userId: adminId, channel: "WHATSAPP", type: "TEST_CHAT", result });
-  if (result.ok) await saveRelay(prisma, result.messageId, adminId, adminId, to);
+  if (result.ok) await saveRelay(prisma, result.messageId, adminId, adminId, to, "TEST");
   return result;
 }
 
@@ -610,7 +617,7 @@ export async function maybeNotifyByWhatsApp(
       await logDelivery(prisma, { userId, channel: "WHATSAPP", type, result });
       if (result.ok) {
         delivered = true;
-        await saveRelay(prisma, result.messageId, userId, peerId, to);
+        await saveRelay(prisma, result.messageId, userId, peerId, to, type);
         console.log(`[whatsapp] relayed user=${userId} from=${peerId} msg=${result.messageId}`);
       } else if (smsOn && reserved) {
         delivered = await notifyBySms(prisma, userId, type, to, info);
@@ -628,7 +635,7 @@ export async function maybeNotifyByWhatsApp(
     if (result.ok) {
       delivered = true;
       // Responder a un aviso que no es de un chat no debe caer en el último chat.
-      if (provider === "cloud") await saveRelay(prisma, result.messageId, userId, null, to);
+      if (provider === "cloud") await saveRelay(prisma, result.messageId, userId, null, to, type);
       console.log(`[whatsapp] notified user=${userId} type=${type} msg=${result.messageId}`);
     } else if (smsOn) {
       delivered = await notifyBySms(prisma, userId, type, to, info);

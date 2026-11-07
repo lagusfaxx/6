@@ -4,9 +4,14 @@ import Link from "next/link";
 import DirectoryPage from "../../../components/DirectoryPage";
 import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
+import { getChileRegion } from "../../../lib/chileGeo";
+import { buildCityGeoSeo, buildRegionGeoSeo, regionForCity, regionHref } from "../../../lib/geoSeo";
+import GeoSeoSection, { GeoBreadcrumbs, GeoFaqBlock, GeoLinkList } from "../../../components/GeoSeoSection";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
 import { TEMPLATE_TAG_SEO } from "../../../lib/escortSemrushSeo";
 import { jsonLdString } from "../../../lib/jsonLd";
+import { clp, fetchCityStats, statsRadiusKm } from "../../../lib/cityStats";
+import CityLiveStats from "../../../components/CityLiveStats";
 
 type Props = { params: Promise<{ tag: string }> };
 
@@ -37,25 +42,49 @@ function buildMetadata(path: string, title: string, description: string, alt: st
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { tag } = await params;
 
+  // ── Landing de región (/escorts/region-biobio …) ──
+  const region = getChileRegion(tag);
+  if (region) {
+    const geo = buildRegionGeoSeo(region);
+    const title = `Escorts en la ${region.label}: todas las comunas`;
+    const description = `Escorts y putas verificadas en la ${region.fullName}: ${geo.capital.name} y las ${geo.provinces.reduce((n, p) => n + p.links.length, 0)} comunas de la región. Fotos reales y contacto directo por WhatsApp en UZEED.`;
+    return buildMetadata(`/escorts/${region.slug}`, title, description, `UZEED Escorts ${region.name}`, {
+      keywords: [`escorts ${region.name.toLowerCase()}`, `escorts ${region.label.toLowerCase()}`, `putas ${region.name.toLowerCase()}`, `escort ${geo.capital.name.toLowerCase()}`],
+    });
+  }
+
   // ── Landing de ciudad (/escorts/santiago, /escorts/las-condes …) ──
   const city = getCity(tag);
   if (city) {
     const seo = CITY_SEO[city.slug];
-    // Sin perfiles en la ciudad, el título no promete "verificadas hoy" en
-    // ella: la página muestra las más cercanas (ver DirectorySeoLinks).
-    const hasProfiles = await cityHasProfiles(city.lat, city.lng);
+    // Mismas consultas que la página (los fetch se deduplican). El título
+    // sigue el criterio de siempre (perfiles a menos de 60 km); los números
+    // de la descripción son los de la comuna (radio corto).
+    const [hasProfiles, stats] = await Promise.all([
+      cityHasProfiles(city.lat, city.lng),
+      fetchCityStats(city, statsRadiusKm(city.slug)),
+    ]);
+    /* "escort {comuna}" (singular) y "putas {comuna}" son las búsquedas que
+       traen clics (Search Console, oct-nov 2026): el título parte con la
+       búsqueda exacta, como /escorts/santiago. Sin perfiles no promete
+       "verificadas hoy" en la comuna: la página muestra las más cercanas. */
     const title = seo?.title && hasProfiles
       ? seo.title
       : hasProfiles
-        ? `Escorts en ${city.name} - Verificadas Hoy`
-        : `Escorts en ${city.name} y alrededores`;
+        ? `Escort ${city.name}: Escorts y Putas Verificadas Hoy`
+        : `Escort ${city.name} y alrededores: Escorts Verificadas Cerca`;
+    const where = stats && stats.inComuna > 0 ? `en ${city.name}` : `cerca de ${city.name}`;
     const description = seo?.description && hasProfiles
       ? seo.description
-      : hasProfiles
-        ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
-        : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
-    return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`,
-      seo ? { keywords: seo.keywords } : {});
+      : stats && stats.total > 0
+        ? `${stats.total} escorts y putas verificadas ${where}${stats.rate ? ` desde ${clp(stats.rate.min)}` : ""}. Fotos reales, WhatsApp directo${stats.availableNow ? ` y ${stats.availableNow} conectadas ahora` : ""} en UZEED.`
+        : hasProfiles
+          ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
+          : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
+    const n = city.name.toLowerCase();
+    return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`, {
+      keywords: seo?.keywords ?? [`escort ${n}`, `escorts en ${n}`, `putas ${n}`, `escorts ${regionForCity(city).name.toLowerCase()}`],
+    });
   }
 
   // ── Landing curada (a-domicilio, hombres, trans, maduras …) ──
@@ -75,15 +104,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
 }
 
-function breadcrumbJsonLd(name: string) {
+/** `parent`: nivel intermedio (la región de una comuna). */
+function breadcrumbJsonLd(name: string, parent?: { name: string; href: string }) {
+  const items = [
+    { name: "Inicio", item: "https://uzeed.cl" },
+    { name: "Escorts", item: "https://uzeed.cl/escorts" },
+    ...(parent ? [{ name: parent.name, item: `https://uzeed.cl${parent.href}` }] : []),
+    { name },
+  ];
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Inicio", item: "https://uzeed.cl" },
-      { "@type": "ListItem", position: 2, name: "Escorts", item: "https://uzeed.cl/escorts" },
-      { "@type": "ListItem", position: 3, name },
-    ],
+    itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, ...it })),
   };
 }
 
@@ -145,6 +177,74 @@ export default async function EscortsTagPage({ params }: Props) {
   const { tag } = await params;
 
   // ─────────────────────────────────────────────────────────────
+  // Landing de REGIÓN: /escorts/region-{region}
+  // Listado centrado en la capital regional, texto propio de la región y
+  // enlaces a TODAS sus comunas agrupadas por provincia.
+  // ─────────────────────────────────────────────────────────────
+  const region = getChileRegion(tag);
+  if (region) {
+    const geo = buildRegionGeoSeo(region);
+    /* Datos en vivo alrededor de la capital regional (mismo radio que las comunas). */
+    const stats = await fetchCityStats({ name: geo.capital.name, lat: geo.capital.lat, lng: geo.capital.lng }, 60);
+    return (
+      <>
+        <Suspense>
+          <DirectoryPage
+            key={`escort-region-${region.slug}`}
+            entityType="professional"
+            categorySlug="escort"
+            title={`Escorts en ${region.name}`}
+            city={{ name: geo.capital.name, lat: geo.capital.lat, lng: geo.capital.lng }}
+            withMap={false}
+            defaultGender="FEMALE"
+          />
+        </Suspense>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(region.label)) }}
+        />
+        {stats && stats.total > 0 && (
+          <CityLiveStats
+            city={{ name: geo.capital.name, lat: geo.capital.lat, lng: geo.capital.lng }}
+            slug={region.slug}
+            region={region}
+            stats={stats}
+          />
+        )}
+        <section className="max-w-4xl mx-auto px-4 pb-10 pt-6 text-white/60 text-sm leading-relaxed">
+          <GeoBreadcrumbs items={[{ name: "Inicio", href: "/" }, { name: "Escorts", href: "/escorts" }, { name: region.label }]} />
+          <h2 className="text-xl font-bold text-white/80 mb-3">{geo.heading}</h2>
+          {geo.paragraphs.map((p, i) => (
+            <p key={i} className="mb-4">{p}</p>
+          ))}
+          <div className="mt-6">
+            <h3 className="text-base font-semibold text-white/70 mb-3">Escorts por comuna</h3>
+            {geo.provinces.map((p) => (
+              <div key={p.name} className="mb-5">
+                <h4 className="text-sm font-medium text-white/50 mb-2">
+                  {geo.provinces.length > 1 ? `Provincia de ${p.name}` : p.name} · {p.links.length} {p.links.length === 1 ? "comuna" : "comunas"}
+                </h4>
+                <GeoLinkList links={p.links} label={`Comunas de ${p.name}`} />
+              </div>
+            ))}
+          </div>
+          <GeoFaqBlock faq={geo.faq} />
+          <div className="mt-8">
+            <h3 className="text-base font-semibold text-white/70 mb-3">Otras regiones de Chile</h3>
+            <GeoLinkList links={geo.allRegions.map((r) => ({ href: r.href, label: `Escorts en ${r.label}` }))} label="Regiones" />
+          </div>
+        </section>
+        <DirectorySeoLinks
+          heading={`Escorts Destacadas en ${region.name}`}
+          lat={geo.capital.lat}
+          lng={geo.capital.lng}
+          cityName={geo.capital.name}
+        />
+      </>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // Landing de CIUDAD: /escorts/{ciudad}
   // Resultados filtrados por ubicación (coords de la ciudad), canonical
   // propio y contenido único. Reemplaza a ?city= (inerte y canonicalizado
@@ -153,6 +253,20 @@ export default async function EscortsTagPage({ params }: Props) {
   const city = getCity(tag);
   if (city) {
     const seo = CITY_SEO[city.slug];
+    const [hasProfiles, stats] = await Promise.all([
+      cityHasProfiles(city.lat, city.lng),
+      fetchCityStats(city, statsRadiusKm(city.slug)),
+    ]);
+    const geo = buildCityGeoSeo(city, hasProfiles);
+    /* Precio real de la zona, en la FAQ de las comunas sin copy propio. */
+    if (stats?.rate && !geo.faq.some((f) => /cobra|precio|tarifa/i.test(f.question))) {
+      geo.faq.push({
+        question: `¿Cuánto cobra una escort en ${city.name}?`,
+        answer: `Cada una publica su tarifa en su ficha. Hoy, entre las escorts ${stats.inComuna > 0 ? `de ${city.name}` : `cercanas a ${city.name}`}, la tarifa base parte en ${clp(stats.rate.min)} y la típica es ${clp(stats.rate.median)}. Lo que incluye y la duración están detallados en cada perfil.`,
+      });
+    }
+    const cityRegion = geo.region ?? regionForCity(city);
+    const regionCrumb = { name: cityRegion.label, href: regionHref(cityRegion) };
     return (
       <>
         <Suspense>
@@ -168,8 +282,10 @@ export default async function EscortsTagPage({ params }: Props) {
         </Suspense>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(`Escorts en ${city.name}`)) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(`Escorts en ${city.name}`, city.slug === "santiago" ? undefined : regionCrumb)) }}
         />
+        {/* Datos en vivo de la comuna y perfiles con detalle (servidor). */}
+        {stats && stats.total > 0 && <CityLiveStats city={city} slug={city.slug} region={cityRegion} stats={stats} />}
         {/* El texto de plantilla se mantiene siempre: las ciudades que ya
             rankean lo hacen con él. El copy propio se suma debajo. */}
         <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
@@ -189,13 +305,27 @@ export default async function EscortsTagPage({ params }: Props) {
           </p>
         </section>
         {seo && <SeoCopySection seo={seo} />}
-        {/* Perfiles renderizados en servidor para indexación */}
-        <DirectorySeoLinks
-          heading={`Escorts Destacadas en ${city.name}`}
-          lat={city.lat}
-          lng={city.lng}
-          cityName={city.name}
+        {/* Contenido propio de la comuna: ubicación, datos, comunas vecinas y
+            de la provincia, FAQ. Lo tienen las 346 comunas. */}
+        <GeoSeoSection
+          seo={geo}
+          withFaq={!seo || seo.faq.length === 0}
+          breadcrumbs={[
+            { name: "Inicio", href: "/" },
+            { name: "Escorts", href: "/escorts" },
+            ...(city.slug === "santiago" ? [] : [regionCrumb]),
+            { name: city.name },
+          ]}
         />
+        {/* Sin perfiles en la comuna (o la API falló): las más cercanas. */}
+        {!(stats && stats.total > 0) && (
+          <DirectorySeoLinks
+            heading={`Escorts Destacadas en ${city.name}`}
+            lat={city.lat}
+            lng={city.lng}
+            cityName={city.name}
+          />
+        )}
       </>
     );
   }

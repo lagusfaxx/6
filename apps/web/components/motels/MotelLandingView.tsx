@@ -3,7 +3,9 @@ import { Building2 } from "lucide-react";
 import MotelDirectory from "./MotelDirectory";
 import MotelCard from "./MotelCard";
 import { Breadcrumbs, ComunaLinks, Faq, JsonLd, breadcrumbLd, motelFaq } from "./MotelSeo";
-import { COMUNAS, type Comuna } from "../../lib/comunas";
+import { COMUNAS, distanceKm, type Comuna } from "../../lib/comunas";
+import { getChileComuna, regionByKey } from "../../lib/chileGeo";
+import { provinceLabel } from "../../lib/geoSeo";
 import { countByComuna, motelHref, priceFrom, siteUrl, type MotelWithComuna } from "../../lib/motels";
 
 /**
@@ -33,6 +35,17 @@ export default function MotelLandingView({
   const popular = COMUNAS.filter((c) => !c.isMetro && (counts.get(c.slug) || 0) > 0 && c.slug !== comuna?.slug)
     .sort((a, b) => (counts.get(b.slug) || 0) - (counts.get(a.slug) || 0))
     .slice(0, 10);
+
+  /* Comunas vecinas que vale la pena enlazar: con moteles o de la lista
+     original (las demás landings sin moteles cercanos son noindex). */
+  const nearComunas = comuna && !comuna.isMetro
+    ? COMUNAS.filter((c) => !c.isMetro && c.slug !== comuna.slug && (c.featured || (counts.get(c.slug) || 0) > 0))
+        .map((c) => ({ c, km: distanceKm(comuna.lat, comuna.lng, c.lat, c.lng) }))
+        .sort((a, b) => a.km - b.km)
+        .slice(0, 6)
+    : [];
+  const chile = comuna && !comuna.isMetro ? getChileComuna(comuna.slug) : undefined;
+  const geo = chile ? { province: chile.province, regionLabel: regionByKey(chile.region)?.label || "" } : undefined;
 
   const heading = comuna
     ? motels.length || comuna.isMetro
@@ -136,6 +149,31 @@ export default function MotelLandingView({
           Cada ficha muestra el precio real de cada habitación y lo que incluye. Los moteles que reciben reservas en UZEED
           te confirman por el chat y te entregan un código para presentar al llegar.
         </p>
+        {geo && (
+          <p className="mt-3">
+            {comuna!.name} está en {provinceLabel(geo.province)}, {geo.regionLabel}.
+            {nearComunas.length > 0 && ` Si no encuentras habitación disponible, revisa los moteles de ${nearComunas.slice(0, 3).map((n) => `${n.c.name} (${Math.round(n.km)} km)`).join(", ")}.`}
+          </p>
+        )}
+        {comuna && !comuna.isMetro && (
+          <div className="mt-5">
+            <h3 className="text-sm font-semibold text-white/75">Cerca de {comuna.name}</h3>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {nearComunas.map((n) => (
+                <li key={n.c.slug}>
+                  <Link href={`/moteles/${n.c.slug}`} className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] text-white/60 transition hover:text-fuchsia-200">
+                    Moteles en {n.c.name} <span className="text-white/35">· {Math.round(n.km)} km</span>
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href={`/escorts/${comuna.slug}`} className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] text-white/60 transition hover:text-fuchsia-200">
+                  Escorts en {comuna.name}
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
       </section>
 
       <Faq items={motelFaq(place, { count: motels.length, minPrice }).map((f) => ({ q: f.q, a: f.a }))} />

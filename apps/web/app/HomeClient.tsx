@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
-import { CITY_LANDINGS } from "../lib/cities";
+import { MAIN_CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
 import { useDiscreet } from "../components/DiscreetProvider";
@@ -535,11 +535,11 @@ export default function HomeClient() {
 
           <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-snug text-white/50 sm:text-sm">
             {discreet ? (
-              <>Mira en el mapa qué hay disponible cerca de ti, en {CITY_LANDINGS.length} comunas.</>
+              <>Mira en el mapa qué hay disponible cerca de ti, en {MAIN_CITY_LANDINGS.length} comunas.</>
             ) : (
               <>
                 Mira en el mapa quién está a pocos kilómetros y conectada ahora mismo.
-                Perfiles verificados en Santiago, Viña del Mar y otras {CITY_LANDINGS.length - 2} comunas.
+                Perfiles verificados en Santiago, Viña del Mar y otras {MAIN_CITY_LANDINGS.length - 2} comunas.
               </>
             )}
           </p>

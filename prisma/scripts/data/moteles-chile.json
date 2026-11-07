@@ -1,0 +1,69 @@
+[
+  {
+    "name": "Motel Azzo",
+    "city": "Recoleta",
+    "address": "Zapadores 0517, Recoleta",
+    "phone": "+56228393350",
+    "latitude": -33.398611,
+    "longitude": -70.623409,
+    "websiteUrl": "https://motelazzo.cl",
+    "source": "OSM way/446361850; dirección y teléfono según motelazzo.cl"
+  },
+  {
+    "name": "Motel Flamingo",
+    "city": "Limache",
+    "address": "Ruta 64, Tabolango, Limache",
+    "latitude": -32.934818,
+    "longitude": -71.350507,
+    "websiteUrl": "https://motelflamingo.cl",
+    "source": "OSM way/1348696121; motelflamingo.cl indica Tabolango"
+  },
+  {
+    "name": "Motel Venecia",
+    "city": "Rancagua",
+    "address": "Av. Illanes 0194, sector La Cruz, Rancagua",
+    "phone": "+56995490187",
+    "latitude": -34.142077,
+    "longitude": -70.725268,
+    "websiteUrl": "https://www.venecia.cl/motel/",
+    "source": "Dirección y teléfono según venecia.cl; coordenadas de la calle (Nominatim), no del número exacto"
+  },
+  {
+    "name": "Motel Laguna Verde",
+    "city": "Sagrada Familia",
+    "address": "Ruta 5 Sur km 201, cruce Santa Rosa - Lontué",
+    "latitude": -35.066426,
+    "longitude": -71.297387,
+    "websiteUrl": "https://motellagunaverde.cl",
+    "source": "OSM node/5130934721; dirección según motellagunaverde.cl"
+  },
+  {
+    "name": "Motel Manquimávida",
+    "city": "Chiguayante",
+    "address": "Manquimávida 405, Chiguayante",
+    "phone": "+56940022252",
+    "latitude": -36.942705,
+    "longitude": -73.02348,
+    "websiteUrl": "https://www.motelesmanquimavida.cl/",
+    "source": "OSM node/1484656196; dirección y teléfono según motelesmanquimavida.cl"
+  },
+  {
+    "name": "Motel Match",
+    "city": "Padre Las Casas",
+    "address": "Av. Guido Beck de Ramberga 810, Padre Las Casas",
+    "phone": "+56452338641",
+    "latitude": -38.755681,
+    "longitude": -72.594781,
+    "websiteUrl": "https://motelmatch.cl/",
+    "source": "OSM way/853864175 (como \"Motele\", su web motele.cl redirige a motelmatch.cl); dirección y teléfono según motelmatch.cl"
+  },
+  {
+    "name": "Motel Borde Río",
+    "city": "Punta Arenas",
+    "address": "Mejicana 1374, Punta Arenas",
+    "latitude": -53.161846,
+    "longitude": -70.893833,
+    "websiteUrl": "https://motelborderio.cl",
+    "source": "OSM node/9404583738; dirección según motelborderio.cl"
+  }
+]

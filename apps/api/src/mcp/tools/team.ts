@@ -34,6 +34,7 @@ const BANDEJA_TIPOS = [
   "stats_alert",
   "mcp_authorized",
   "whatsapp_prospect_replied",
+  "whatsapp_team_reply",
 ] as const;
 
 /** Los avisos traen correos de quien escribió: salen enmascarados. */

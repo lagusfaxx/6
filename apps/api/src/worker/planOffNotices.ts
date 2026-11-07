@@ -8,7 +8,13 @@ import {
   isBillingEnforced,
 } from "../lib/billingSettings";
 import { sendInAppAndPush } from "../lib/sendReminder";
-import { getWhatsAppProvider, logDelivery, normalizePhoneForWhatsApp, sendWhatsAppNotification } from "../notifications/whatsapp";
+import {
+  getWhatsAppProvider,
+  logDelivery,
+  normalizePhoneForWhatsApp,
+  saveRelay,
+  sendWhatsAppNotification,
+} from "../notifications/whatsapp";
 import { sendBillingNoticeEmail, smtpEnabled } from "./email";
 
 /*
@@ -197,6 +203,8 @@ export async function tickPlanOffNotices() {
         error: String(err?.message || err),
       }));
       await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: `PLAN_OFF_${step}`, result });
+      // Si responde (o salta su respuesta automática), que no caiga en su último chat.
+      await relayNotice(u.id, u.phone!, result, `PLAN_OFF_${step}`);
     }
   }
 
@@ -277,6 +285,14 @@ async function tickTrialChoiceNotices(
         error: String(err?.message || err),
       }));
       await logDelivery(prisma, { userId: u.id, channel: "WHATSAPP", type: "TRIAL_CHOICE_1", result });
+      await relayNotice(u.id, u.phone!, result, "TRIAL_CHOICE_1");
     }
   }
+}
+
+/** Registra el aviso como "no es un chat" para enrutar bien una respuesta. */
+async function relayNotice(userId: string, phone: string, result: { ok: boolean; messageId?: string }, kind: string) {
+  const to = normalizePhoneForWhatsApp(phone);
+  if (!result.ok || !to || getWhatsAppProvider() !== "cloud") return;
+  await saveRelay(prisma, result.messageId, userId, null, to, kind);
 }

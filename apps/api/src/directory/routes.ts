@@ -1640,6 +1640,9 @@ directoryRouter.get(
         availableNow: userIsOnline,
         isActive: u.isActive,
         userLevel: level,
+        /* Tarifa base publicada (también sale en la ficha): las landings de
+           comuna la usan para el rango de precios de la zona. */
+        baseRate: (u as any).baseRate ?? null,
         completedServices: u.completedServices,
         profileViews: u.profileViews,
         lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
