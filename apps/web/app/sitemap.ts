@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
+import { CHILE_REGIONS } from "../lib/chileGeo";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
@@ -191,8 +192,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // URLs LIMPIAS e indexables (/escorts/{ciudad}) con canonical propio y
   // resultados filtrados por ubicación. Antes se emitían como ?city= que
   // Google canonicalizaba a /escorts (duplicado) y no indexaba.
+  // Las 346 comunas de Chile tienen landing con contenido propio
+  // (lib/geoSeo.ts); las ciudades con demanda medida van con más prioridad.
   for (const city of CITY_LANDINGS) {
-    add(`/escorts/${city.slug}`, "daily", 0.8);
+    add(`/escorts/${city.slug}`, "daily", city.main ? 0.8 : 0.6);
+  }
+  // Una landing por región, que enlaza a todas sus comunas por provincia.
+  for (const region of CHILE_REGIONS) {
+    add(`/escorts/${region.slug}`, "daily", 0.75);
   }
 
   // ── Combinaciones tag + ciudad top eliminadas ──

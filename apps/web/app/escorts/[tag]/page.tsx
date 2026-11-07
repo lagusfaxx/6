@@ -4,6 +4,9 @@ import Link from "next/link";
 import DirectoryPage from "../../../components/DirectoryPage";
 import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
+import { getChileRegion } from "../../../lib/chileGeo";
+import { buildCityGeoSeo, buildRegionGeoSeo, regionForCity, regionHref } from "../../../lib/geoSeo";
+import GeoSeoSection, { GeoBreadcrumbs, GeoFaqBlock, GeoLinkList } from "../../../components/GeoSeoSection";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
 import { TEMPLATE_TAG_SEO } from "../../../lib/escortSemrushSeo";
 import { jsonLdString } from "../../../lib/jsonLd";
@@ -37,6 +40,17 @@ function buildMetadata(path: string, title: string, description: string, alt: st
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { tag } = await params;
 
+  // ── Landing de región (/escorts/region-biobio …) ──
+  const region = getChileRegion(tag);
+  if (region) {
+    const geo = buildRegionGeoSeo(region);
+    const title = `Escorts en la ${region.label}: todas las comunas`;
+    const description = `Escorts y putas verificadas en la ${region.fullName}: ${geo.capital.name} y las ${geo.provinces.reduce((n, p) => n + p.links.length, 0)} comunas de la región. Fotos reales y contacto directo por WhatsApp en UZEED.`;
+    return buildMetadata(`/escorts/${region.slug}`, title, description, `UZEED Escorts ${region.name}`, {
+      keywords: [`escorts ${region.name.toLowerCase()}`, `escorts ${region.label.toLowerCase()}`, `putas ${region.name.toLowerCase()}`, `escort ${geo.capital.name.toLowerCase()}`],
+    });
+  }
+
   // ── Landing de ciudad (/escorts/santiago, /escorts/las-condes …) ──
   const city = getCity(tag);
   if (city) {
@@ -54,8 +68,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : hasProfiles
         ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
         : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
-    return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`,
-      seo ? { keywords: seo.keywords } : {});
+    const n = city.name.toLowerCase();
+    return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`, {
+      keywords: seo?.keywords ?? [`escort ${n}`, `escorts en ${n}`, `putas ${n}`, `escorts ${regionForCity(city).name.toLowerCase()}`],
+    });
   }
 
   // ── Landing curada (a-domicilio, hombres, trans, maduras …) ──
@@ -75,15 +91,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
 }
 
-function breadcrumbJsonLd(name: string) {
+/** `parent`: nivel intermedio (la región de una comuna). */
+function breadcrumbJsonLd(name: string, parent?: { name: string; href: string }) {
+  const items = [
+    { name: "Inicio", item: "https://uzeed.cl" },
+    { name: "Escorts", item: "https://uzeed.cl/escorts" },
+    ...(parent ? [{ name: parent.name, item: `https://uzeed.cl${parent.href}` }] : []),
+    { name },
+  ];
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Inicio", item: "https://uzeed.cl" },
-      { "@type": "ListItem", position: 2, name: "Escorts", item: "https://uzeed.cl/escorts" },
-      { "@type": "ListItem", position: 3, name },
-    ],
+    itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, ...it })),
   };
 }
 
@@ -145,6 +164,64 @@ export default async function EscortsTagPage({ params }: Props) {
   const { tag } = await params;
 
   // ─────────────────────────────────────────────────────────────
+  // Landing de REGIÓN: /escorts/region-{region}
+  // Listado centrado en la capital regional, texto propio de la región y
+  // enlaces a TODAS sus comunas agrupadas por provincia.
+  // ─────────────────────────────────────────────────────────────
+  const region = getChileRegion(tag);
+  if (region) {
+    const geo = buildRegionGeoSeo(region);
+    return (
+      <>
+        <Suspense>
+          <DirectoryPage
+            key={`escort-region-${region.slug}`}
+            entityType="professional"
+            categorySlug="escort"
+            title={`Escorts en ${region.name}`}
+            city={{ name: geo.capital.name, lat: geo.capital.lat, lng: geo.capital.lng }}
+            withMap={false}
+            defaultGender="FEMALE"
+          />
+        </Suspense>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(region.label)) }}
+        />
+        <section className="max-w-4xl mx-auto px-4 pb-10 pt-6 text-white/60 text-sm leading-relaxed">
+          <GeoBreadcrumbs items={[{ name: "Inicio", href: "/" }, { name: "Escorts", href: "/escorts" }, { name: region.label }]} />
+          <h2 className="text-xl font-bold text-white/80 mb-3">{geo.heading}</h2>
+          {geo.paragraphs.map((p, i) => (
+            <p key={i} className="mb-4">{p}</p>
+          ))}
+          <div className="mt-6">
+            <h3 className="text-base font-semibold text-white/70 mb-3">Escorts por comuna</h3>
+            {geo.provinces.map((p) => (
+              <div key={p.name} className="mb-5">
+                <h4 className="text-sm font-medium text-white/50 mb-2">
+                  {geo.provinces.length > 1 ? `Provincia de ${p.name}` : p.name} · {p.links.length} {p.links.length === 1 ? "comuna" : "comunas"}
+                </h4>
+                <GeoLinkList links={p.links} label={`Comunas de ${p.name}`} />
+              </div>
+            ))}
+          </div>
+          <GeoFaqBlock faq={geo.faq} />
+          <div className="mt-8">
+            <h3 className="text-base font-semibold text-white/70 mb-3">Otras regiones de Chile</h3>
+            <GeoLinkList links={geo.allRegions.map((r) => ({ href: r.href, label: `Escorts en ${r.label}` }))} label="Regiones" />
+          </div>
+        </section>
+        <DirectorySeoLinks
+          heading={`Escorts Destacadas en ${region.name}`}
+          lat={geo.capital.lat}
+          lng={geo.capital.lng}
+          cityName={geo.capital.name}
+        />
+      </>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // Landing de CIUDAD: /escorts/{ciudad}
   // Resultados filtrados por ubicación (coords de la ciudad), canonical
   // propio y contenido único. Reemplaza a ?city= (inerte y canonicalizado
@@ -153,6 +230,10 @@ export default async function EscortsTagPage({ params }: Props) {
   const city = getCity(tag);
   if (city) {
     const seo = CITY_SEO[city.slug];
+    const hasProfiles = await cityHasProfiles(city.lat, city.lng);
+    const geo = buildCityGeoSeo(city, hasProfiles);
+    const cityRegion = geo.region ?? regionForCity(city);
+    const regionCrumb = { name: cityRegion.label, href: regionHref(cityRegion) };
     return (
       <>
         <Suspense>
@@ -168,7 +249,7 @@ export default async function EscortsTagPage({ params }: Props) {
         </Suspense>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(`Escorts en ${city.name}`)) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(`Escorts en ${city.name}`, city.slug === "santiago" ? undefined : regionCrumb)) }}
         />
         {/* El texto de plantilla se mantiene siempre: las ciudades que ya
             rankean lo hacen con él. El copy propio se suma debajo. */}
@@ -189,6 +270,18 @@ export default async function EscortsTagPage({ params }: Props) {
           </p>
         </section>
         {seo && <SeoCopySection seo={seo} />}
+        {/* Contenido propio de la comuna: ubicación, datos, comunas vecinas y
+            de la provincia, FAQ. Lo tienen las 346 comunas. */}
+        <GeoSeoSection
+          seo={geo}
+          withFaq={!seo || seo.faq.length === 0}
+          breadcrumbs={[
+            { name: "Inicio", href: "/" },
+            { name: "Escorts", href: "/escorts" },
+            ...(city.slug === "santiago" ? [] : [regionCrumb]),
+            { name: city.name },
+          ]}
+        />
         {/* Perfiles renderizados en servidor para indexación */}
         <DirectorySeoLinks
           heading={`Escorts Destacadas en ${city.name}`}
