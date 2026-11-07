@@ -13,7 +13,8 @@ export type AdminEventType =
   | "face_verification_submitted"
   | "mcp_authorized"
   | "stats_alert"
-  | "whatsapp_prospect_replied";
+  | "whatsapp_prospect_replied"
+  | "whatsapp_team_reply";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -60,6 +61,11 @@ const ADMIN_EVENT_CONFIG: Record<
   whatsapp_prospect_replied: {
     title: "Respondió un contacto de WhatsApp",
     body: "Un contacto sin cuenta respondió al mensaje de WhatsApp. Escríbele para ayudarle a registrarse.",
+    url: "/admin/whatsapp",
+  },
+  whatsapp_team_reply: {
+    title: "Una profesional respondió por WhatsApp",
+    body: "Contestó un aviso del equipo (difusión, plan o prueba gratis). Revisa su respuesta.",
     url: "/admin/whatsapp",
   },
   stats_alert: {

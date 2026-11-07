@@ -109,7 +109,7 @@ notificationsRouter.get("/notifications/whatsapp/replies", requireAdmin, asyncHa
   const take = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
   const skip = Math.max(0, Number(req.query.offset) || 0);
   const status = typeof req.query.status === "string" ? req.query.status.toUpperCase() : "";
-  const where = ["SENT", "NO_CHAT", "NOT_TEXT", "BLOCKED", "TEST"].includes(status) ? { status } : {};
+  const where = ["SENT", "TEAM", "AUTO", "NO_CHAT", "NOT_TEXT", "BLOCKED", "TEST"].includes(status) ? { status } : {};
 
   const [rows, total] = await Promise.all([
     prisma.whatsAppReply.findMany({ where, orderBy: { createdAt: "desc" }, take, skip }),
@@ -129,6 +129,7 @@ notificationsRouter.get("/notifications/whatsapp/replies", requireAdmin, asyncHa
       kind: r.kind,
       body: r.body,
       messageId: r.messageId,
+      inReplyTo: r.inReplyTo,
       professional: r.userId ? byId.get(r.userId) ?? null : null,
       client: r.peerId ? byId.get(r.peerId) ?? null : null,
     })),

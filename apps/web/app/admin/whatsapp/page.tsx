@@ -605,16 +605,20 @@ export default function AdminWhatsAppPage() {
 type WaReply = {
   id: string;
   createdAt: string;
-  status: "SENT" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
+  status: "SENT" | "TEAM" | "AUTO" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
   kind: string;
   body: string | null;
   messageId: string | null;
+  /** Tipo del aviso al que respondió (PLAN_OFF_1, MCP_BROADCAST_TEMPLATE…). */
+  inReplyTo?: string | null;
   professional: { name: string; username: string } | null;
   client: { name: string; username: string } | null;
 };
 
 const REPLY_STATUS: Record<WaReply["status"], { label: string; className: string }> = {
   SENT: { label: "Entregada", className: "text-emerald-300" },
+  TEAM: { label: "Al equipo", className: "text-sky-300" },
+  AUTO: { label: "Respuesta automática", className: "text-white/45" },
   NO_CHAT: { label: "Sin chat", className: "text-amber-300" },
   NOT_TEXT: { label: "No es texto", className: "text-amber-300" },
   BLOCKED: { label: "Bloqueada", className: "text-rose-300" },
@@ -624,6 +628,8 @@ const REPLY_STATUS: Record<WaReply["status"], { label: string; className: string
 const REPLY_FILTERS: Array<{ value: string; label: string }> = [
   { value: "", label: "Todas" },
   { value: "SENT", label: "Entregadas" },
+  { value: "TEAM", label: "Al equipo" },
+  { value: "AUTO", label: "Automáticas" },
   { value: "NO_CHAT", label: "Sin chat" },
   { value: "NOT_TEXT", label: "No es texto" },
   { value: "BLOCKED", label: "Bloqueadas" },
@@ -638,6 +644,17 @@ const KIND_LABEL: Record<string, string> = {
   location: "Ubicación",
   reaction: "Reacción",
 };
+
+/* A qué aviso respondió, cuando no es un chat con un cliente. */
+function inReplyToLabel(kind?: string | null): string | null {
+  if (!kind) return null;
+  if (kind.startsWith("PLAN_OFF_")) return `aviso de plan vencido (${kind.slice(-1)}º)`;
+  if (kind.startsWith("TRIAL_CHOICE_")) return "aviso de elegir la prueba gratis";
+  if (kind === "MCP_BROADCAST_TEMPLATE" || kind === "MCP_BROADCAST") return "difusión del equipo";
+  if (kind === "MESSAGE_RECEIVED") return null;
+  if (kind === "TEST") return "prueba del panel";
+  return `aviso ${kind.toLowerCase().replace(/_/g, " ")}`;
+}
 
 function WhatsAppReplies() {
   const [status, setStatus] = useState("");
@@ -682,7 +699,9 @@ function WhatsAppReplies() {
         </button>
       </div>
       <p className="mt-1 text-xs text-white/45">
-        Lo que las profesionales contestan desde su WhatsApp y a qué cliente le llegó en el chat. {total > 0 && `${total} en total.`}
+        Lo que las profesionales contestan desde su WhatsApp y a qué cliente le llegó en el chat. «Al equipo» son respuestas a
+        una difusión o a un aviso de plan (no van a ningún cliente); «Automáticas», las de su WhatsApp Business.{" "}
+        {total > 0 && `${total} en total.`}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -716,6 +735,9 @@ function WhatsAppReplies() {
                     <span className="text-white/30">→</span>
                     <span className="text-white/70">{r.client.name}</span>
                   </>
+                )}
+                {!r.client && inReplyToLabel(r.inReplyTo) && (
+                  <span className="text-white/40">· respondió a {inReplyToLabel(r.inReplyTo)}</span>
                 )}
                 <span className={`ml-auto font-semibold ${st.className}`}>{st.label}</span>
               </div>
