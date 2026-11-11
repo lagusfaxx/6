@@ -232,6 +232,33 @@ export function withActivePlan<T extends object>(where: T): T {
   return { AND: [where, extra] } as unknown as T;
 }
 
+/**
+ * Lo contrario de `planActiveWhere`: perfiles que hoy se exigen plan y no lo
+ * tienen (prueba vencida sin pago). Null cuando no se exige plan a nadie.
+ * Los listados que los muestran "en gris" lo usan para traerlos aparte.
+ */
+export function planInactiveWhere(now = new Date()): Prisma.UserWhereInput | null {
+  const extra = planActiveWhere(now);
+  return "OR" in extra ? { NOT: extra } : null;
+}
+
+/**
+ * Intentos de abrir la ficha de un perfil sin plan vigente (la tarjeta en gris
+ * del directorio), en los últimos `days` días. Los registra
+ * POST /professionals/:id/locked-view como UserAction "locked_profile_view".
+ */
+export async function countLockedProfileViews(userId: string, days = 30): Promise<number> {
+  return prisma.userAction
+    .count({
+      where: {
+        action: "locked_profile_view",
+        targetId: userId,
+        createdAt: { gt: new Date(Date.now() - days * DAY_MS) },
+      },
+    })
+    .catch(() => 0);
+}
+
 /** Igual que `withActivePlan`, para filtros anidados en la relación con el autor/dueño. */
 export function activePlanRelationWhere(): Prisma.UserWhereInput | undefined {
   const extra = planActiveWhere();

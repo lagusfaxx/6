@@ -10,7 +10,7 @@ import {
   buildLoginHref,
 } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
-import { trackAction } from "../../../hooks/useAnalytics";
+import { analyticsIds, trackAction } from "../../../hooks/useAnalytics";
 import SkeletonCard from "../../../components/SkeletonCard";
 import Link from "next/link";
 import {
@@ -28,6 +28,7 @@ import {
   Smile,
   Sparkles,
   HeartHandshake,
+  Lock,
   X,
   Heart,
   ChevronLeft,
@@ -290,6 +291,56 @@ function timeAgo(dateStr: string) {
   return `hace ${months} mes${months > 1 ? "es" : ""}`;
 }
 
+type LockedProfile = {
+  id: string;
+  username?: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  city: string | null;
+};
+
+/** Ficha de un perfil sin plan vigente: nombre y foto en gris, sin datos de
+    contacto, y la invitación a seguir buscando. */
+function LockedProfileView({ profile }: { profile: LockedProfile }) {
+  const photo = resolveMediaUrl(profile.coverUrl || profile.avatarUrl);
+  return (
+    <div className="mx-auto w-full max-w-md py-6">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0c0a14]">
+        <div className="relative aspect-[3/4] w-full">
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo}
+              alt={profile.displayName}
+              className="absolute inset-0 h-full w-full object-cover opacity-50 grayscale blur-[2px]"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/50">
+              <Lock className="h-6 w-6 text-white/70" />
+            </div>
+            <h1 className="text-xl font-bold text-white/90">{profile.displayName}</h1>
+            {profile.city && <p className="mt-0.5 text-sm text-white/50">{profile.city}</p>}
+            <p className="mt-4 text-sm text-white/65">
+              Este perfil no está disponible por ahora. Mientras tanto, mira otras profesionales disponibles.
+            </p>
+            <Link
+              href="/escorts"
+              className="mt-5 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
+            >
+              Ver perfiles disponibles
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileDetailView({
   id,
   username,
@@ -301,6 +352,9 @@ export default function ProfileDetailView({
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  /* Perfil sin plan vigente (tarjeta en gris del directorio): la ficha queda
+     bloqueada y sólo se muestran el nombre y la foto, en gris. */
+  const [lockedProfile, setLockedProfile] = useState<LockedProfile | null>(null);
   /* La barra de contacto se monta en <body>: dentro del contenedor con
      overflow-x-hidden, iOS la arrastraba con el scroll y quedaba flotando a
      media pantalla. */
@@ -343,6 +397,7 @@ export default function ProfileDetailView({
     let cancelled = false;
     setLoading(true);
     setNotFound(false);
+    setLockedProfile(null);
 
     const load = async () => {
       try {
@@ -388,7 +443,19 @@ export default function ProfileDetailView({
           err instanceof ApiHttpError &&
           [403, 404].includes(err.status)
         ) {
-          setNotFound(true);
+          const locked = err.body?.reason === "PLAN_INACTIVE" ? err.body?.locked : null;
+          if (locked?.id) {
+            setLockedProfile(locked as LockedProfile);
+            // El intento queda registrado: es la métrica que se le muestra a
+            // la profesional para que active su plan.
+            const ids = analyticsIds();
+            apiFetch(`/professionals/${locked.id}/locked-view`, {
+              method: "POST",
+              body: JSON.stringify({ sessionId: ids.sid, visitorId: ids.vid, source: "profile" }),
+            }).catch(() => {});
+          } else {
+            setNotFound(true);
+          }
         }
         if (!cancelled) setProfessional(null);
       } finally {
@@ -704,6 +771,9 @@ export default function ProfileDetailView({
         <SkeletonCard className="h-64 rounded-3xl" />
       </div>
     );
+  }
+  if (lockedProfile) {
+    return <LockedProfileView profile={lockedProfile} />;
   }
   if (notFound || !professional) {
     return (

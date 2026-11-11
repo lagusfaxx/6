@@ -37,6 +37,8 @@ type Access = {
   needsTrialChoice?: boolean;
   trialDays?: number;
   cardTrialDays?: number;
+  /** Clientes que intentaron abrir su ficha bloqueada en los últimos 30 días. */
+  lockedViews?: number;
 };
 
 export function usePlanLock(pathname: string) {
@@ -83,9 +85,18 @@ function reasonText(access: Access | null) {
   return "Se terminó tu prueba gratis";
 }
 
+/** "12 clientes quisieron ver tu perfil…": lo que se perdió por no pagar. */
+function lockedViewsText(n: number | undefined) {
+  if (!n || n <= 0) return null;
+  return n === 1
+    ? "1 cliente quiso ver tu perfil en los últimos 30 días y no pudo."
+    : `${n.toLocaleString("es-CL")} clientes quisieron ver tu perfil en los últimos 30 días y no pudieron.`;
+}
+
 /** Pantalla que reemplaza a toda la app mientras la cuenta está bloqueada. */
 export function PlanLockScreen({ access }: { access: Access | null }) {
   const price = access?.priceClp;
+  const missed = access?.needsTrialChoice ? null : lockedViewsText(access?.lockedViews);
   return (
     <div className="flex min-h-[100svh] w-full items-center justify-center px-4 py-10 text-white">
       <div className="w-full max-w-sm rounded-3xl border border-fuchsia-500/20 bg-gradient-to-br from-violet-600/10 via-fuchsia-500/5 to-transparent p-6 text-center">
@@ -94,9 +105,15 @@ export function PlanLockScreen({ access }: { access: Access | null }) {
         </div>
         <h1 className="text-xl font-bold">Tu cuenta está pausada</h1>
         <p className="mt-2 text-sm text-white/60">
-          {reasonText(access)} y tu perfil ya no aparece en UZEED. Los clientes no te pueden ver ni escribir hasta que
-          actives tu plan.
+          {access?.needsTrialChoice
+            ? `${reasonText(access)}. Los clientes no te pueden ver ni escribir hasta entonces.`
+            : `${reasonText(access)} y tu perfil aparece en gris y bloqueado en UZEED: los clientes lo ven, pero no lo pueden abrir ni escribirte hasta que actives tu plan.`}
         </p>
+        {missed && (
+          <p className="mt-4 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2.5 text-sm font-semibold text-fuchsia-100">
+            {missed}
+          </p>
+        )}
         <Link
           href="/pago"
           className="mt-5 flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
@@ -124,7 +141,12 @@ export function PlanLockLayout({ access, children }: { access: Access | null; ch
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <p className="text-xs text-white/70">
             <Lock className="mr-1 inline h-3.5 w-3.5 text-fuchsia-300" />
-            {reasonText(access)}{access?.needsTrialChoice ? "." : ". Activa tu plan para volver a aparecer."}
+            {reasonText(access)}
+            {access?.needsTrialChoice
+              ? "."
+              : access?.lockedViews
+                ? `. ${access.lockedViews.toLocaleString("es-CL")} ${access.lockedViews === 1 ? "cliente quiso" : "clientes quisieron"} ver tu perfil (30 días). Activa tu plan para que te encuentren.`
+                : ". Activa tu plan para volver a aparecer."}
           </p>
           <button
             type="button"
