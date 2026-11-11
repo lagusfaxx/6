@@ -199,13 +199,13 @@ function ProfileCard({
   }, [p, entityType, href, onOpenModal]);
 
   const expired = Boolean(p.planExpired);
-  const tierClass = expired ? "" : p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
+  const tierClass = p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
 
   return (
     <div
       ref={cardRef}
       onClick={handleCardClick}
-      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass}`}
+      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass} ${expired ? "grayscale" : ""}`}
     >
       {/* Cover / hero photo with shimmer effect */}
       <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
@@ -255,8 +255,8 @@ function ProfileCard({
         </div>
 
         {/* Top-right: level badge */}
-        <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} right-2.5 z-[3]`}>
-          {!expired && <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />}
+        <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} right-2.5 z-[3] ${expired ? "opacity-70" : ""}`}>
+          <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
         </div>
 
         {/* Bottom info overlay with premium layout */}
@@ -402,7 +402,7 @@ export default function DirectoryPage({
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      // Las profesionales sin plan vigente van al final, en gris.
+      // Las profesionales sin plan vigente salen en su lugar, en gris.
       if (entityType === "professional") params.set("includeExpired", "true");
       if (alsoCategorySlug) params.set("alsoCategory", alsoCategorySlug);
       if (effectiveLoc) {
@@ -853,7 +853,7 @@ export default function DirectoryPage({
             {displayed.map((p, i) => (
               <Fragment key={p.id}>
                 {/* Separador antes de la primera de la categoría de relleno. */}
-                {p.secondaryCategory && !p.planExpired && !displayed[i - 1]?.secondaryCategory && (
+                {p.secondaryCategory && !displayed[i - 1]?.secondaryCategory && (
                   <div className="col-span-full mt-4 flex items-baseline justify-between gap-3 border-t border-white/10 pt-5">
                     <h2 className="text-base font-bold text-white/80">
                       {alsoCategoryTitle || "También te puede interesar"}

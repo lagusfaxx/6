@@ -1385,7 +1385,7 @@ directoryRouter.get(
     const q = qRaw.trim().slice(0, 80);
     /* 'true' → agrega galleryUrls (hasta 6 fotos públicas) a cada resultado. */
     const withGallery = req.query.withGallery === "true";
-    /* 'true' → suma al final las profesionales con la prueba o el plan vencido
+    /* 'true' → suma, en su lugar de siempre, las profesionales con la prueba o el plan vencido
        (sin pago), marcadas `planExpired`. La web las muestra en gris: se pueden
        pasar las fotos pero la ficha queda bloqueada, y cada intento de abrirla
        se registra para mostrárselo a la profesional cuando le pedimos pagar.
@@ -1691,8 +1691,8 @@ directoryRouter.get(
         // Con la app bloqueada no puede atender: no se muestra en línea.
         availableNow: userIsOnline && !planExpired,
         isActive: u.isActive,
-        /* Sin plan vigente: la tarjeta va en gris, al final, y la ficha
-           queda bloqueada. */
+        /* Sin plan vigente: la tarjeta va en gris (en su lugar y con su
+           nivel) y la ficha queda bloqueada. */
         planExpired,
         userLevel: level,
         completedServices: u.completedServices,
@@ -1743,9 +1743,6 @@ directoryRouter.get(
     const bandRank = (distance: number | null) =>
       expand && hasOrigin ? (distance != null && distance <= radiusKm ? 0 : 1) : 0;
     const sorted = [...filtered].sort((a, b) => {
-      // Las de plan vencido (en gris) van después de todas las publicadas.
-      const expCmp = Number(a.planExpired) - Number(b.planExpired);
-      if (expCmp !== 0) return expCmp;
       // La categoría de relleno va siempre después de toda la principal.
       const catCmp = Number(a.secondaryCategory) - Number(b.secondaryCategory);
       if (catCmp !== 0) return catCmp;
@@ -1855,8 +1852,6 @@ directoryRouter.get(
     ];
     if (sort === "near") {
       merged.sort((a, b) => {
-        const expCmp = Number(Boolean((a as any).planExpired)) - Number(Boolean((b as any).planExpired));
-        if (expCmp !== 0) return expCmp;
         const catCmp = Number(Boolean((a as any).secondaryCategory)) - Number(Boolean((b as any).secondaryCategory));
         if (catCmp !== 0) return catCmp;
         const cityCmp = cityRank(a.city) - cityRank(b.city);
@@ -1866,11 +1861,7 @@ directoryRouter.get(
     } else if (selectedCity && quickResults.length) {
       /* Los avisos rápidos se anexan al final: sin esto quedarían después de
          los perfiles de otras comunas aunque sean de la comuna elegida. */
-      merged.sort(
-        (a, b) =>
-          Number(Boolean((a as any).planExpired)) - Number(Boolean((b as any).planExpired)) ||
-          cityRank(a.city) - cityRank(b.city),
-      );
+      merged.sort((a, b) => cityRank(a.city) - cityRank(b.city));
     }
     const pageResults = merged.slice(offset, offset + limit);
     const gallery = withGallery

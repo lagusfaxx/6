@@ -203,9 +203,17 @@ export default function ProfileCard({
 
   const expired = Boolean(p.planExpired);
   const banded = Boolean(!expired && p.spotlight && p.boostEndsAt);
+  /* Vencida: conserva su nivel (Diamond, Gold), en gris como el resto de
+     la tarjeta. */
   const tag =
     expired ? (
-      <span className={`${TAG_CLASS} text-white/70`}>No disponible</span>
+      p.userLevel === "DIAMOND" ? (
+        <span className={`${TAG_CLASS} text-tier-diamond`}>◆ Diamond</span>
+      ) : p.userLevel === "GOLD" ? (
+        <span className={`${TAG_CLASS} text-tier-gold`}>★ Gold</span>
+      ) : (
+        <span className={`${TAG_CLASS} text-white/70`}>No disponible</span>
+      )
     ) : banded ? null : p.spotlight ? (
       <span className={`${TAG_CLASS} text-fuchsia-200`}>🔥 Destacada</span>
     ) : p.userLevel === "DIAMOND" ? (
@@ -281,7 +289,7 @@ export default function ProfileCard({
         </div>
       )}
 
-      <div className={`pointer-events-none absolute left-2 ${banded ? (mini ? "top-8" : "top-9") : "top-4"} z-[3] flex items-center gap-[5px]`}>
+      <div className={`pointer-events-none absolute left-2 ${expired ? "grayscale" : ""} ${banded ? (mini ? "top-8" : "top-9") : "top-4"} z-[3] flex items-center gap-[5px]`}>
         {p.availableNow && !expired && (
           <span
             title="Disponible ahora"
