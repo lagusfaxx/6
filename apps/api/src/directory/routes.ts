@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma, type ProfessionalTier } from "@prisma/client";
@@ -12,7 +13,7 @@ import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
-import { userHasActivePlan, withActivePlan } from "../lib/billingSettings";
+import { planInactiveWhere, userHasActivePlan, withActivePlan } from "../lib/billingSettings";
 import { boostRank, getActiveBoostSets, spotlightEndsAt } from "../lib/promo";
 import { CONTENT_CATEGORY, contentCreatorWhere, notContentOnlyWhere } from "../lib/serviceCategories";
 import { sellableProductWhere } from "../market/review";
@@ -955,7 +956,22 @@ directoryRouter.get(
     // Con el cobro activo, un perfil sin plan vigente no se muestra (salvo a
     // su dueña y al equipo, para que pueda ver su ficha y pagar).
     if (!isAdminViewer && req.session.userId !== id && !(await userHasActivePlan(id))) {
-      return res.status(404).json({ error: "not_found", reason: "PLAN_INACTIVE" });
+      // Ficha bloqueada: sólo lo justo para la pantalla de "no disponible"
+      // (nombre y foto, en gris). El intento de abrirla lo registra la web con
+      // POST /professionals/:id/locked-view: aquí no, porque este GET también
+      // lo hace el servidor de Next al armar la página y contaría de más.
+      return res.status(404).json({
+        error: "not_found",
+        reason: "PLAN_INACTIVE",
+        locked: {
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName || u.username,
+          avatarUrl: u.avatarUrl,
+          coverUrl: u.coverUrl,
+          city: u.city,
+        },
+      });
     }
 
     const [reviews, forumThread, umateCreator] = await Promise.all([
@@ -1369,6 +1385,13 @@ directoryRouter.get(
     const q = qRaw.trim().slice(0, 80);
     /* 'true' → agrega galleryUrls (hasta 6 fotos públicas) a cada resultado. */
     const withGallery = req.query.withGallery === "true";
+    /* 'true' → suma al final las profesionales con la prueba o el plan vencido
+       (sin pago), marcadas `planExpired`. La web las muestra en gris: se pueden
+       pasar las fotos pero la ficha queda bloqueada, y cada intento de abrirla
+       se registra para mostrárselo a la profesional cuando le pedimos pagar.
+       Es opcional para que el sitemap, los enlaces SEO y demás consumidores
+       sigan viendo sólo perfiles publicados. */
+    const includeExpired = req.query.includeExpired === "true";
 
     /* ── normalise tag filters ── */
     /* Los tags se guardan con espacios ("sexo oral") y las URLs los traen con
@@ -1574,6 +1597,33 @@ directoryRouter.get(
       }
     }
 
+    /* Perfiles sin plan vigente (en gris). Se traen aparte, con los mismos
+       filtros, para no tocar la muestra de los publicados. */
+    const expiredIds = new Set<string>();
+    const inactiveWhere =
+      includeExpired && hasNewColumns && profileTypeFilter[0] === "PROFESSIONAL" ? planInactiveWhere() : null;
+    if (inactiveWhere) {
+      try {
+        const expiredUsers = await prisma.user.findMany({
+          // Sólo vencidas: un perfil nuevo que todavía no elige su prueba no
+          // "caducó" y sigue sin aparecer hasta que elija.
+          where: { AND: [where as Prisma.UserWhereInput, inactiveWhere, { needsTrialChoice: false }] },
+          take: 300,
+          orderBy: { lastSeen: { sort: "desc", nulls: "last" } },
+          select: fullSelect,
+        });
+        const known = new Set(users.map((u) => u.id));
+        for (const u of expiredUsers) {
+          if (known.has(u.id)) continue;
+          known.add(u.id);
+          expiredIds.add(u.id);
+          users.push(u);
+        }
+      } catch (err) {
+        console.warn("[directory/search] expired profiles query failed:", (err as Error).message?.slice(0, 120));
+      }
+    }
+
     /* La muestra anterior se corta en unos cientos de perfiles sin un orden
        garantizado, así que los de la comuna elegida podrían quedar fuera justo
        cuando son los que tienen que ir primero. Se traen aparte y se suman. */
@@ -1626,6 +1676,7 @@ directoryRouter.get(
       });
       const isMadura = age != null && age >= 40;
       const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
+      const planExpired = expiredIds.has(u.id);
 
       return {
         id: u.id,
@@ -1637,8 +1688,12 @@ directoryRouter.get(
         distance,
         latitude: obf.latitude,
         longitude: obf.longitude,
-        availableNow: userIsOnline,
+        // Con la app bloqueada no puede atender: no se muestra en línea.
+        availableNow: userIsOnline && !planExpired,
         isActive: u.isActive,
+        /* Sin plan vigente: la tarjeta va en gris, al final, y la ficha
+           queda bloqueada. */
+        planExpired,
         userLevel: level,
         completedServices: u.completedServices,
         profileViews: u.profileViews,
@@ -1688,6 +1743,9 @@ directoryRouter.get(
     const bandRank = (distance: number | null) =>
       expand && hasOrigin ? (distance != null && distance <= radiusKm ? 0 : 1) : 0;
     const sorted = [...filtered].sort((a, b) => {
+      // Las de plan vencido (en gris) van después de todas las publicadas.
+      const expCmp = Number(a.planExpired) - Number(b.planExpired);
+      if (expCmp !== 0) return expCmp;
       // La categoría de relleno va siempre después de toda la principal.
       const catCmp = Number(a.secondaryCategory) - Number(b.secondaryCategory);
       if (catCmp !== 0) return catCmp;
@@ -1777,6 +1835,7 @@ directoryRouter.get(
           nearestMetro: null,
           websiteUrl: ql.websiteUrl,
           externalOnly: true,
+          planExpired: false,
         };
       })
         .filter((ql) =>
@@ -1789,13 +1848,15 @@ directoryRouter.get(
     const merged = [
       ...sorted.map(({ createdAt, isMadura, ...r }) => ({
         ...r,
-        boost: boostLabel(r.id, boostSets),
-        boostEndsAt: spotlightEndsAt(r.id, boostSets),
+        boost: r.planExpired ? null : boostLabel(r.id, boostSets),
+        boostEndsAt: r.planExpired ? null : spotlightEndsAt(r.id, boostSets),
       })),
       ...quickResults.map((r) => ({ ...r, boost: null as "SPOTLIGHT" | "BUMP" | null })),
     ];
     if (sort === "near") {
       merged.sort((a, b) => {
+        const expCmp = Number(Boolean((a as any).planExpired)) - Number(Boolean((b as any).planExpired));
+        if (expCmp !== 0) return expCmp;
         const catCmp = Number(Boolean((a as any).secondaryCategory)) - Number(Boolean((b as any).secondaryCategory));
         if (catCmp !== 0) return catCmp;
         const cityCmp = cityRank(a.city) - cityRank(b.city);
@@ -1805,7 +1866,11 @@ directoryRouter.get(
     } else if (selectedCity && quickResults.length) {
       /* Los avisos rápidos se anexan al final: sin esto quedarían después de
          los perfiles de otras comunas aunque sean de la comuna elegida. */
-      merged.sort((a, b) => cityRank(a.city) - cityRank(b.city));
+      merged.sort(
+        (a, b) =>
+          Number(Boolean((a as any).planExpired)) - Number(Boolean((b as any).planExpired)) ||
+          cityRank(a.city) - cityRank(b.city),
+      );
     }
     const pageResults = merged.slice(offset, offset + limit);
     const gallery = withGallery
@@ -1837,7 +1902,7 @@ directoryRouter.get(
             city: selectedCity || null,
             entityType,
             filters: Object.keys(explicitFilters).length ? explicitFilters : undefined,
-            resultCount: merged.length,
+            resultCount: merged.filter((r) => !(r as any).planExpired).length,
             userId: (req.session as any)?.userId || null,
             sessionId: typeof req.query.sid === "string" && /^[A-Za-z0-9-]{8,64}$/.test(req.query.sid) ? req.query.sid : null,
             visitorId: typeof req.query.vid === "string" && /^[A-Za-z0-9-]{8,64}$/.test(req.query.vid) ? req.query.vid : null,
@@ -2006,6 +2071,88 @@ directoryRouter.get(
 /* ══════════════════════════════════════════════════════════════
    PROFILE REVIEW SURVEY (Mini-encuesta de calificación)
    ══════════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────
+   POST /professionals/:id/locked-view — un cliente intentó abrir la ficha de
+   una profesional sin plan vigente (tarjeta en gris). Queda en UserAction
+   como "locked_profile_view" con el perfil en targetId: es la métrica que se
+   le muestra a la profesional para que active su plan ("N clientes quisieron
+   ver tu perfil"). Un intento por visitante y perfil cada 30 minutos; no
+   cuentan la dueña ni el equipo, ni un perfil que sí está publicado.
+   ──────────────────────────────────────────────────────────── */
+const LOCKED_VIEW_DEDUP_MS = 30 * 60 * 1000;
+const lockedViewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  message: { error: "TOO_MANY_REQUESTS" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+directoryRouter.post(
+  "/professionals/:id/locked-view",
+  lockedViewLimiter,
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    if (!isUUID(id)) return res.status(404).json({ error: "not_found" });
+    const viewerId = req.session.userId || null;
+    if (viewerId === id) return res.json({ ok: true, counted: false });
+
+    const profile = await prisma.user.findFirst({
+      where: { id, profileType: "PROFESSIONAL", isVerified: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: "not_found" });
+    if (await userHasActivePlan(id)) return res.json({ ok: true, counted: false });
+
+    if (viewerId) {
+      const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { role: true } });
+      if (viewer && viewer.role !== "USER") return res.json({ ok: true, counted: false });
+    }
+
+    const cleanId = (v: unknown) => (typeof v === "string" && /^[A-Za-z0-9-]{8,64}$/.test(v) ? v : null);
+    const sessionId = cleanId(req.body?.sessionId);
+    const visitorId = cleanId(req.body?.visitorId);
+    // Sin ningún identificador no se puede deduplicar: se cuenta por sesión
+    // del servidor (cookie), igual que las vistas de la ficha.
+    const tracker = (req.session as any).lockedViewTracker || {};
+    const lastTs = Number(tracker[id] || 0);
+    if (Number.isFinite(lastTs) && Date.now() - lastTs < LOCKED_VIEW_DEDUP_MS) {
+      return res.json({ ok: true, counted: false });
+    }
+    const who = [
+      ...(viewerId ? [{ userId: viewerId }] : []),
+      ...(visitorId ? [{ visitorId }] : []),
+      ...(sessionId ? [{ sessionId }] : []),
+    ];
+    if (who.length) {
+      const recent = await prisma.userAction.findFirst({
+        where: {
+          action: "locked_profile_view",
+          targetId: id,
+          createdAt: { gt: new Date(Date.now() - LOCKED_VIEW_DEDUP_MS) },
+          OR: who,
+        },
+        select: { id: true },
+      });
+      if (recent) return res.json({ ok: true, counted: false });
+    }
+
+    const source = typeof req.body?.source === "string" ? req.body.source.slice(0, 40) : null;
+    await prisma.userAction.create({
+      data: {
+        action: "locked_profile_view",
+        userId: viewerId,
+        sessionId,
+        visitorId,
+        targetId: id,
+        metadata: source ? { source } : undefined,
+      },
+    });
+    (req.session as any).lockedViewTracker = { ...tracker, [id]: Date.now() };
+    return res.json({ ok: true, counted: true });
+  }),
+);
 
 directoryRouter.post(
   "/professionals/:id/review-survey",

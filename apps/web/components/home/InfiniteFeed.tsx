@@ -80,6 +80,8 @@ export default function InfiniteFeed({
           limit: String(pageSize),
           offset: String(nextOffset),
           withGallery: "true",
+          // Al final van, en gris, las que no pagaron su plan.
+          includeExpired: "true",
         });
         if (effectiveLoc) {
           params.set("lat", String(effectiveLoc[0]));

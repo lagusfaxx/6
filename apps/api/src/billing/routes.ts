@@ -17,6 +17,7 @@ import {
   markPacTrial,
   getPacTrial,
   userHasActivePlan,
+  countLockedProfileViews,
   PAID_PROFILE_TYPES,
   trialChoiceData,
   pendingTrialChoice,
@@ -327,10 +328,14 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
       })) > 0 ||
       (user.flowSubscriptionId ? await hasPacCharge(userId, user.flowSubscriptionId) : false);
   }
+  // Clientes que intentaron abrir su ficha bloqueada (tarjeta en gris) en los
+  // últimos 30 días: es lo que se le muestra para que active su plan.
+  const lockedViews = blocked ? await countLockedProfileViews(userId) : 0;
   return res.json({
     blocked,
     priceClp: billing.priceClp,
     expiredAt: paidBefore ? user.membershipExpiresAt?.toISOString() ?? null : null,
+    lockedViews,
   });
 }));
 

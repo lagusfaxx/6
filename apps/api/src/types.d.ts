@@ -5,6 +5,8 @@ declare module "express-session" {
     userId?: string;
     role?: "USER" | "ADMIN";
     profileViewTracker?: Record<string, number>;
+    /** Último intento de abrir cada ficha bloqueada (POST /professionals/:id/locked-view). */
+    lockedViewTracker?: Record<string, number>;
     pendingGoogleSignup?: {
       email: string;
       displayName: string;

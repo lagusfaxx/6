@@ -55,6 +55,9 @@ export type DirectoryResult = {
   adminQualityScore?: number | null;
   /** Viene de `alsoCategorySlug` (ej. masajista en /escorts): va al final. */
   secondaryCategory?: boolean;
+  /** Prueba o plan vencido sin pago: tarjeta en gris al final del listado y
+      ficha bloqueada (al abrirla se registra el intento). */
+  planExpired?: boolean;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -184,11 +187,19 @@ function ProfileCard({
       return;
     }
 
+    // Sin plan vigente: se va a la ficha, que muestra el bloqueo y registra
+    // el intento. La vista previa cargaría datos que no se muestran.
+    if (p.planExpired) {
+      window.location.href = href;
+      return;
+    }
+
     // Professionals → open full ProfilePreviewModal (same as /services)
     onOpenModal(p);
   }, [p, entityType, href, onOpenModal]);
 
-  const tierClass = p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
+  const expired = Boolean(p.planExpired);
+  const tierClass = expired ? "" : p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
 
   return (
     <div
@@ -206,7 +217,7 @@ function ProfileCard({
             loading="lazy"
             decoding="async"
             fetchPriority="low"
-            className="uzeed-card-img w-full h-full object-cover"
+            className={`uzeed-card-img w-full h-full object-cover ${expired ? "opacity-60 grayscale" : ""}`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-900/40 via-violet-900/30 to-indigo-900/20">
@@ -221,7 +232,7 @@ function ProfileCard({
         <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/[0.04] via-transparent to-violet-600/[0.04] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         {/* Destacada: franja con contador de lado a lado; lo demás baja. */}
-        {p.boost === "SPOTLIGHT" && p.boostEndsAt && (
+        {!expired && p.boost === "SPOTLIGHT" && p.boostEndsAt && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4]">
             <FlashBadge endsAt={p.boostEndsAt} size="band" />
           </div>
@@ -229,24 +240,27 @@ function ProfileCard({
 
         {/* Top-left: status badges */}
         <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} left-2.5 flex flex-col gap-1.5 z-[3]`}>
-          {p.availableNow && (
+          {expired && (
+            <span className="uzeed-badge-pill bg-black/60 text-white/70">No disponible</span>
+          )}
+          {p.availableNow && !expired && (
             <span className="uzeed-badge-pill uzeed-badge-online">
               <span className="uzeed-badge-dot" />
               Online
             </span>
           )}
-          {p.boost === "SPOTLIGHT" && !p.boostEndsAt && (
+          {!expired && p.boost === "SPOTLIGHT" && !p.boostEndsAt && (
             <span className="uzeed-badge-pill bg-fuchsia-600/85 text-white">🔥 Destacada</span>
           )}
         </div>
 
         {/* Top-right: level badge */}
         <div className={`absolute ${p.boostEndsAt ? "top-9" : "top-2.5"} right-2.5 z-[3]`}>
-          <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
+          {!expired && <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />}
         </div>
 
         {/* Bottom info overlay with premium layout */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 z-[3] [--verified-band-bleed:12px]">
+        <div className={`absolute bottom-0 left-0 right-0 p-3 z-[3] [--verified-band-bleed:12px] ${expired ? "opacity-70 grayscale" : ""}`}>
           {/* Name + age + verification badges */}
           <div className="flex items-center gap-1.5 font-bold text-white text-[13px] sm:text-sm leading-tight">
             <span className="truncate">{p.displayName}</span>
@@ -388,6 +402,8 @@ export default function DirectoryPage({
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
+      // Las profesionales sin plan vigente van al final, en gris.
+      if (entityType === "professional") params.set("includeExpired", "true");
       if (alsoCategorySlug) params.set("alsoCategory", alsoCategorySlug);
       if (effectiveLoc) {
         params.set("lat", String(effectiveLoc[0]));
@@ -522,7 +538,7 @@ export default function DirectoryPage({
       !withMap
         ? []
         : displayed
-        .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
+        .filter((p) => !p.planExpired && Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
         .map((p) => ({
           id: p.id,
           name: p.displayName,
@@ -837,7 +853,7 @@ export default function DirectoryPage({
             {displayed.map((p, i) => (
               <Fragment key={p.id}>
                 {/* Separador antes de la primera de la categoría de relleno. */}
-                {p.secondaryCategory && !displayed[i - 1]?.secondaryCategory && (
+                {p.secondaryCategory && !p.planExpired && !displayed[i - 1]?.secondaryCategory && (
                   <div className="col-span-full mt-4 flex items-baseline justify-between gap-3 border-t border-white/10 pt-5">
                     <h2 className="text-base font-bold text-white/80">
                       {alsoCategoryTitle || "También te puede interesar"}

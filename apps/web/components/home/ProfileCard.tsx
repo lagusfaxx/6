@@ -45,6 +45,9 @@ export type HomeProfile = {
   spotlight?: boolean;
   /** Hasta cuándo sigue destacada (contador del sello). */
   boostEndsAt?: string | null;
+  /** Prueba o plan vencido sin pago: la tarjeta va en gris y la ficha está
+      bloqueada (al abrirla se registra el intento). Las fotos sí se pasan. */
+  planExpired?: boolean;
 };
 
 export type CardStoryMedia = {
@@ -75,6 +78,7 @@ export function toHomeProfile(r: any, overrides: Partial<HomeProfile> = {}): Hom
     isNew: Boolean(r.isNew),
     spotlight: r?.boost === "SPOTLIGHT",
     boostEndsAt: typeof r?.boostEndsAt === "string" ? r.boostEndsAt : null,
+    planExpired: Boolean(r?.planExpired),
     ...overrides,
   };
 }
@@ -197,9 +201,12 @@ export default function ProfileCard({
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   };
 
-  const banded = Boolean(p.spotlight && p.boostEndsAt);
+  const expired = Boolean(p.planExpired);
+  const banded = Boolean(!expired && p.spotlight && p.boostEndsAt);
   const tag =
-    banded ? null : p.spotlight ? (
+    expired ? (
+      <span className={`${TAG_CLASS} text-white/70`}>No disponible</span>
+    ) : banded ? null : p.spotlight ? (
       <span className={`${TAG_CLASS} text-fuchsia-200`}>🔥 Destacada</span>
     ) : p.userLevel === "DIAMOND" ? (
       <span className={`${TAG_CLASS} text-tier-diamond`}>◆ Diamond</span>
@@ -214,12 +221,13 @@ export default function ProfileCard({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect}`}
+      data-plan-expired={expired ? "true" : undefined}
     >
       {current.kind === "video" ? (
         <video
           key={current.url}
           src={current.url}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover ${expired ? "opacity-60 grayscale" : ""}`}
           autoPlay
           muted
           loop
@@ -231,7 +239,7 @@ export default function ProfileCard({
           key={current.url}
           src={current.url}
           alt={p.displayName}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover ${expired ? "opacity-60 grayscale" : ""}`}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
           onError={(e) => {
@@ -274,7 +282,7 @@ export default function ProfileCard({
       )}
 
       <div className={`pointer-events-none absolute left-2 ${banded ? (mini ? "top-8" : "top-9") : "top-4"} z-[3] flex items-center gap-[5px]`}>
-        {p.availableNow && (
+        {p.availableNow && !expired && (
           <span
             title="Disponible ahora"
             className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_2px_rgba(52,211,153,0.25)]"
@@ -321,7 +329,7 @@ export default function ProfileCard({
         </>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] px-2.5 pb-2">
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-[2] px-2.5 pb-2 ${expired ? "opacity-70 grayscale" : ""}`}>
         <div className="flex items-center gap-1">
           <span
             className={`truncate font-display font-bold uppercase leading-none tracking-[0.02em] [text-shadow:0_1px_6px_rgba(0,0,0,0.6)] ${
