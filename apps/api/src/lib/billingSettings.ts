@@ -238,8 +238,24 @@ export function withActivePlan<T extends object>(where: T): T {
  * Los listados que los muestran "en gris" lo usan para traerlos aparte.
  */
 export function planInactiveWhere(now = new Date()): Prisma.UserWhereInput | null {
-  const extra = planActiveWhere(now);
-  return "OR" in extra ? { NOT: extra } : null;
+  const s = getBillingSettingsSync();
+  if (!isBillingEnforced(s, now)) return null;
+  // Escrito a mano y no como NOT(planActiveWhere): en SQL, NOT (fecha > hoy)
+  // con la fecha en NULL da NULL y la fila se descarta, así que quedaban
+  // fuera justo las que nunca pagaron (membershipExpiresAt vacío).
+  const trialOver: Prisma.UserWhereInput = {
+    AND: [
+      { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+      { createdAt: { lte: new Date(now.getTime() - s.trialDays * DAY_MS) } },
+    ],
+  };
+  return {
+    AND: [
+      { profileType: { in: [...PAID_PROFILE_TYPES] } },
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      s.trialChoiceEnabled ? { OR: [{ needsTrialChoice: true }, trialOver] } : trialOver,
+    ],
+  };
 }
 
 /**
