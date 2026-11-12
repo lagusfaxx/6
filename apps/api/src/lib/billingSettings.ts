@@ -238,8 +238,91 @@ export function withActivePlan<T extends object>(where: T): T {
  * Los listados que los muestran "en gris" lo usan para traerlos aparte.
  */
 export function planInactiveWhere(now = new Date()): Prisma.UserWhereInput | null {
-  const extra = planActiveWhere(now);
-  return "OR" in extra ? { NOT: extra } : null;
+  const s = getBillingSettingsSync();
+  if (!isBillingEnforced(s, now)) return null;
+  // Escrito a mano y no como NOT(planActiveWhere): en SQL, NOT (fecha > hoy)
+  // con la fecha en NULL da NULL y la fila se descarta, así que quedaban
+  // fuera justo las que nunca pagaron (membershipExpiresAt vacío).
+  const trialOver: Prisma.UserWhereInput = {
+    AND: [
+      { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+      { createdAt: { lte: new Date(now.getTime() - s.trialDays * DAY_MS) } },
+    ],
+  };
+  return {
+    AND: [
+      { profileType: { in: [...PAID_PROFILE_TYPES] } },
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      s.trialChoiceEnabled ? { OR: [{ needsTrialChoice: true }, trialOver] } : trialOver,
+    ],
+  };
+}
+
+/**
+ * Días que un perfil vencido sigue en el directorio "en gris" (fotos visibles,
+ * ficha bloqueada) antes de desaparecer si no paga.
+ */
+export const EXPIRED_GREY_DAYS = 30;
+/**
+ * Cuándo empezó a mostrarse en gris lo vencido (medianoche de Chile). Las que
+ * ya estaban vencidas antes cuentan sus 30 días desde acá y no desde su
+ * vencimiento: si no, casi todas habrían desaparecido el mismo día.
+ */
+export const EXPIRED_GREY_SINCE = new Date("2026-11-12T03:00:00Z");
+
+/**
+ * Filtro Prisma de perfiles vencidos que todavía están en sus días en gris:
+ * sin plan vigente y con el plan, la prueba o la gracia terminados hace menos
+ * de `EXPIRED_GREY_DAYS` (o desde `EXPIRED_GREY_SINCE`). Null si hoy no se
+ * exige plan.
+ */
+export function expiredGreyWhere(now = new Date()): Prisma.UserWhereInput | null {
+  const inactive = planInactiveWhere(now);
+  if (!inactive) return null;
+  const s = getBillingSettingsSync();
+  const cutoff = new Date(now.getTime() - EXPIRED_GREY_DAYS * DAY_MS);
+  const grace = graceEndsAt(s);
+  // El apagado más reciente posible es para todas a la vez: entran todas.
+  if (EXPIRED_GREY_SINCE.getTime() > cutoff.getTime() || (grace && grace.getTime() > cutoff.getTime())) {
+    return inactive;
+  }
+  return {
+    AND: [
+      inactive,
+      {
+        OR: [
+          { membershipExpiresAt: { gt: cutoff } },
+          { shopTrialEndsAt: { gt: cutoff } },
+          { createdAt: { gt: new Date(cutoff.getTime() - s.trialDays * DAY_MS) } },
+        ],
+      },
+    ],
+  };
+}
+
+/** ¿Este perfil está vencido y todavía en sus días en gris? */
+export async function userInExpiredGrey(userId: string): Promise<boolean> {
+  const where = expiredGreyWhere();
+  if (!where) return false;
+  return (await prisma.user.count({ where: { AND: [{ id: userId }, where] } })) > 0;
+}
+
+/**
+ * Hasta cuándo un perfil vencido sale en gris: su último día de acceso (plan,
+ * prueba o gracia, nunca antes de `EXPIRED_GREY_SINCE`) más `EXPIRED_GREY_DAYS`.
+ */
+export function expiredGreyUntil(
+  user: { membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt: Date },
+  s: BillingSettings = getBillingSettingsSync()
+): Date {
+  const end = Math.max(
+    user.membershipExpiresAt?.getTime() ?? 0,
+    user.shopTrialEndsAt?.getTime() ?? 0,
+    user.createdAt.getTime() + s.trialDays * DAY_MS,
+    graceEndsAt(s)?.getTime() ?? 0,
+    EXPIRED_GREY_SINCE.getTime()
+  );
+  return new Date(end + EXPIRED_GREY_DAYS * DAY_MS);
 }
 
 /**

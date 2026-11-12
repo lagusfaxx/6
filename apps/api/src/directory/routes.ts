@@ -13,7 +13,7 @@ import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
-import { planInactiveWhere, userHasActivePlan, withActivePlan } from "../lib/billingSettings";
+import { expiredGreyWhere, userHasActivePlan, userInExpiredGrey, withActivePlan } from "../lib/billingSettings";
 import { boostRank, getActiveBoostSets, spotlightEndsAt } from "../lib/promo";
 import { CONTENT_CATEGORY, contentCreatorWhere, notContentOnlyWhere } from "../lib/serviceCategories";
 import { sellableProductWhere } from "../market/review";
@@ -956,6 +956,10 @@ directoryRouter.get(
     // Con el cobro activo, un perfil sin plan vigente no se muestra (salvo a
     // su dueña y al equipo, para que pueda ver su ficha y pagar).
     if (!isAdminViewer && req.session.userId !== id && !(await userHasActivePlan(id))) {
+      // Pasados sus 30 días en gris ya no aparece: "no disponible" a secas.
+      if (!(await userInExpiredGrey(id))) {
+        return res.status(404).json({ error: "not_found", reason: "PLAN_INACTIVE" });
+      }
       // Ficha bloqueada: sólo lo justo para la pantalla de "no disponible"
       // (nombre y foto, en gris). El intento de abrirla lo registra la web con
       // POST /professionals/:id/locked-view: aquí no, porque este GET también
@@ -1386,7 +1390,8 @@ directoryRouter.get(
     /* 'true' → agrega galleryUrls (hasta 6 fotos públicas) a cada resultado. */
     const withGallery = req.query.withGallery === "true";
     /* 'true' → suma, en su lugar de siempre, las profesionales con la prueba o el plan vencido
-       (sin pago), marcadas `planExpired`. La web las muestra en gris: se pueden
+       (sin pago) hace menos de 30 días, marcadas `planExpired`; pasados
+       esos días desaparecen. La web las muestra en gris: se pueden
        pasar las fotos pero la ficha queda bloqueada, y cada intento de abrirla
        se registra para mostrárselo a la profesional cuando le pedimos pagar.
        Es opcional para que el sitemap, los enlaces SEO y demás consumidores
@@ -1601,7 +1606,7 @@ directoryRouter.get(
        filtros, para no tocar la muestra de los publicados. */
     const expiredIds = new Set<string>();
     const inactiveWhere =
-      includeExpired && hasNewColumns && profileTypeFilter[0] === "PROFESSIONAL" ? planInactiveWhere() : null;
+      includeExpired && hasNewColumns && profileTypeFilter[0] === "PROFESSIONAL" ? expiredGreyWhere() : null;
     if (inactiveWhere) {
       try {
         const expiredUsers = await prisma.user.findMany({
@@ -2094,7 +2099,7 @@ directoryRouter.post(
       select: { id: true },
     });
     if (!profile) return res.status(404).json({ error: "not_found" });
-    if (await userHasActivePlan(id)) return res.json({ ok: true, counted: false });
+    if (!(await userInExpiredGrey(id))) return res.json({ ok: true, counted: false });
 
     if (viewerId) {
       const viewer = await prisma.user.findUnique({ where: { id: viewerId }, select: { role: true } });
