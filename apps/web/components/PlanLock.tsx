@@ -39,6 +39,8 @@ type Access = {
   cardTrialDays?: number;
   /** Clientes que intentaron abrir su ficha bloqueada en los últimos 30 días. */
   lockedViews?: number;
+  /** Hasta cuándo su perfil sale en gris en el directorio; después desaparece. */
+  greyUntil?: string | null;
 };
 
 export function usePlanLock(pathname: string) {
@@ -85,6 +87,16 @@ function reasonText(access: Access | null) {
   return "Se terminó tu prueba gratis";
 }
 
+/** Estado del perfil vencido en el sitio: en gris hasta tal día, o ya fuera. */
+function visibilityText(access: Access | null) {
+  const until = access?.greyUntil ? new Date(access.greyUntil) : null;
+  if (until && until.getTime() > Date.now()) {
+    const when = until.toLocaleDateString("es-CL", { day: "numeric", month: "long" });
+    return `tu perfil aparece en gris y bloqueado en UZEED hasta el ${when}: los clientes lo ven, pero no lo pueden abrir ni escribirte. Si no activas tu plan antes, tu perfil desaparece.`;
+  }
+  return "tu perfil ya no aparece en UZEED. Los clientes no te pueden ver ni escribir hasta que actives tu plan.";
+}
+
 /** "12 clientes quisieron ver tu perfil…": lo que se perdió por no pagar. */
 function lockedViewsText(n: number | undefined) {
   if (!n || n <= 0) return null;
@@ -107,7 +119,7 @@ export function PlanLockScreen({ access }: { access: Access | null }) {
         <p className="mt-2 text-sm text-white/60">
           {access?.needsTrialChoice
             ? `${reasonText(access)}. Los clientes no te pueden ver ni escribir hasta entonces.`
-            : `${reasonText(access)} y tu perfil aparece en gris y bloqueado en UZEED: los clientes lo ven, pero no lo pueden abrir ni escribirte hasta que actives tu plan.`}
+            : `${reasonText(access)} y ${visibilityText(access)}`}
         </p>
         {missed && (
           <p className="mt-4 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2.5 text-sm font-semibold text-fuchsia-100">

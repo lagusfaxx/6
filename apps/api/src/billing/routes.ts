@@ -18,6 +18,7 @@ import {
   getPacTrial,
   userHasActivePlan,
   countLockedProfileViews,
+  expiredGreyUntil,
   PAID_PROFILE_TYPES,
   trialChoiceData,
   pendingTrialChoice,
@@ -293,7 +294,7 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
     where: { id: userId },
     select: {
       profileType: true, role: true, adminManaged: true, membershipExpiresAt: true, flowSubscriptionId: true,
-      needsTrialChoice: true,
+      needsTrialChoice: true, shopTrialEndsAt: true, createdAt: true,
     },
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -331,8 +332,12 @@ billingRouter.get("/billing/access", requireAuth, asyncHandler(async (req, res) 
   // Clientes que intentaron abrir su ficha bloqueada (tarjeta en gris) en los
   // últimos 30 días: es lo que se le muestra para que active su plan.
   const lockedViews = blocked ? await countLockedProfileViews(userId) : 0;
+  // Vencida: sale en gris en el directorio hasta esta fecha; después
+  // desaparece hasta que pague.
+  const greyUntil = blocked && user.profileType === "PROFESSIONAL" ? expiredGreyUntil(user, billing) : null;
   return res.json({
     blocked,
+    greyUntil: greyUntil ? greyUntil.toISOString() : null,
     priceClp: billing.priceClp,
     expiredAt: paidBefore ? user.membershipExpiresAt?.toISOString() ?? null : null,
     lockedViews,
