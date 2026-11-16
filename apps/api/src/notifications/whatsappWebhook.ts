@@ -25,6 +25,18 @@ export const whatsappWebhookRouter = Router();
 const CHAT_URL = process.env.WHATSAPP_NOTIFY_URL || "https://uzeed.cl/chats";
 /* Sin citar un aviso, la respuesta va al último chat solo si es reciente. */
 const LAST_RELAY_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+/*
+ * Lo que llega segundos después de un aviso, sin citarlo, es la respuesta
+ * automática de WhatsApp Business ("Hola amor, disponible…", "atiendo de
+ * lunes a viernes…"): se registra y no se le contesta. Un 6/11 el aviso de
+ * plan sacó varias en menos de 20 s y el bot les respondía "No encontré a qué
+ * chat corresponde tu respuesta".
+ */
+const AUTO_REPLY_MAX_MS = 60 * 1000;
+/* Un aviso del equipo (difusión, plan…) se puede contestar hasta 7 días después. */
+const TEAM_REPLY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/* El bot explica qué pasó con la respuesta una vez cada 12 h por número. */
+const BOT_EXPLAIN_EVERY_MS = 12 * 60 * 60 * 1000;
 
 whatsappWebhookRouter.get("/webhooks/whatsapp", (req, res) => {
   const expected = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
@@ -115,6 +127,22 @@ async function handleProspectReply(from: string, message: any): Promise<boolean>
   return true;
 }
 
+/**
+ * SENT: llegó al chat del cliente. TEAM: respondió a un aviso del equipo
+ * (difusión, plan, prueba gratis…), no a un cliente. AUTO: respuesta
+ * automática de WhatsApp Business. NO_CHAT: no se sabe a qué responde.
+ */
+export type ReplyStatus = "SENT" | "TEAM" | "AUTO" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
+
+/** ¿Ya se le explicó algo a este número en las últimas 12 h? */
+async function explainedRecently(waId: string): Promise<boolean> {
+  const last = await prisma.whatsAppReply.findFirst({
+    where: { waId, status: { in: ["TEAM", "NO_CHAT"] }, createdAt: { gt: new Date(Date.now() - BOT_EXPLAIN_EVERY_MS) } },
+    select: { id: true },
+  });
+  return Boolean(last);
+}
+
 /* Registro para /admin/whatsapp: qué llegó, de quién y en qué terminó. Un
    fallo al guardarlo no puede frenar la respuesta. */
 async function logReply(data: {
@@ -124,7 +152,8 @@ async function logReply(data: {
   messageId?: string | null;
   kind: string;
   body?: string | null;
-  status: "SENT" | "NO_CHAT" | "NOT_TEXT" | "BLOCKED" | "TEST";
+  status: ReplyStatus;
+  inReplyTo?: string | null;
 }) {
   await prisma.whatsAppReply
     .create({ data: { ...data, body: data.body?.slice(0, 2000) ?? null } })
@@ -160,18 +189,7 @@ async function handleIncoming(message: any): Promise<void> {
 
   // El aviso citado tiene que haber sido enviado a este mismo número.
   if (!relay || relay.waId !== from || !relay.peerId) {
-    /* Sin chat no hay destinatario, pero sí se sabe quién escribió: el último
-       aviso que se le mandó a ese número. */
-    const owner = await prisma.whatsAppRelay.findFirst({
-      where: { waId: from },
-      orderBy: { createdAt: "desc" },
-      select: { userId: true },
-    });
-    await logReply({ waId: from, userId: owner?.userId ?? null, kind, body: textBody, status: "NO_CHAT" });
-    await sendCloudText(
-      from,
-      `No encontré a qué chat corresponde tu respuesta. Para contestar, desliza el mensaje del cliente y responde, o entra a ${CHAT_URL}`,
-    );
+    await handleNotChat(from, kind, textBody, relay && relay.waId === from ? relay : null, Boolean(contextId));
     return;
   }
 
@@ -230,4 +248,63 @@ async function handleIncoming(message: any): Promise<void> {
 
   await sendCloudReaction(from, wamid, "✅");
   console.log(`[whatsapp:webhook] reply user=${me} to=${other} msg=${created.id}`);
+}
+
+type RelayRow = { userId: string; peerId: string | null; kind: string | null; createdAt: Date };
+
+/**
+ * Respuesta que no va a ningún chat con un cliente. Casi siempre contesta un
+ * aviso del propio UZEED (difusión desde el MCP, aviso de plan, prueba
+ * gratis) o es la respuesta automática de su WhatsApp Business. Nada de eso
+ * se le reenvía a un cliente.
+ */
+async function handleNotChat(
+  from: string,
+  kind: string,
+  textBody: string | null,
+  quoted: RelayRow | null,
+  isQuote: boolean,
+): Promise<void> {
+  // Último aviso que el bot le mandó a este número (cualquiera).
+  const last: RelayRow | null =
+    quoted ??
+    (await prisma.whatsAppRelay.findFirst({
+      where: { waId: from },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, peerId: true, kind: true, createdAt: true },
+    }));
+  const userId = last?.userId ?? null;
+  const inReplyTo = last?.kind ?? null;
+  const age = last ? Date.now() - last.createdAt.getTime() : Infinity;
+
+  if (!isQuote && last && age < AUTO_REPLY_MAX_MS) {
+    await logReply({ waId: from, userId, kind, body: textBody, status: "AUTO", inReplyTo });
+    return;
+  }
+
+  const toTeam = Boolean(last && !last.peerId && age < TEAM_REPLY_MAX_AGE_MS);
+  const status: ReplyStatus = toTeam ? "TEAM" : "NO_CHAT";
+  // Antes de registrar esta: si ya se le explicó hace poco, no se repite.
+  const explained = await explainedRecently(from);
+  await logReply({ waId: from, userId, kind, body: textBody, status, inReplyTo });
+
+  // Al equipo le llega un aviso por número cada 12 h; el resto queda en el panel.
+  if (toTeam && kind !== "reaction" && !explained) {
+    const who = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true, username: true } })
+      : null;
+    await emitAdminEvent({
+      type: "whatsapp_team_reply",
+      user: `${who?.displayName || who?.username || "Profesional"}: ${(textBody || `[${kind}]`).slice(0, 200)}`,
+    }).catch(() => {});
+  }
+
+  // Una reacción (👍) no necesita respuesta, y tampoco se repite la explicación.
+  if (kind === "reaction" || explained) return;
+  await sendCloudText(
+    from,
+    toTeam
+      ? `¡Gracias por responder! Tu mensaje le llegó al equipo de UZEED. Si querías contestarle a un cliente, desliza su mensaje y responde, o entra a ${CHAT_URL}`
+      : `No encontré a qué chat corresponde tu respuesta. Para contestar, desliza el mensaje del cliente y responde, o entra a ${CHAT_URL}`,
+  );
 }

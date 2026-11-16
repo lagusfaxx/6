@@ -481,7 +481,9 @@ function templateSender(t: Plantilla, img: Imagen): Sender {
       urlButtonIndex: t.botonIndice,
     });
     // Si responde, que no caiga en su último chat con un cliente.
-    if (result.ok && !isProspect(r) && !r.prueba) await saveRelay(prisma, result.messageId, r.id, null, r.phone);
+    if (result.ok && !isProspect(r) && !r.prueba) {
+      await saveRelay(prisma, result.messageId, r.id, null, r.phone, LIMITS.plantilla.deliveryType);
+    }
     return result;
   };
 }

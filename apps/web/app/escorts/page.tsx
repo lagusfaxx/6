@@ -4,7 +4,8 @@ import Link from "next/link";
 import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 import { cleanProfileHref } from "../../lib/profileUrl";
-import { CITY_LANDINGS } from "../../lib/cities";
+import { MAIN_CITY_LANDINGS } from "../../lib/cities";
+import { CHILE_REGIONS } from "../../lib/chileGeo";
 import { TAG_LANDINGS, tagLandingHref } from "../../lib/escortSearchLandings";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
@@ -85,7 +86,7 @@ export default async function EscortsPage() {
             ...TAG_LANDINGS.map((l) => ({ href: tagLandingHref(l.slug), label: l.name })),
             // Todas las ciudades: Las Condes, Ñuñoa o Maipú tenían un solo
             // enlace interno (Semrush "Pages with only one internal link").
-            ...CITY_LANDINGS.map((c) => ({
+            ...MAIN_CITY_LANDINGS.map((c) => ({
               href: `/escorts/${c.slug}`,
               label: c.slug === "santiago" ? "Escort Santiago" : `Escorts en ${c.name}`,
             })),
@@ -96,6 +97,24 @@ export default async function EscortsPage() {
                 className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
               >
                 {l.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* Las 16 regiones: cada una enlaza a todas sus comunas, así las 346
+          landings de comuna quedan a dos clics de /escorts. */}
+      <nav className="max-w-5xl mx-auto px-4 pb-8" aria-label="Escorts por región">
+        <h2 className="text-lg font-bold text-white/70 mb-3">Escorts por región</h2>
+        <ul className="flex flex-wrap gap-2">
+          {CHILE_REGIONS.map((r) => (
+            <li key={r.slug}>
+              <Link
+                href={`/escorts/${r.slug}`}
+                className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
+              >
+                {r.label}
               </Link>
             </li>
           ))}

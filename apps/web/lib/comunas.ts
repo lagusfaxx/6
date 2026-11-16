@@ -1,3 +1,5 @@
+import { CHILE_COMUNAS, regionByKey } from "./chileGeo";
+
 /**
  * Comunas y ciudades del directorio de moteles. Cada una tiene su landing
  * indexable (/moteles/{slug}) para búsquedas como "moteles en Providencia".
@@ -18,11 +20,16 @@ export type Comuna = {
   radiusKm?: number;
   /** Ciudad que agrupa varias comunas (sólo "santiago"). */
   isMetro?: boolean;
+  /**
+   * Comuna de la lista original (con demanda de moteles medida): se enlaza
+   * siempre desde "Moteles por comuna". Las demás sólo si tienen moteles.
+   */
+  featured?: boolean;
 };
 
 const RM = "Región Metropolitana";
 
-export const COMUNAS: Comuna[] = [
+const FEATURED_COMUNAS: Comuna[] = ([
   { slug: "santiago", name: "Santiago", region: RM, lat: -33.4489, lng: -70.6693, radiusKm: 45, isMetro: true },
   { slug: "santiago-centro", name: "Santiago Centro", region: RM, lat: -33.4450, lng: -70.6530 },
   { slug: "providencia", name: "Providencia", region: RM, lat: -33.4310, lng: -70.6100 },
@@ -90,6 +97,23 @@ export const COMUNAS: Comuna[] = [
   { slug: "calama", name: "Calama", region: "Antofagasta", lat: -22.4560, lng: -68.9290 },
   { slug: "iquique", name: "Iquique", region: "Tarapacá", lat: -20.2140, lng: -70.1520 },
   { slug: "arica", name: "Arica", region: "Arica y Parinacota", lat: -18.4780, lng: -70.3120 },
+] as Comuna[]).map((c) => ({ ...c, featured: true }));
+
+const FEATURED_SLUGS = new Set(FEATURED_COMUNAS.map((c) => c.slug));
+
+/**
+ * Todas las comunas de Chile: las de la lista original primero y después las
+ * 346 de lib/chileGeo.ts que faltaban. Cada una tiene su /moteles/{slug}.
+ */
+export const COMUNAS: Comuna[] = [
+  ...FEATURED_COMUNAS,
+  ...CHILE_COMUNAS.filter((c) => !FEATURED_SLUGS.has(c.slug)).map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    region: regionByKey(c.region)?.name || "",
+    lat: c.lat,
+    lng: c.lng,
+  })),
 ];
 
 /** Comunas elegibles como ubicación de un local (sin el "Gran Santiago"). */

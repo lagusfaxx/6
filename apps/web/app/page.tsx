@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import HomeClient from "./HomeClient";
 import { cleanProfileHref } from "../lib/profileUrl";
-import { CITY_LANDINGS } from "../lib/cities";
+import { MAIN_CITY_LANDINGS } from "../lib/cities";
+import { CHILE_REGIONS } from "../lib/chileGeo";
 import { jsonLdString } from "../lib/jsonLd";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
@@ -139,13 +140,28 @@ export default async function HomePage() {
       <nav className="mx-auto max-w-4xl px-4 pt-10" aria-label="Escorts por ciudad">
         <h2 className="mb-3 text-base font-semibold text-white/75">Escorts por ciudad</h2>
         <ul className="flex flex-wrap gap-1.5">
-          {CITY_LANDINGS.map((city) => (
+          {MAIN_CITY_LANDINGS.map((city) => (
             <li key={city.slug}>
               <Link
                 href={`/escorts/${city.slug}`}
                 className="inline-block rounded-lg border border-white/[0.08] px-2.5 py-1 text-[13px] text-white/55 transition hover:border-fuchsia-500/30 hover:text-fuchsia-300"
               >
                 {city.slug === "santiago" ? "Escort Santiago" : `Escorts en ${city.name}`}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        {/* Cada región enlaza a todas sus comunas: con esto las 346 landings
+            de comuna quedan a dos clics del home. */}
+        <h2 className="mb-3 mt-6 text-base font-semibold text-white/75">Escorts por región</h2>
+        <ul className="flex flex-wrap gap-1.5">
+          {CHILE_REGIONS.map((r) => (
+            <li key={r.slug}>
+              <Link
+                href={`/escorts/${r.slug}`}
+                className="inline-block rounded-lg border border-white/[0.08] px-2.5 py-1 text-[13px] text-white/55 transition hover:border-fuchsia-500/30 hover:text-fuchsia-300"
+              >
+                {r.label}
               </Link>
             </li>
           ))}
