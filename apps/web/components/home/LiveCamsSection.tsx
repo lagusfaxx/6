@@ -173,7 +173,7 @@ export default function LiveCamsSection() {
         <AdSlot slot="homeCamsDesktop" width={728} height={90} />
       </div>
       <div className="mt-4 sm:hidden">
-        <AdSlot slot="homeCamsMobile" width={300} height={100} />
+        <AdSlot slot="homeCamsMobile" width={300} height={250} />
       </div>
     </section>
   );

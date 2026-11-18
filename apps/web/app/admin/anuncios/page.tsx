@@ -16,7 +16,7 @@ type Config = { enabled: boolean; zones: Record<Slot, string | null> };
 const SLOTS: { key: Slot; label: string; format: string; where: string }[] = [
   { key: "homeFeed", label: "Inicio — feed", format: "Rectangle 300x250", where: "Entre los perfiles del inicio (tras el 12 y cada 24, máx. 4)" },
   { key: "homeCamsDesktop", label: "Inicio — cams (computador/tablet)", format: "Leaderboard 728x90", where: "Bajo la sección Cams en Vivo" },
-  { key: "homeCamsMobile", label: "Inicio — cams (teléfono)", format: "Mobile Banner 300x100", where: "Bajo la sección Cams en Vivo" },
+  { key: "homeCamsMobile", label: "Inicio — cams (teléfono)", format: "Rectangle 300x250", where: "Bajo la sección Cams en Vivo" },
   { key: "listing", label: "Listados", format: "Rectangle 300x250", where: "Reservado para /escorts, /hombres y comunas" },
 ];
 
