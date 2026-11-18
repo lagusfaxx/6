@@ -21,8 +21,8 @@ type Props = {
   adSlot?: AdSlotName;
 };
 
-/* Primer anuncio tras el perfil 12, después cada 24, como máximo 4. */
-const AD_FIRST = 12;
+/* Primer anuncio tras el perfil 8, después cada 24, como máximo 4. */
+const AD_FIRST = 8;
 const AD_EVERY = 24;
 const AD_MAX = 4;
 function adAfter(index: number) {

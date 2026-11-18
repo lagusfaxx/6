@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch } from "../lib/api";
+import AdSlot from "../components/ads/AdSlot";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
 import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
@@ -568,6 +569,10 @@ export default function HomeClient() {
             ctaLabel="Ver todas las nuevas"
           />
         )}
+
+        {/* ═══ PUBLICIDAD — bajo Nuevas, a la vista sin tapar lo que pagan
+             las escorts (Diamond y el mapa van arriba) ═══ */}
+        <AdSlot slot="homeFeed" width={300} height={250} className="mb-8" />
 
         {/* ═══ DESTACADAS — perfiles con la Destacada vigente, en chico ═══ */}
         {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" mini />}

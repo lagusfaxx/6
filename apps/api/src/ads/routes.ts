@@ -33,7 +33,8 @@ async function readAdsConfig(): Promise<AdsConfig> {
   const zones = Object.fromEntries(
     AD_SLOTS.map((s) => [s, map.has(zoneKey(s)) ? map.get(zoneKey(s)) || null : DEFAULT_ZONES[s] ?? null]),
   ) as AdsConfig["zones"];
-  const value = { enabled: map.get(ENABLED_KEY) === "true", zones };
+  /* Encendido de fábrica: sólo se apaga si alguien lo apagó en el panel. */
+  const value = { enabled: map.get(ENABLED_KEY) !== "false", zones };
   cache = { at: Date.now(), value };
   return value;
 }
