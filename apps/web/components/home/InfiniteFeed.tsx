@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, isRateLimitError } from "../../lib/api";
 import { trackImpressions } from "../../hooks/useAnalytics";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import type { DirectoryResult } from "../DirectoryPage";
 import ProfileCard, { toHomeProfile } from "./ProfileCard";
+import AdSlot, { type AdSlotName } from "../ads/AdSlot";
 
 type Props = {
   /** When omitted, the title is derived from the active city/GPS chip. */
@@ -16,7 +17,19 @@ type Props = {
   pageSize?: number;
   excludeIds?: string[];
   emptyLabel?: string;
+  /** Espacio de anuncio que se intercala en la grilla (fila completa). */
+  adSlot?: AdSlotName;
 };
+
+/* Primer anuncio tras el perfil 12, después cada 24, como máximo 4. */
+const AD_FIRST = 12;
+const AD_EVERY = 24;
+const AD_MAX = 4;
+function adAfter(index: number) {
+  const n = index + 1;
+  if (n < AD_FIRST || (n - AD_FIRST) % AD_EVERY !== 0) return false;
+  return (n - AD_FIRST) / AD_EVERY < AD_MAX;
+}
 
 type SearchResponse = {
   results: DirectoryResult[];
@@ -34,6 +47,7 @@ export default function InfiniteFeed({
   pageSize = PAGE_SIZE_DEFAULT,
   excludeIds,
   emptyLabel = "Sin resultados por ahora.",
+  adSlot,
 }: Props) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
@@ -178,7 +192,12 @@ export default function InfiniteFeed({
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {items.map((p, i) => (
-            <ProfileCard key={p.id} profile={toHomeProfile(p)} eager={i < 4} />
+            <Fragment key={p.id}>
+              <ProfileCard profile={toHomeProfile(p)} eager={i < 4} />
+              {adSlot && adAfter(i) && i < items.length - 1 && (
+                <AdSlot slot={adSlot} width={300} height={250} className="col-span-full my-2" />
+              )}
+            </Fragment>
           ))}
 
           {loading &&

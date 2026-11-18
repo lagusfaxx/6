@@ -59,6 +59,7 @@ const PUBLIC_PREFIXES = [
   "/market/media",      // ✅ contenido comprado (la firma HMAC es la autorización)
   "/notifications/email/unsubscribe", // ✅ baja desde el enlace del correo (el HMAC es la autorización)
   "/face-verification", // ✅ enlace de verificación facial (el token del enlace es la autorización)
+  "/ads/config",        // ✅ interruptor y zonas de los anuncios (ExoClick)
 ];
 
 /**
@@ -193,6 +194,7 @@ const MODERATOR_BLOCKED_PREFIXES = [
   "/admin/mcp",
   "/admin/billing/settings",
   "/admin/promo",
+  "/admin/ads",
 ];
 
 /**

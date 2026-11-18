@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Eye, Plus } from "lucide-react";
+import AdSlot from "../ads/AdSlot";
 
 type Cam = {
   username: string;
@@ -162,6 +163,17 @@ export default function LiveCamsSection() {
             <span className="text-[10px] text-violet-300/70">Miles disponibles</span>
           </div>
         </Link>
+      </div>
+
+      {/* Publicidad bajo las cams, nunca entre ellas: ahí ExoClick suele poner
+          otras webs de cams, que le quitarían clics al enlace de afiliado.
+          Un espacio oculto (display:none) no entra en pantalla, así que sólo
+          se pide el anuncio del tamaño que corresponde. */}
+      <div className="mt-4 hidden sm:block">
+        <AdSlot slot="homeCamsDesktop" width={728} height={90} />
+      </div>
+      <div className="mt-4 sm:hidden">
+        <AdSlot slot="homeCamsMobile" width={300} height={100} />
       </div>
     </section>
   );
