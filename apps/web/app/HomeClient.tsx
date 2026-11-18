@@ -4,7 +4,7 @@ import { startTransition, useContext, useEffect, useMemo, useState } from "react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
 import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
@@ -39,13 +39,11 @@ import {
   Download,
   Hand,
   Hotel,
-  MapPin,
   Navigation,
   Search as SearchIcon,
   ShoppingBag,
   Sparkles,
   X,
-  Zap,
 } from "lucide-react";
 
 /* ── Trial label ── */
@@ -135,28 +133,7 @@ function sameCityName(
 
 /* ── Types ── */
 
-type Banner = {
-  id: string;
-  title: string;
-  imageUrl: string;
-  linkUrl?: string | null;
-  position: string;
-  imageFocusX?: number;
-  imageFocusY?: number;
-  imageZoom?: number;
-};
-
 type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
-
-type FeaturedBannerProfile = {
-  id: string;
-  name: string;
-  city?: string | null;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
-  category?: string | null;
-  age?: number | null;
-};
 
 type RecentProfessional = {
   id: string;
@@ -247,12 +224,9 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomeClient() {
   const router = useRouter();
   const [heroQuery, setHeroQuery] = useState("");
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [newProfiles, setNewProfiles] = useState<NewProfile[]>([]);
   const [spotlight, setSpotlight] = useState<HomeProfile[]>([]);
-  const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
   /* Comuna elegida en el chip. Va aparte de las coordenadas: la distancia se
@@ -268,61 +242,6 @@ export default function HomeClient() {
   const { discreet } = useDiscreet();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
   const isAuthed = Boolean(me?.user?.id);
-
-  /* ── Live Streams ── */
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch<{ banners: Banner[] }>("/banners");
-        setBanners(res?.banners ?? []);
-      } catch {
-        // banners opcionales
-      } finally {
-        setBannersLoaded(true);
-      }
-    })();
-  }, []);
-
-
-  useEffect(() => {
-    const profileBannerIds = banners
-      .map((b) => (b.linkUrl || "").startsWith("profile:") ? (b.linkUrl || "").slice("profile:".length) : "")
-      .filter(Boolean);
-
-    if (!profileBannerIds.length) {
-      setBannerProfiles({});
-      return;
-    }
-
-    Promise.all(
-      Array.from(new Set(profileBannerIds)).map(async (id) => {
-        try {
-          const res = await apiFetch<{ professional: any }>(`/professionals/${id}`);
-          const p = res?.professional;
-          if (!p) return null;
-          return [id, {
-            id,
-            name: p.name || "Perfil",
-            city: p.city ?? null,
-            avatarUrl: p.avatarUrl ?? null,
-            coverUrl: p.coverUrl ?? null,
-            category: p.category ?? null,
-            age: typeof p.age === "number" ? p.age : null,
-          } satisfies FeaturedBannerProfile] as const;
-        } catch {
-          return null;
-        }
-      }),
-    ).then((entries) => {
-      const map: Record<string, FeaturedBannerProfile> = {};
-      for (const entry of entries) {
-        if (!entry) continue;
-        map[entry[0]] = entry[1];
-      }
-      setBannerProfiles(map);
-    });
-  }, [banners]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -431,18 +350,6 @@ export default function HomeClient() {
     return () => controller.abort();
   }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const horizontalBanners = useMemo(
-    () => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE" || (b.position || "").toUpperCase() === "HORIZONTAL"),
-    [banners],
-  );
-  const verticalBanners = useMemo(
-    () => banners.filter((b) => (b.position || "").toUpperCase() === "VERTICAL" || (b.position || "").toUpperCase() === "SIDEBAR"),
-    [banners],
-  );
-  const sideBanners = useMemo(() => [...verticalBanners, ...horizontalBanners], [verticalBanners, horizontalBanners]);
-  const leftSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 0).slice(0, 3), [sideBanners]);
-  const rightSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 1).slice(0, 3), [sideBanners]);
-
   /* Rangos: Diamond y Gold van separados y en ese orden.
      Antes era una única sección "Destacadas" que los mezclaba, y con eso el
      rango — que es el plan que la profesional paga — no se veía por ninguna
@@ -472,53 +379,6 @@ export default function HomeClient() {
       newProfiles.slice(0, 12).map((p) => toHomeProfile(p, { isNew: true })),
     [newProfiles],
   );
-
-  const bannerHref = (banner: Banner) => {
-    const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
-    return profileId ? `/profesional/${profileId}` : (banner.linkUrl || "#");
-  };
-
-  const renderProfileBanner = (banner: Banner) => {
-    const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
-    const profile = profileId ? bannerProfiles[profileId] : null;
-    const mediaSrc = resolveMediaUrl(banner.imageUrl) || banner.imageUrl;
-    const fallbackImage = resolveMediaUrl(profile?.coverUrl || profile?.avatarUrl || "") || profile?.coverUrl || profile?.avatarUrl || "";
-    const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(mediaSrc || "") || (banner.title || "").toLowerCase().includes("video");
-    const focusX = banner.imageFocusX ?? 50;
-    const focusY = banner.imageFocusY ?? 20;
-    const zoom = banner.imageZoom ?? 1;
-    const imgStyle: React.CSSProperties = {
-      objectPosition: `${focusX}% ${focusY}%`,
-      ...(zoom > 1 ? { transform: `scale(${zoom})` } : {}),
-    };
-    return (
-      <div className="group/ad relative h-full w-full overflow-hidden">
-        {isVideo ? (
-          <video src={mediaSrc} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" autoPlay muted loop playsInline />
-        ) : (
-          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" style={imgStyle} decoding="async" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-        {/* Ad label */}
-        <div className="absolute left-1.5 top-1.5">
-          <span className="rounded bg-black/40 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-widest text-white/40 backdrop-blur-sm">Promocionado</span>
-        </div>
-        {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-2">
-          <div className="truncate text-xs font-bold text-white">{profile?.name || banner.title}</div>
-          {(profile?.city || profile?.category) && (
-            <div className="mt-0.5 flex items-center gap-0.5 text-[9px] text-white/60">
-              {profile?.city && <MapPin className="h-2.5 w-2.5" />}
-              <span className="truncate">{profile?.city || profile?.category}</span>
-            </div>
-          )}
-          <div className="mt-1.5 flex items-center justify-center gap-0.5 rounded-md bg-fuchsia-600 px-2 py-1 text-[9px] font-bold text-white">
-            Ver perfil <ArrowRight className="h-2.5 w-2.5" />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
@@ -655,56 +515,11 @@ export default function HomeClient() {
 
       {/* Main content */}
       <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16 mt-6">
-        {/* Side ad banners (desktop) */}
-        {leftSideBanners.length > 0 && (
-          <div className="absolute left-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginLeft: "-180px" }}>
-            {leftSideBanners.map((b) => (
-              <a key={`left-${b.id}`} href={bannerHref(b)} className="group block h-[260px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5">
-                {renderProfileBanner(b)}
-              </a>
-            ))}
-          </div>
-        )}
-        {rightSideBanners.length > 0 && (
-          <div className="absolute right-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginRight: "-180px" }}>
-            {rightSideBanners.map((b) => (
-              <a key={`right-${b.id}`} href={bannerHref(b)} className="group block h-[260px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5">
-                {renderProfileBanner(b)}
-              </a>
-            ))}
-          </div>
-        )}
-
         {/* ═══ STORIES ═══ */}
         <section className="mb-6">
           {/* El inicio lista mujeres: las historias, también. */}
           <Stories gender="FEMALE" />
         </section>
-
-        {/* ═══ BANNERS PUBLICITARIOS ═══ */}
-        {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
-        {!bannersLoaded ? (
-          <div className="mb-8 2xl:hidden min-h-[60px]" />
-        ) : horizontalBanners.length > 0 && (
-          <section className="mb-8 2xl:hidden">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-                <Zap className="h-3 w-3" /> Promocionado
-              </span>
-            </div>
-            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
-              {horizontalBanners.map((b) => (
-                <a
-                  key={b.id}
-                  href={bannerHref(b)}
-                  className="relative block h-[240px] w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
-                >
-                  {renderProfileBanner(b)}
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
              el mapa siga entrando en pantalla al abrir el home ═══ */}

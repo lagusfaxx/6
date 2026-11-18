@@ -22,7 +22,7 @@ import {
   BadgeCheck,
   BarChart3,
   Bell,
-  BookImage,
+  Megaphone,
   CircleDollarSign,
   Clock,
   CreditCard,
@@ -176,7 +176,7 @@ const NAV_ITEMS = [
   { href: "/admin/rating", label: "Catador", icon: Star },
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Retiros", icon: ArrowUpFromLine },
-  { href: "/admin/banners", label: "Banners", icon: BookImage },
+  { href: "/admin/anuncios", label: "Anuncios", icon: Megaphone },
   { href: "/admin/home-stories", label: "Historias Home", icon: Video },
   { href: "/admin/cobros", label: "Cobros", icon: CircleDollarSign },
   { href: "/admin/destacar", label: "Destacar", icon: Zap },
@@ -651,7 +651,7 @@ export default function AdminIndex() {
                 {<QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />}
                 {<QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />}
                 {<QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />}
-                {<QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />}
+                {adminOnly && <QuickAction href="/admin/anuncios" icon={Megaphone} label="Anuncios" desc="ExoClick" accent="pink" />}
                 {<QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar, ocultar y renovar" accent="fuchsia" />}
                 {<QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />}
                 {<QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />}

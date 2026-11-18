@@ -86,6 +86,8 @@ const ADMIN_ONLY_SECTIONS = [
   "/admin/cobros",
   // Regalar la Destacada: es un boost que se vende.
   "/admin/destacar",
+  // Anuncios de ExoClick: ingresos del sitio.
+  "/admin/anuncios",
 ];
 
 /** ¿Se le muestra esta sección del panel a esta cuenta? */
