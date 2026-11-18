@@ -15,8 +15,15 @@ import BackButton from "./BackButton";
 import FlashBadge from "./FlashBadge";
 import VerifiedBand from "./VerifiedBand";
 import UserLevelBadge from "./UserLevelBadge";
+import AdSlot from "./ads/AdSlot";
 import type { MapMarker } from "./MapboxMap";
 import type { TagFilter } from "../lib/escortSearchLandings";
+function listingAdAfter(index: number) {
+  const n = index + 1;
+  if (n < 20 || (n - 20) % 30 !== 0) return false;
+  return (n - 20) / 30 < 3;
+}
+
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("./ProfilePreviewModal"), { ssr: false });
 const Stories = dynamic(() => import("./Stories"), { ssr: false });
@@ -868,6 +875,11 @@ export default function DirectoryPage({
                   </div>
                 )}
                 <ProfileCard p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
+                {/* Publicidad: fila completa tras el perfil 20 y cada 30, máx. 3.
+                    Arriba quedan las Destacadas y Subir al top, que pagan. */}
+                {entityType === "professional" && listingAdAfter(i) && i < displayed.length - 1 && (
+                  <AdSlot slot="listing" width={300} height={250} className="col-span-full my-2" />
+                )}
               </Fragment>
             ))}
           </div>
