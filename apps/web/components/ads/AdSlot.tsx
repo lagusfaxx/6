@@ -111,33 +111,76 @@ export default function AdSlot({ slot, width, height, fluid = false, className =
     (w.AdProvider = w.AdProvider || []).push({ serve: {} });
   }, [visible, zoneId, hiddenForUser, meLoading]);
 
-  if (!zoneId || hiddenForUser) return null;
+  /* ¿Llegó el anuncio? ExoClick lo dibuja junto al <ins>. Si en 12 s no
+     llegó nada (sin anuncio disponible, bloqueador), el espacio se oculta
+     para no dejar un recuadro vacío. */
+  const [filled, setFilled] = useState(false);
+  const [gaveUp, setGaveUp] = useState(false);
+  const adRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = adRef.current;
+    if (!visible || !el) return;
+    const check = () => {
+      const got = el.querySelector("iframe, img, video") != null || el.childElementCount > 1;
+      if (got) setFilled(true);
+      return got;
+    };
+    if (check()) return;
+    const mo = new MutationObserver(() => {
+      if (check()) mo.disconnect();
+    });
+    mo.observe(el, { childList: true, subtree: true });
+    const t = setTimeout(() => {
+      if (!check()) setGaveUp(true);
+      mo.disconnect();
+    }, 12_000);
+    return () => {
+      mo.disconnect();
+      clearTimeout(t);
+    };
+  }, [visible, meLoading]);
+
+  if (!zoneId || hiddenForUser || gaveUp) return null;
+
+  const ins = visible && !meLoading ? <ins className={INS_CLASS} data-zoneid={zoneId} /> : null;
+  const cardMax = fluid ? Math.round(width * 1.6) + 12 : width + 12;
 
   return (
-    <div className={`flex w-full flex-col items-center ${className}`} aria-label="Publicidad">
-      <span className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-white/25">Publicidad</span>
-      {fluid ? (
-        <div
-          ref={boxRef}
-          className="relative w-full overflow-hidden rounded-lg bg-white/[0.02]"
-          style={{ maxWidth: Math.round(width * 1.6), height: Math.round(height * scale) }}
-        >
+    <div className={`flex w-full justify-center ${className}`} aria-label="Publicidad">
+      <div
+        className="w-full rounded-2xl border border-white/[0.08] bg-[#0c0a14] p-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.35)]"
+        style={{ maxWidth: cardMax }}
+      >
+        <div className="flex items-center justify-between px-1.5 pb-1.5 pt-0.5">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35">Publicidad</span>
+          {!filled && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fuchsia-400/50" aria-hidden />}
+        </div>
+        {fluid ? (
           <div
-            className="absolute left-1/2 top-0 flex items-center justify-center"
-            style={{ width, height, transform: `translateX(-50%) scale(${scale})`, transformOrigin: "top center" }}
+            ref={boxRef}
+            className="relative w-full overflow-hidden rounded-xl bg-black/40"
+            style={{ height: Math.round(height * scale) }}
           >
-            {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
+            <div
+              ref={adRef}
+              className="absolute left-1/2 top-0 flex items-center justify-center"
+              style={{ width, height, transform: `translateX(-50%) scale(${scale})`, transformOrigin: "top center" }}
+            >
+              {ins}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div
-          ref={boxRef}
-          className="flex max-w-full items-center justify-center overflow-hidden rounded-lg bg-white/[0.02]"
-          style={{ width, height }}
-        >
-          {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
-        </div>
-      )}
+        ) : (
+          <div
+            ref={boxRef}
+            className="mx-auto flex max-w-full items-center justify-center overflow-hidden rounded-xl bg-black/40"
+            style={{ width, height }}
+          >
+            <div ref={adRef} className="flex items-center justify-center">
+              {ins}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
