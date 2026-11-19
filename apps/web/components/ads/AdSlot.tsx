@@ -48,9 +48,9 @@ type Props = {
   slot: AdSlotName;
   width: number;
   height: number;
-  /** Ocupa todo el ancho disponible (con la proporción del formato) en vez
-   *  del tamaño fijo. Con "Responsive Display Ads" activado en la zona,
-   *  ExoClick agranda el anuncio al espacio; si no, queda centrado. */
+  /** Ocupa todo el ancho disponible: el anuncio de ExoClick llega con su
+   *  tamaño fijo (300x250) y se amplía con CSS, manteniendo la proporción,
+   *  hasta 1,6 veces. Los clics siguen funcionando igual. */
   fluid?: boolean;
   className?: string;
 };
@@ -61,6 +61,18 @@ export default function AdSlot({ slot, width, height, fluid = false, className =
   const [visible, setVisible] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const served = useRef(false);
+  const [scale, setScale] = useState(1);
+
+  /* Escala del anuncio según el ancho real del espacio. */
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!fluid || !el || typeof ResizeObserver === "undefined") return;
+    const update = () => setScale(Math.min(1.6, Math.max(0.5, el.clientWidth / width)));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid, width, zoneId]);
 
   const hiddenForUser = NO_ADS_PROFILE_TYPES.has(String(me?.user?.profileType || "").toUpperCase());
 
@@ -104,17 +116,28 @@ export default function AdSlot({ slot, width, height, fluid = false, className =
   return (
     <div className={`flex w-full flex-col items-center ${className}`} aria-label="Publicidad">
       <span className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-white/25">Publicidad</span>
-      <div
-        ref={boxRef}
-        className="flex max-w-full items-center justify-center overflow-hidden rounded-lg bg-white/[0.02]"
-        style={
-          fluid
-            ? { width: "100%", maxWidth: Math.round(width * 1.6), aspectRatio: `${width} / ${height}` }
-            : { width, height }
-        }
-      >
-        {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
-      </div>
+      {fluid ? (
+        <div
+          ref={boxRef}
+          className="relative w-full overflow-hidden rounded-lg bg-white/[0.02]"
+          style={{ maxWidth: Math.round(width * 1.6), height: Math.round(height * scale) }}
+        >
+          <div
+            className="absolute left-1/2 top-0 flex items-center justify-center"
+            style={{ width, height, transform: `translateX(-50%) scale(${scale})`, transformOrigin: "top center" }}
+          >
+            {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={boxRef}
+          className="flex max-w-full items-center justify-center overflow-hidden rounded-lg bg-white/[0.02]"
+          style={{ width, height }}
+        >
+          {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
+        </div>
+      )}
     </div>
   );
 }
