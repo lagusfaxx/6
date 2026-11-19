@@ -13,11 +13,6 @@ import useMe from "../hooks/useMe";
 import { useDiscreet } from "../components/DiscreetProvider";
 import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 import { toHomeProfile, type HomeProfile } from "../components/home/ProfileCard";
-import InstallAppSheet, {
-  INSTALL_SHEET_OPEN_EVENT,
-  detectInstallPlatform,
-  type InstallPlatform,
-} from "../components/InstallAppSheet";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -37,7 +32,6 @@ import {
   ArrowRight,
   Camera,
   ChevronRight,
-  Download,
   Hand,
   Hotel,
   Navigation,
@@ -168,55 +162,6 @@ type NewProfile = {
   coverUrl?: string | null;
   availableNow?: boolean;
 };
-
-/* ── Install App Button ── */
-function InstallAppButton({ compact = false }: { compact?: boolean }) {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstructions, setShowInstructions] = useState(false);
-  const [platform, setPlatform] = useState<InstallPlatform>("desktop");
-  const [isStandalone, setIsStandalone] = useState(false);
-
-  useEffect(() => {
-    setPlatform(detectInstallPlatform());
-    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true);
-    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-
-  if (isStandalone) return null;
-
-  async function handleClick() {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-    } else {
-      window.dispatchEvent(new Event(INSTALL_SHEET_OPEN_EVENT));
-      setShowInstructions(true);
-    }
-  }
-
-  return (
-    <>
-      <button
-        onClick={handleClick}
-        className={
-          compact
-            ? "inline-flex items-center gap-1 text-[11px] font-medium text-white/40 underline-offset-4 transition hover:text-white/70 hover:underline"
-            : "inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
-        }
-      >
-        <Download className={compact ? "h-3 w-3" : "h-4 w-4"} />
-        Descargar App
-      </button>
-
-      {showInstructions && (
-        <InstallAppSheet platform={platform} onClose={() => setShowInstructions(false)} />
-      )}
-    </>
-  );
-}
 
 /* ── Page ── */
 
@@ -502,11 +447,6 @@ export default function HomeClient() {
               </Link>
             ))}
           </nav>
-
-          {/* Link compacto para descargar app */}
-          <div className="mt-3">
-            <InstallAppButton compact />
-          </div>
         </div>
       </section>
 

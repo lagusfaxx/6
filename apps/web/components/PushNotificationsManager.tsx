@@ -3,13 +3,8 @@
 import { useEffect, useState } from "react";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
-import InstallAppSheet, {
-  INSTALL_SHEET_OPEN_EVENT,
-  detectInstallPlatform,
-} from "./InstallAppSheet";
 
 const PUBLIC_VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-const IOS_INSTALL_HINT_KEY = "uzeed:ios-install-hint-dismissed";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -38,17 +33,8 @@ function isStandalonePwa() {
   return Boolean(mediaStandalone || iosStandalone);
 }
 
-function wasIosInstallHintDismissed() {
-  try {
-    return window.localStorage.getItem(IOS_INSTALL_HINT_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 export default function PushNotificationsManager() {
   const { me, loading } = useMe();
-  const [showInstallHint, setShowInstallHint] = useState(false);
   const [showIosEnablePush, setShowIosEnablePush] = useState(false);
   const [activatingPush, setActivatingPush] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
@@ -150,25 +136,11 @@ export default function PushNotificationsManager() {
     const ios = isIosDevice();
     const standalone = isStandalonePwa();
 
-    /* En /live se está de paso hacia las cámaras (anuncio de 5 s): el aviso
-       de instalar taparía el anuncio y la cuenta regresiva. */
-    const onLiveGate = window.location.pathname === "/live";
-    if (ios && !standalone && !onLiveGate && !wasIosInstallHintDismissed()) {
-      setShowInstallHint(true);
-    } else {
-      setShowInstallHint(false);
-    }
-
-    // Si abren el panel desde "Descargar App", el automático sobra.
-    const hideHint = () => setShowInstallHint(false);
-    window.addEventListener(INSTALL_SHEET_OPEN_EVENT, hideHint);
-
     if (ios && standalone && Notification.permission !== "granted") {
       setShowIosEnablePush(true);
     } else {
       setShowIosEnablePush(false);
     }
-    return () => window.removeEventListener(INSTALL_SHEET_OPEN_EVENT, hideHint);
   }, []);
 
   useEffect(() => {
@@ -199,20 +171,6 @@ export default function PushNotificationsManager() {
 
   return (
     <>
-      {showInstallHint ? (
-        <InstallAppSheet
-          platform={detectInstallPlatform()}
-          onClose={() => {
-            try {
-              window.localStorage.setItem(IOS_INSTALL_HINT_KEY, "1");
-            } catch {
-              // ignore
-            }
-            setShowInstallHint(false);
-          }}
-        />
-      ) : null}
-
       {showIosEnablePush ? (
         <div className="fixed bottom-20 left-4 right-4 z-[65] mx-auto w-auto max-w-md rounded-2xl border border-fuchsia-300/40 bg-[#1a0630] p-4 text-sm text-white shadow-xl">
           <div className="font-semibold">Activa notificaciones en iOS</div>
