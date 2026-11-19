@@ -65,9 +65,14 @@ export default function PushNotificationsManager() {
     if (!('serviceWorker' in navigator)) return;
 
     let refreshing = false;
+    /* En la primera visita no hay worker previo: al instalarse toma el
+       control y dispara controllerchange, pero no hay versión vieja que
+       reemplazar. Recargar ahí reiniciaba la página (y la cuenta del anuncio
+       en /live). Sólo se recarga cuando una versión nueva reemplaza a otra. */
+    const hadController = Boolean(navigator.serviceWorker.controller);
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return;
+      if (refreshing || !hadController) return;
       refreshing = true;
       window.location.reload();
     });
