@@ -48,10 +48,14 @@ type Props = {
   slot: AdSlotName;
   width: number;
   height: number;
+  /** Ocupa todo el ancho disponible (con la proporción del formato) en vez
+   *  del tamaño fijo. Con "Responsive Display Ads" activado en la zona,
+   *  ExoClick agranda el anuncio al espacio; si no, queda centrado. */
+  fluid?: boolean;
   className?: string;
 };
 
-export default function AdSlot({ slot, width, height, className = "" }: Props) {
+export default function AdSlot({ slot, width, height, fluid = false, className = "" }: Props) {
   const { me, loading: meLoading } = useMe();
   const [zoneId, setZoneId] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -103,7 +107,11 @@ export default function AdSlot({ slot, width, height, className = "" }: Props) {
       <div
         ref={boxRef}
         className="flex max-w-full items-center justify-center overflow-hidden rounded-lg bg-white/[0.02]"
-        style={{ width, height }}
+        style={
+          fluid
+            ? { width: "100%", maxWidth: Math.round(width * 1.6), aspectRatio: `${width} / ${height}` }
+            : { width, height }
+        }
       >
         {visible && !meLoading && <ins className={INS_CLASS} data-zoneid={zoneId} />}
       </div>

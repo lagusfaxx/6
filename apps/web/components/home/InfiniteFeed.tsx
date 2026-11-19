@@ -195,7 +195,7 @@ export default function InfiniteFeed({
             <Fragment key={p.id}>
               <ProfileCard profile={toHomeProfile(p)} eager={i < 4} />
               {adSlot && adAfter(i) && i < items.length - 1 && (
-                <AdSlot slot={adSlot} width={300} height={250} className="col-span-full my-2" />
+                <AdSlot slot={adSlot} width={300} height={250} fluid className="col-span-full my-2" />
               )}
             </Fragment>
           ))}

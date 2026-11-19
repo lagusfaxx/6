@@ -878,7 +878,7 @@ export default function DirectoryPage({
                 {/* Publicidad: fila completa tras el perfil 20 y cada 30, máx. 3.
                     Arriba quedan las Destacadas y Subir al top, que pagan. */}
                 {entityType === "professional" && listingAdAfter(i) && i < displayed.length - 1 && (
-                  <AdSlot slot="listing" width={300} height={250} className="col-span-full my-2" />
+                  <AdSlot slot="listing" width={300} height={250} fluid className="col-span-full my-2" />
                 )}
               </Fragment>
             ))}

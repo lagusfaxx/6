@@ -572,7 +572,7 @@ export default function HomeClient() {
 
         {/* ═══ PUBLICIDAD — bajo Nuevas, a la vista sin tapar lo que pagan
              las escorts (Diamond y el mapa van arriba) ═══ */}
-        <AdSlot slot="homeFeed" width={300} height={250} className="mb-8" />
+        <AdSlot slot="homeFeed" width={300} height={250} fluid className="mb-8" />
 
         {/* ═══ DESTACADAS — perfiles con la Destacada vigente, en chico ═══ */}
         {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" mini />}
