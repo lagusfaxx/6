@@ -18,9 +18,8 @@ const zoneKey = (slot: AdSlotName) => `ads_zone_${slot}`;
 
 /* Zonas ya creadas en ExoClick: valen mientras no se guarde otra en el panel. */
 const DEFAULT_ZONES: Partial<Record<AdSlotName, string>> = { homeFeed: "6095358", homeCamsDesktop: "6095374", homeCamsMobile: "6095380", listing: "6095382",
-  /* Mientras no tengan zona propia, reusan las de listados y feed. */
-  stories: "6095382",
-  liveGate: "6095358",
+  stories: "6097028",
+  liveGate: "6097032",
 };
 
 type AdsConfig = { enabled: boolean; zones: Record<AdSlotName, string | null> };
