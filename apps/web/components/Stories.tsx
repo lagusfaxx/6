@@ -7,6 +7,7 @@ import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
 import StoryComposer from "./StoryComposer";
+import AdBreak from "./ads/AdBreak";
 
 /* ─── Types ─────────────────────────────────────────────── */
 type StoryItem = {
@@ -29,6 +30,8 @@ type StoryGroup = {
 };
 
 const STORY_DURATION_MS = 5000;
+/* Un anuncio cada tantos perfiles vistos en el visor. */
+const AD_EVERY_GROUPS = 2;
 
 /* ─── StoryViewer ───────────────────────────────────────── */
 function StoryViewer({
@@ -50,6 +53,9 @@ function StoryViewer({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const startTimeRef = useRef<number>(Date.now());
+  /* Pausa con anuncio: guarda a qué perfil se pasa cuando termina. */
+  const [adNext, setAdNext] = useState<number | null>(null);
+  const groupsSeenRef = useRef(0);
 
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
@@ -82,6 +88,11 @@ function StoryViewer({
       setStoryIdx((i) => i + 1);
       setProgress(0);
     } else if (groupIdx < groups.length - 1) {
+      groupsSeenRef.current += 1;
+      if (groupsSeenRef.current % AD_EVERY_GROUPS === 0) {
+        setAdNext(groupIdx + 1);
+        return;
+      }
       setGroupIdx((g) => g + 1);
       setStoryIdx(0);
       setProgress(0);
@@ -89,6 +100,17 @@ function StoryViewer({
       onClose();
     }
   }, [storyIdx, totalStories, groupIdx, groups.length, onClose]);
+
+  const endAd = useCallback(() => {
+    setAdNext((next) => {
+      if (next !== null) {
+        setGroupIdx(next);
+        setStoryIdx(0);
+        setProgress(0);
+      }
+      return null;
+    });
+  }, []);
 
   const goPrev = useCallback(() => {
     if (storyIdx > 0) {
@@ -103,7 +125,7 @@ function StoryViewer({
   }, [storyIdx, groupIdx, groups]);
 
   useEffect(() => {
-    if (isVideo) return;
+    if (isVideo || adNext !== null) return;
     setProgress(0);
     startTimeRef.current = Date.now();
     timerRef.current = setInterval(() => {
@@ -116,7 +138,7 @@ function StoryViewer({
       }
     }, 50);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [storyIdx, groupIdx, isVideo, goNext]);
+  }, [storyIdx, groupIdx, isVideo, goNext, adNext]);
 
   useEffect(() => {
     if (!isVideo || !videoRef.current) return;
@@ -138,14 +160,32 @@ function StoryViewer({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (adNext !== null) return;
       else if (e.key === "ArrowRight") goNext();
       else if (e.key === "ArrowLeft") goPrev();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [goNext, goPrev, onClose]);
+  }, [goNext, goPrev, onClose, adNext]);
 
   if (!group || !story) return null;
+
+  if (adNext !== null) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+          aria-label="Cerrar"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div className="relative mx-auto flex h-[90vh] max-h-[700px] w-full max-w-sm items-center overflow-hidden rounded-2xl bg-[#0c0a14] shadow-2xl">
+          <AdBreak slot="stories" seconds={5} doneLabel="Siguiente historia" onDone={endAd} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">

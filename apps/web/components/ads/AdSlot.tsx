@@ -17,7 +17,7 @@ import useMe from "../../hooks/useMe";
  *   llega el anuncio.
  */
 
-export type AdSlotName = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing";
+export type AdSlotName = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing" | "stories" | "liveGate";
 
 type AdsConfig = { enabled: boolean; zones: Partial<Record<AdSlotName, string | null>> };
 
@@ -53,9 +53,15 @@ type Props = {
    *  hasta 1,6 veces. Los clics siguen funcionando igual. */
   fluid?: boolean;
   className?: string;
+  /** Avisa si el anuncio llegó ("filled") o si no va a haber ("unavailable":
+   *  anuncios apagados, sin zona, usuario sin anuncios o sin anuncio de
+   *  ExoClick). Lo usan las pantallas de anuncio con cuenta regresiva. */
+  onStatus?: (status: "filled" | "unavailable") => void;
+  /** Segundos sin anuncio antes de rendirse (por defecto 12). */
+  giveUpAfter?: number;
 };
 
-export default function AdSlot({ slot, width, height, fluid = false, className = "" }: Props) {
+export default function AdSlot({ slot, width, height, fluid = false, className = "", onStatus, giveUpAfter = 12 }: Props) {
   const { me, loading: meLoading } = useMe();
   const [zoneId, setZoneId] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -76,10 +82,13 @@ export default function AdSlot({ slot, width, height, fluid = false, className =
 
   const hiddenForUser = NO_ADS_PROFILE_TYPES.has(String(me?.user?.profileType || "").toUpperCase());
 
+  const [cfgLoaded, setCfgLoaded] = useState(false);
   useEffect(() => {
     let alive = true;
     loadAdsConfig().then((cfg) => {
-      if (!alive || !cfg?.enabled) return;
+      if (!alive) return;
+      setCfgLoaded(true);
+      if (!cfg?.enabled) return;
       setZoneId(cfg.zones?.[slot] || null);
     });
     return () => {
@@ -133,12 +142,21 @@ export default function AdSlot({ slot, width, height, fluid = false, className =
     const t = setTimeout(() => {
       if (!check()) setGaveUp(true);
       mo.disconnect();
-    }, 12_000);
+    }, giveUpAfter * 1000);
     return () => {
       mo.disconnect();
       clearTimeout(t);
     };
-  }, [visible, meLoading]);
+  }, [visible, meLoading, giveUpAfter]);
+
+  const unavailable =
+    (cfgLoaded && !zoneId) || (!meLoading && hiddenForUser) || gaveUp;
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
+  useEffect(() => {
+    if (unavailable) onStatusRef.current?.("unavailable");
+    else if (filled) onStatusRef.current?.("filled");
+  }, [unavailable, filled]);
 
   if (!zoneId || hiddenForUser || gaveUp) return null;
 

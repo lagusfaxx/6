@@ -150,7 +150,10 @@ export default function PushNotificationsManager() {
     const ios = isIosDevice();
     const standalone = isStandalonePwa();
 
-    if (ios && !standalone && !wasIosInstallHintDismissed()) {
+    /* En /live se está de paso hacia las cámaras (anuncio de 5 s): el aviso
+       de instalar taparía el anuncio y la cuenta regresiva. */
+    const onLiveGate = window.location.pathname === "/live";
+    if (ios && !standalone && !onLiveGate && !wasIosInstallHintDismissed()) {
       setShowInstallHint(true);
     } else {
       setShowInstallHint(false);

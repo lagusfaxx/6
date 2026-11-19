@@ -10,14 +10,18 @@ import { requireAdmin } from "../auth/middleware";
  * Un espacio sin zoneid no se muestra.
  */
 
-export const AD_SLOTS = ["homeFeed", "homeCamsDesktop", "homeCamsMobile", "listing"] as const;
+export const AD_SLOTS = ["homeFeed", "homeCamsDesktop", "homeCamsMobile", "listing", "stories", "liveGate"] as const;
 export type AdSlotName = (typeof AD_SLOTS)[number];
 
 const ENABLED_KEY = "ads_enabled";
 const zoneKey = (slot: AdSlotName) => `ads_zone_${slot}`;
 
 /* Zonas ya creadas en ExoClick: valen mientras no se guarde otra en el panel. */
-const DEFAULT_ZONES: Partial<Record<AdSlotName, string>> = { homeFeed: "6095358", homeCamsDesktop: "6095374", homeCamsMobile: "6095380", listing: "6095382" };
+const DEFAULT_ZONES: Partial<Record<AdSlotName, string>> = { homeFeed: "6095358", homeCamsDesktop: "6095374", homeCamsMobile: "6095380", listing: "6095382",
+  /* Mientras no tengan zona propia, reusan las de listados y feed. */
+  stories: "6095382",
+  liveGate: "6095358",
+};
 
 type AdsConfig = { enabled: boolean; zones: Record<AdSlotName, string | null> };
 

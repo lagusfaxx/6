@@ -10,19 +10,21 @@ import { apiFetch } from "../../../lib/api";
  * número (el data-zoneid del código). Un espacio vacío no se muestra.
  */
 
-type Slot = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing";
+type Slot = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing" | "stories" | "liveGate";
 type Config = { enabled: boolean; zones: Record<Slot, string | null> };
 
 const SLOTS: { key: Slot; label: string; format: string; where: string }[] = [
   { key: "homeFeed", label: "Inicio — feed", format: "Rectangle 300x250", where: "Inicio: bajo Nuevas y entre los perfiles del feed (tras el 8 y cada 24, máx. 4)" },
   { key: "homeCamsDesktop", label: "Inicio — cams (computador/tablet)", format: "Leaderboard 728x90", where: "Bajo la sección Cams en Vivo" },
   { key: "homeCamsMobile", label: "Inicio — cams (teléfono)", format: "Rectangle 300x250", where: "Bajo la sección Cams en Vivo" },
+  { key: "stories", label: "Historias", format: "Rectangle 300x250", where: "Pantalla de 5 s cada 2 perfiles en el visor de historias" },
+  { key: "liveGate", label: "Paso a En Vivo", format: "Rectangle 300x250", where: "Pantalla de 5 s antes de ir a las cámaras (live.uzeed.cl)" },
   { key: "listing", label: "Listados", format: "Rectangle 300x250", where: "/escorts, /hombres, comunas y etiquetas (tras el perfil 20 y cada 30, máx. 3)" },
 ];
 
 export default function AdminAnunciosPage() {
   const [enabled, setEnabled] = useState(false);
-  const [zones, setZones] = useState<Record<Slot, string>>({ homeFeed: "", homeCamsDesktop: "", homeCamsMobile: "", listing: "" });
+  const [zones, setZones] = useState<Record<Slot, string>>({ homeFeed: "", homeCamsDesktop: "", homeCamsMobile: "", listing: "", stories: "", liveGate: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -36,6 +38,8 @@ export default function AdminAnunciosPage() {
           homeCamsDesktop: cfg.zones.homeCamsDesktop ?? "",
           homeCamsMobile: cfg.zones.homeCamsMobile ?? "",
           listing: cfg.zones.listing ?? "",
+          stories: cfg.zones.stories ?? "",
+          liveGate: cfg.zones.liveGate ?? "",
         });
       })
       .catch(() => setMsg({ ok: false, text: "No se pudo cargar la configuración." }))

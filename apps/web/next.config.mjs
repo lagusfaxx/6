@@ -203,8 +203,8 @@ const nextConfig = {
          respondía 308 sin cabecera Location. */
       { source: "/hospedaje", destination: "/moteles", permanent: true },
       { source: "/hot", destination: "/premium", permanent: true },
-      // Live section now lives on the live.uzeed.cl whitelabel
-      { source: "/live", destination: "https://live.uzeed.cl/south-american-cams/female/", permanent: false },
+      /* /live ya no redirige directo: es el paso con anuncio antes de las
+         cámaras de live.uzeed.cl (app/live/page.tsx). */
     ];
   },
   async rewrites() {

@@ -64,7 +64,7 @@ const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
   { keywords: ["sexshop", "sex shop", "sexo shop", "juguete", "juguetes"], href: "/sexshop" },
   { keywords: ["contenido", "creadora", "creadoras", "packs", "pack de fotos", "fotos", "videos"], href: "/contenido" },
   { keywords: ["marketplace", "market", "tienda", "comprar"], href: "/marketplace" },
-  { keywords: ["live", "lives", "en vivo"], href: "https://live.uzeed.cl/south-american-cams/female/" },
+  { keywords: ["live", "lives", "en vivo"], href: "/live" },
   { keywords: ["foro", "comunidad"], href: "/foro" },
 ];
 
