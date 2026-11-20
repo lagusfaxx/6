@@ -57,6 +57,7 @@ import {
 import { hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
 import WhatsAppIcon from "../../../components/icons/WhatsAppIcon";
+import AdSlot from "../../../components/ads/AdSlot";
 import FlashBadge from "../../../components/FlashBadge";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
@@ -1284,6 +1285,12 @@ export default function ProfileDetailView({
             </div>
           </section>
         )}
+      </div>
+
+      {/* Publicidad: bajo las fotos, lejos del contacto (arriba) y de la barra
+          de WhatsApp (abajo), que son lo que paga la profesional. */}
+      <div className="mx-auto mt-8 w-full max-w-6xl px-4 md:px-8">
+        <AdSlot slot="profile" width={300} height={250} fluid />
       </div>
 
       {/* Todo lo que sigue va en la misma columna, separado por líneas y no por

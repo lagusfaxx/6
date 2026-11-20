@@ -17,7 +17,7 @@ import useMe from "../../hooks/useMe";
  *   llega el anuncio.
  */
 
-export type AdSlotName = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing" | "stories" | "liveGate";
+export type AdSlotName = "homeFeed" | "homeCamsDesktop" | "homeCamsMobile" | "listing" | "stories" | "liveGate" | "profile";
 
 type AdsConfig = { enabled: boolean; zones: Partial<Record<AdSlotName, string | null>> };
 

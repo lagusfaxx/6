@@ -20,8 +20,8 @@ import type { MapMarker } from "./MapboxMap";
 import type { TagFilter } from "../lib/escortSearchLandings";
 function listingAdAfter(index: number) {
   const n = index + 1;
-  if (n < 20 || (n - 20) % 30 !== 0) return false;
-  return (n - 20) / 30 < 3;
+  if (n < 8 || (n - 8) % 16 !== 0) return false;
+  return (n - 8) / 16 < 6;
 }
 
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
@@ -875,7 +875,7 @@ export default function DirectoryPage({
                   </div>
                 )}
                 <ProfileCard p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
-                {/* Publicidad: fila completa tras el perfil 20 y cada 30, máx. 3.
+                {/* Publicidad: fila completa tras el perfil 8 y cada 16, máx. 6.
                     Arriba quedan las Destacadas y Subir al top, que pagan. */}
                 {entityType === "professional" && listingAdAfter(i) && i < displayed.length - 1 && (
                   <AdSlot slot="listing" width={300} height={250} fluid className="col-span-full my-2" />
