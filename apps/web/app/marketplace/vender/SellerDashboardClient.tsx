@@ -4,18 +4,20 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  AlertCircle, ArrowLeft, Banknote, BarChart3, Building2, CheckCircle2, Clock,
-  ImagePlus, Lock, Package, PackageOpen, Plus, Send, Settings, ShieldCheck,
-  Store, Trash2, TrendingUp, Wallet, Zap,
+  AlertCircle, ArrowLeft, BarChart3, CheckCircle2, Clock,
+  Image as ImageIcon, ImagePlus, Lock, Package, PackageOpen, Plus, Send, Settings, ShieldCheck,
+  Store, Trash2, TrendingUp, Video, Wallet, X, Zap,
 } from "lucide-react";
 
 import useMe from "../../../hooks/useMe";
 import { MediaThumb, StatRow } from "../../../components/marketplace/ui";
-import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
-import { appendVideoPosters } from "../../../lib/videoPoster";
+import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
+import {
+  packFileKind, packFileProblem, summarizeFiles, uploadPackFiles, type UploadResult,
+} from "../../../lib/marketUpload";
 import {
   ORDER_STATUS_UI, formatClp, formatDate, productCoverMedia,
-  type MarketOrder, type MarketProduct, type MarketProductType,
+  type MarketOrder, type MarketProduct,
 } from "../../../lib/marketplace";
 
 type Seller = {
@@ -74,13 +76,6 @@ const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
   { key: "config", label: "Banco", icon: Settings },
 ];
 
-/* Se venden packs digitales (fotos y videos) que se ven en /contenido. El
-   tipo sólo dice qué predomina: todo pack lleva al menos 1 foto y 1 video. */
-const PACK_TYPES: Array<{ value: MarketProductType; label: string }> = [
-  { value: "PHOTO_SET", label: "Más fotos" },
-  { value: "VIDEO", label: "Más video" },
-];
-
 export default function SellerDashboardClient() {
   const searchParams = useSearchParams();
   const { me, loading: meLoading } = useMe();
@@ -101,8 +96,12 @@ export default function SellerDashboardClient() {
     return response;
   }, []);
 
+  /* Sólo la primera carga tapa la pantalla. Las recargas posteriores (después
+     de subir un archivo, pausar, etc.) son silenciosas: si no, el panel se
+     desmontaba y el formulario de un pack a medio subir perdía lo elegido. */
+  const loadedOnce = useRef(false);
   const loadAll = useCallback(async () => {
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     try {
       const current = await loadState();
       if (current.seller) {
@@ -118,6 +117,7 @@ export default function SellerDashboardClient() {
     } catch (err: any) {
       setError(friendlyErrorMessage(err));
     } finally {
+      loadedOnce.current = true;
       setLoading(false);
     }
   }, [loadState]);
@@ -331,10 +331,10 @@ function Overview({
             {state.freeSalesCount > 0 && <FreeSalesNote count={state.freeSalesCount} left={state.freeSalesLeft} className="mt-3" />}
             <button
               type="button"
-              onClick={() => onGo(bankMissing ? "config" : "productos")}
+              onClick={() => onGo("productos")}
               className="mt-3 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white"
             >
-              {bankMissing ? "Agregar mi cuenta bancaria" : "Subir un pack"}
+              Subir un pack
             </button>
           </div>
         </div>
@@ -351,13 +351,13 @@ function Overview({
       {bankMissing && (
         <button
           type="button"
-          onClick={() => onGo("config")}
+          onClick={() => onGo("productos")}
           className="flex w-full items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-left"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
           <div>
-            <p className="text-sm font-semibold text-amber-100">Agrega tu cuenta bancaria</p>
-            <p className="text-xs text-amber-100/60">Es necesaria para publicar packs: ahí te transferimos lo que vendas.</p>
+            <p className="text-sm font-semibold text-amber-100">Falta tu cuenta bancaria</p>
+            <p className="text-xs text-amber-100/60">La pides una sola vez, al subir tu primer pack: ahí te transferimos lo que vendas.</p>
           </div>
         </button>
       )}
@@ -403,10 +403,23 @@ function Overview({
   );
 }
 
-/* ══════════════════════ Artículos ══════════════════════ */
+/* ══════════════════════ Packs ══════════════════════ */
+
+type AssetRow = { id: string; type: string; sizeBytes: number };
+type Progress = { done: number; total: number; fraction: number; current: string } | null;
+
+function formatMb(bytes: number) {
+  const mb = bytes / 1024 / 1024;
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
+}
+
+/* Precios sugeridos dentro del rango que permite el marketplace. */
+function priceSuggestions(min: number, max: number) {
+  return [5000, 10000, 15000, 20000, 30000].filter((p) => p >= min && p <= max).slice(0, 4);
+}
 
 function ProductsTab({
-  products, state, onGo, busy, setBusy, onError, onNotice, reload,
+  products, state, busy, setBusy, onError, onNotice, reload,
 }: {
   products: MarketProduct[];
   state: SellerState;
@@ -417,153 +430,439 @@ function ProductsTab({
   onNotice: (v: string) => void;
   reload: () => Promise<void> | void;
 }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(products.length === 0);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
-      {!state.bankComplete ? (
-        /* Sin cuenta bancaria no se puede publicar: no habría dónde pagarle. */
+      {!creating && (
         <button
           type="button"
-          onClick={() => onGo("config")}
-          className="flex w-full items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-left"
+          onClick={() => setCreating(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3.5 text-sm font-bold text-white"
         >
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-          <div>
-            <p className="text-sm font-semibold text-amber-100">Primero agrega tu cuenta bancaria</p>
-            <p className="text-xs text-amber-100/60">Banco, número de cuenta, titular y RUT. Ahí te transferimos tus ventas.</p>
-          </div>
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white"
-        >
-          <Plus className="h-4 w-4" /> {creating ? "Cerrar" : "Subir un pack"}
+          <Plus className="h-4 w-4" /> Subir un pack nuevo
         </button>
       )}
 
       {creating && (
-        <ProductForm
+        <NewPackForm
           state={state}
-          onCancel={() => setCreating(false)}
-          onCreated={async () => { setCreating(false); await reload(); onNotice("Pack creado. Ábrelo y sube tu contenido: al menos 1 foto y 1 video."); }}
+          onCancel={products.length > 0 ? () => setCreating(false) : undefined}
+          onDone={async (message) => {
+            setCreating(false);
+            await reload();
+            onNotice(message);
+          }}
           onError={onError}
+          reload={reload}
         />
       )}
 
-      {products.length === 0 ? (
-        <p className="py-14 text-center text-sm text-white/45">Todavía no subes packs.</p>
-      ) : (
-        products.map((product) => (
-          <ProductRow
-            key={product.id}
-            product={product}
-            expanded={expanded === product.id}
-            onToggle={() => setExpanded(expanded === product.id ? null : product.id)}
-            busy={busy}
-            setBusy={setBusy}
-            onError={onError}
-            onNotice={onNotice}
-            reload={reload}
-          />
-        ))
-      )}
+      {products.length > 0 && <h2 className="pt-3 text-sm font-semibold text-white/70">Tus packs</h2>}
+
+      {products.map((product) => (
+        <ProductRow
+          key={product.id}
+          product={product}
+          expanded={expanded === product.id}
+          onToggle={() => setExpanded(expanded === product.id ? null : product.id)}
+          busy={busy}
+          setBusy={setBusy}
+          onError={onError}
+          onNotice={onNotice}
+          reload={reload}
+        />
+      ))}
     </div>
   );
 }
 
-function ProductForm({
-  state, onCancel, onCreated, onError,
+/** Selector de archivos con vista previa y botón para quitar cada uno. */
+function FilePicker({
+  files, onChange, disabled, label, hint, accentClass,
+}: {
+  files: File[];
+  onChange: (files: File[]) => void;
+  disabled?: boolean;
+  label: string;
+  hint?: string;
+  accentClass?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [previews, setPreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const urls = files.map((f) => (packFileKind(f) === "image" && !/\.(heic|heif)$/i.test(f.name) ? URL.createObjectURL(f) : ""));
+    setPreviews(urls);
+    return () => urls.forEach((u) => u && URL.revokeObjectURL(u));
+  }, [files]);
+
+  const add = (list: FileList | null) => {
+    if (!list?.length) return;
+    const incoming = Array.from(list);
+    // Sin duplicados si eligen el mismo archivo dos veces.
+    const key = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
+    const seen = new Set(files.map(key));
+    onChange([...files, ...incoming.filter((f) => !seen.has(key(f)))]);
+  };
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v"
+        multiple
+        hidden
+        onChange={(e) => { add(e.target.files); e.target.value = ""; }}
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        className={`flex w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition disabled:opacity-40 ${
+          accentClass || "border-fuchsia-400/40 bg-fuchsia-500/[0.06] hover:bg-fuchsia-500/[0.1]"
+        }`}
+      >
+        <ImagePlus className="h-7 w-7 text-fuchsia-200" />
+        <span className="text-sm font-semibold text-white">{label}</span>
+        {hint && <span className="text-[11px] text-white/45">{hint}</span>}
+      </button>
+
+      {files.length > 0 && (
+        <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {files.map((file, index) => {
+            const kind = packFileKind(file);
+            const problem = packFileProblem(file);
+            return (
+              <div key={`${file.name}-${index}`} className={`relative aspect-square overflow-hidden rounded-xl border bg-black/40 ${problem ? "border-rose-500/60" : "border-white/10"}`}>
+                {previews[index] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previews[index]} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-1 p-1 text-center">
+                    {kind === "video" ? <Video className="h-5 w-5 text-white/50" /> : <ImageIcon className="h-5 w-5 text-white/50" />}
+                    <span className="line-clamp-2 break-all text-[9px] text-white/40">{file.name}</span>
+                  </div>
+                )}
+                {kind === "video" && (
+                  <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white">Video</span>
+                )}
+                {!disabled && (
+                  <button
+                    type="button"
+                    aria-label="Quitar"
+                    onClick={() => onChange(files.filter((_, i) => i !== index))}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {files.map(packFileProblem).filter(Boolean).map((p) => (
+        <p key={p} className="mt-1 text-[11px] text-rose-300">{p}</p>
+      ))}
+    </div>
+  );
+}
+
+function ProgressBar({ progress, label }: { progress: NonNullable<Progress>; label: string }) {
+  return (
+    <div className="rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/[0.07] p-3">
+      <div className="flex items-center justify-between text-xs text-white/75">
+        <span>{label} {Math.min(progress.done + 1, progress.total)} de {progress.total}</span>
+        <span>{Math.round(progress.fraction * 100)}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 transition-all" style={{ width: `${Math.round(progress.fraction * 100)}%` }} />
+      </div>
+      <p className="mt-1.5 text-[11px] text-white/45">No cierres esta página hasta que termine.</p>
+    </div>
+  );
+}
+
+/**
+ * Alta de un pack en un solo paso: elige sus fotos y videos, pone precio y
+ * listo. El título se completa solo si lo deja vacío, el tipo se deduce de lo
+ * que sube y la portada pública se arma sola (difuminada) si no elige una.
+ * Si le falta la cuenta bancaria la llena aquí mismo, sin cambiar de pestaña.
+ */
+function NewPackForm({
+  state, onCancel, onDone, onError, reload,
 }: {
   state: SellerState;
-  onCancel: () => void;
-  onCreated: () => void | Promise<void>;
+  onCancel?: () => void;
+  onDone: (message: string) => void | Promise<void>;
   onError: (v: string | null) => void;
+  reload: () => Promise<void> | void;
 }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [coverFiles, setCoverFiles] = useState<File[]>([]);
+  const [showCover, setShowCover] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priceClp, setPriceClp] = useState("");
-  const [type, setType] = useState<MarketProductType>("PHOTO_SET");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<Progress>(null);
+  const [stepLabel, setStepLabel] = useState("Subiendo");
+  const [localError, setLocalError] = useState<string | null>(null);
+  /* Si la subida se corta, el pack ya existe: al reintentar se reutiliza en
+     vez de crear un duplicado vacío. */
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  /* Lo que ya quedó arriba en intentos anteriores cuenta para el mínimo. */
+  const [uploaded, setUploaded] = useState({ images: 0, videos: 0 });
+
+  const [bank, setBank] = useState({ bankName: "", bankAccountType: "", bankAccountNumber: "", bankHolderName: "", bankHolderRut: "", bankEmail: "" });
+  const needsBank = !state.bankComplete;
+
+  const pending = summarizeFiles(files);
+  const images = pending.images + uploaded.images;
+  const videos = pending.videos + uploaded.videos;
+  const hasProblems = files.some((f) => packFileProblem(f)) || coverFiles.some((f) => packFileProblem(f));
+  const price = Number(String(priceClp).replace(/\D/g, "")) || 0;
+  const priceOk = price >= state.minPriceClp && price <= state.maxPriceClp;
+  const bankOk = !needsBank || Boolean(bank.bankName.trim() && bank.bankAccountNumber.trim() && bank.bankHolderName.trim() && bank.bankHolderRut.trim());
+  const contentOk = images >= 1 && videos >= 1;
+
+  const missing: string[] = [];
+  if (images < 1) missing.push("al menos 1 foto");
+  if (videos < 1) missing.push("al menos 1 video");
+  if (!priceOk) missing.push(`un precio entre ${formatClp(state.minPriceClp)} y ${formatClp(state.maxPriceClp)}`);
+  if (!bankOk) missing.push("tu cuenta bancaria (banco, n° de cuenta, titular y RUT)");
+
+  const autoTitle = () => {
+    const parts = [];
+    if (images) parts.push(`${images} foto${images === 1 ? "" : "s"}`);
+    if (videos) parts.push(`${videos} video${videos === 1 ? "" : "s"}`);
+    return `Pack ${parts.join(" + ")}`;
+  };
+
+  const fail = (message: string) => {
+    setLocalError(message);
+    onError(null);
+  };
 
   const submit = async () => {
+    if (missing.length || hasProblems) return;
     setBusy(true);
+    setLocalError(null);
     onError(null);
     try {
-      await apiFetch("/market/seller/products", {
-        method: "POST",
-        body: JSON.stringify({
-          title,
-          description,
-          priceClp: Number(priceClp) || 0,
-          type,
-          deliveryMethods: ["DIGITAL"],
-          autoDeliver: true,
-          stock: null,
-        }),
-      });
-      await onCreated();
+      if (needsBank) {
+        setStepLabel("Guardando tu cuenta");
+        await apiFetch("/market/seller/bank", { method: "PUT", body: JSON.stringify(bank) });
+      }
+
+      let productId = createdId;
+      if (!productId) {
+        const created = await apiFetch<{ product: { id: string } }>("/market/seller/products", {
+          method: "POST",
+          body: JSON.stringify({
+            title: title.trim() || autoTitle(),
+            description,
+            priceClp: price,
+            type: videos > images ? "VIDEO" : "PHOTO_SET",
+            deliveryMethods: ["DIGITAL"],
+            autoDeliver: true,
+            stock: null,
+          }),
+        });
+        productId = created.product.id;
+        setCreatedId(productId);
+      }
+
+      setStepLabel("Subiendo archivo");
+      const results = await uploadPackFiles(productId, "assets", files, setProgress);
+      let coverResults: UploadResult[] = [];
+      if (coverFiles.length) {
+        setStepLabel("Subiendo portada");
+        coverResults = await uploadPackFiles(productId, "media", coverFiles, setProgress);
+      }
+      setProgress(null);
+
+      const failed = results.filter((r): r is Extract<UploadResult, { ok: false }> => !r.ok);
+      const failedCover = coverResults.filter((r): r is Extract<UploadResult, { ok: false }> => !r.ok);
+      const okNow = summarizeFiles(results.filter((r) => r.ok).map((r) => r.file));
+      setUploaded((prev) => ({ images: prev.images + okNow.images, videos: prev.videos + okNow.videos }));
+      if (failed.length || failedCover.length) {
+        // Se dejan sólo los que fallaron, para reintentar con un toque.
+        setFiles(failed.map((r) => r.file));
+        setCoverFiles(failedCover.map((r) => r.file));
+        await reload();
+        const okCount = results.length - failed.length;
+        fail(
+          `${okCount ? `Se subieron ${okCount} archivo${okCount === 1 ? "" : "s"}. ` : ""}` +
+          `No se pudieron subir ${failed.length + failedCover.length}: ${[...failed, ...failedCover][0].error} ` +
+          "Toca \"Reintentar\" o quita esos archivos.",
+        );
+        return;
+      }
+
+      await onDone("¡Listo! Tu pack se está procesando y sale a la venta en breve.");
     } catch (err: any) {
-      onError(friendlyErrorMessage(err));
+      setProgress(null);
+      fail(friendlyErrorMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
-  return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <Input label="Título" value={title} onChange={setTitle} placeholder="Pack 20 fotos exclusivas" />
-      <TextArea label="Descripción" value={description} onChange={setDescription} rows={3} placeholder="Qué incluye, cuántas fotos, duración..." />
+  const suggestions = priceSuggestions(state.minPriceClp, state.maxPriceClp);
+  const retrying = Boolean(createdId);
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <span className="mb-1.5 block text-xs font-medium text-white/50">¿Qué tiene más?</span>
-          <div className="flex gap-2">
-            {PACK_TYPES.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setType(t.value)}
-                className={`flex-1 rounded-xl border px-3 py-3 text-sm transition ${
-                  type === t.value ? "border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-100" : "border-white/10 bg-white/[0.03] text-white/55"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Input
-          label={`Precio (${formatClp(state.minPriceClp)} - ${formatClp(state.maxPriceClp)})`}
-          value={priceClp}
-          onChange={setPriceClp}
-          type="number"
-          placeholder="15000"
-        />
+  return (
+    <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div>
+        <h2 className="text-base font-semibold text-white">{retrying ? "Terminar de subir tu pack" : "Nuevo pack"}</h2>
+        <p className="mt-0.5 text-xs text-white/45">3 pasos: tus fotos y videos, el precio y listo.</p>
       </div>
 
-      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/60">
-        Cada pack lleva <strong className="text-white">al menos 1 foto y 1 video</strong>. Después de crearlo lo abres y subes
-        las fotos de portada (las que ven todos) y el contenido del pack (lo que recibe quien paga, apenas paga).
-      </p>
+      {/* 1. Contenido */}
+      <section>
+        <StepTitle n={1} text="Elige las fotos y videos del pack" />
+        <FilePicker
+          files={files}
+          onChange={setFiles}
+          disabled={busy}
+          label={files.length ? "Agregar más" : "Elegir de mi galería"}
+          hint="Al menos 1 foto y 1 video · puedes elegir varios a la vez"
+        />
+        {files.length > 0 && (
+          <p className={`mt-2 text-xs ${contentOk ? "text-emerald-300" : "text-amber-300"}`}>
+            {images} foto{images === 1 ? "" : "s"} · {videos} video{videos === 1 ? "" : "s"}
+            {!contentOk && ` · falta ${images < 1 ? "1 foto" : "1 video"}`}
+          </p>
+        )}
+        <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+          Esto lo recibe sólo quien paga, dentro de UZEED y sin poder descargarlo.
+        </p>
+      </section>
+
+      {/* 2. Precio */}
+      <section>
+        <StepTitle n={2} text="¿Cuánto cobras?" />
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((value) => (
+            <button
+              key={value}
+              type="button"
+              disabled={busy || retrying}
+              onClick={() => setPriceClp(String(value))}
+              className={`rounded-full border px-3.5 py-2 text-sm transition ${
+                price === value ? "border-fuchsia-400/60 bg-fuchsia-500/20 text-white" : "border-white/10 bg-white/[0.03] text-white/65"
+              }`}
+            >
+              {formatClp(value)}
+            </button>
+          ))}
+        </div>
+        <input
+          inputMode="numeric"
+          value={priceClp}
+          disabled={busy || retrying}
+          onChange={(e) => setPriceClp(e.target.value.replace(/\D/g, ""))}
+          placeholder="Otro monto"
+          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-fuchsia-500/40"
+        />
+        {priceClp && !priceOk && (
+          <p className="mt-1 text-[11px] text-amber-300">Entre {formatClp(state.minPriceClp)} y {formatClp(state.maxPriceClp)}.</p>
+        )}
+      </section>
+
+      {/* 3. Detalles opcionales */}
+      <section className="space-y-3">
+        <StepTitle n={3} text="Ponle nombre (opcional)" />
+        <input
+          value={title}
+          disabled={busy || retrying}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={files.length ? autoTitle() : "Ej: Pack lencería roja"}
+          maxLength={120}
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-fuchsia-500/40"
+        />
+        <textarea
+          rows={2}
+          value={description}
+          disabled={busy || retrying}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Descripción (opcional): qué incluye, duración de los videos..."
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-fuchsia-500/40"
+        />
+
+        {!showCover && coverFiles.length === 0 ? (
+          <button type="button" disabled={busy} onClick={() => setShowCover(true)} className="text-xs text-fuchsia-300">
+            + Elegir foto de portada (opcional)
+          </button>
+        ) : (
+          <div>
+            <p className="mb-2 text-xs text-white/50">
+              Portada: lo que ven todos antes de comprar. Si no eliges, armamos una difuminada con tu contenido.
+            </p>
+            <FilePicker
+              files={coverFiles}
+              onChange={setCoverFiles}
+              disabled={busy}
+              label="Elegir portada"
+              accentClass="border-white/15 bg-white/[0.03] hover:bg-white/[0.06]"
+            />
+          </div>
+        )}
+      </section>
+
+      {needsBank && (
+        <section className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-100">¿Dónde te depositamos?</p>
+            <p className="text-[11px] text-amber-100/60">Sólo la primera vez. No se muestra a los clientes.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input label="Banco" value={bank.bankName} onChange={(v) => setBank({ ...bank, bankName: v })} placeholder="BancoEstado" />
+            <Input label="Tipo de cuenta" value={bank.bankAccountType} onChange={(v) => setBank({ ...bank, bankAccountType: v })} placeholder="Cuenta RUT / Vista / Corriente" />
+            <Input label="N° de cuenta" value={bank.bankAccountNumber} onChange={(v) => setBank({ ...bank, bankAccountNumber: v })} />
+            <Input label="Titular" value={bank.bankHolderName} onChange={(v) => setBank({ ...bank, bankHolderName: v })} />
+            <Input label="RUT" value={bank.bankHolderRut} onChange={(v) => setBank({ ...bank, bankHolderRut: v })} placeholder="12.345.678-9" />
+            <Input label="Correo (opcional)" value={bank.bankEmail} onChange={(v) => setBank({ ...bank, bankEmail: v })} />
+          </div>
+        </section>
+      )}
+
+      {progress && <ProgressBar progress={progress} label={stepLabel} />}
+      {localError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{localError}</p>}
+
+      {missing.length > 0 && !busy && (
+        <p className="text-[11px] text-white/45">Para publicar falta: {missing.join(", ")}.</p>
+      )}
 
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60">
-          Cancelar
-        </button>
+        {onCancel && (
+          <button type="button" disabled={busy} onClick={onCancel} className="rounded-xl border border-white/10 px-4 py-3.5 text-sm text-white/60 disabled:opacity-40">
+            {retrying ? "Cerrar" : "Cancelar"}
+          </button>
+        )}
         <button
           type="button"
-          disabled={busy || !title || !priceClp}
+          disabled={busy || missing.length > 0 || hasProblems}
           onClick={submit}
-          className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
+          className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-40"
         >
-          {busy ? "Creando..." : "Crear pack"}
+          {busy ? "Subiendo..." : retrying ? (files.length || coverFiles.length ? "Reintentar" : "Terminar") : "Publicar pack"}
         </button>
       </div>
     </div>
+  );
+}
+
+function StepTitle({ n, text }: { n: number; text: string }) {
+  return (
+    <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-fuchsia-500/25 text-[11px] text-fuchsia-100">{n}</span>
+      {text}
+    </p>
   );
 }
 
@@ -579,15 +878,15 @@ function ProductRow({
   onNotice: (v: string) => void;
   reload: () => Promise<void> | void;
 }) {
-  const previewRef = useRef<HTMLInputElement | null>(null);
   const assetRef = useRef<HTMLInputElement | null>(null);
-  const [assets, setAssets] = useState<Array<{ id: string; type: string; sizeBytes: number }>>([]);
+  const coverRef = useRef<HTMLInputElement | null>(null);
+  const [assets, setAssets] = useState<AssetRow[]>([]);
+  const [progress, setProgress] = useState<Progress>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
 
   const loadAssets = useCallback(async () => {
     try {
-      const response = await apiFetch<{ assets: Array<{ id: string; type: string; sizeBytes: number }> }>(
-        `/market/seller/products/${product.id}/assets`,
-      );
+      const response = await apiFetch<{ assets: AssetRow[] }>(`/market/seller/products/${product.id}/assets`);
       setAssets(response.assets);
     } catch {
       // Sin archivos cargados todavía.
@@ -596,63 +895,65 @@ function ProductRow({
 
   useEffect(() => { if (expanded) loadAssets(); }, [expanded, loadAssets]);
 
-  const uploadFiles = async (files: FileList, kind: "media" | "assets") => {
+  const upload = async (list: FileList | null, kind: "assets" | "media") => {
+    if (!list?.length) return;
     setBusy(true);
+    setRowError(null);
     onError(null);
     try {
-      const list = Array.from(files);
-      const form = new FormData();
-      list.forEach((file) => form.append("files", file));
-      /* El primer frame de cada video viaja junto al archivo: si el servidor no
-         puede extraerlo, la vitrina igual tiene algo que mostrar. */
-      await appendVideoPosters(form, list);
-      const res = await fetch(`${getApiBase()}/market/seller/products/${product.id}/${kind}`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "UPLOAD_FAILED");
-      onNotice(kind === "media" ? "Portada actualizada" : "Contenido cargado");
+      const results = await uploadPackFiles(product.id, kind, Array.from(list), setProgress);
+      const failed = results.filter((r): r is Extract<UploadResult, { ok: false }> => !r.ok);
+      const ok = results.length - failed.length;
       if (kind === "assets") await loadAssets();
       await reload();
-    } catch (err: any) {
-      onError(friendlyErrorMessage(err));
+      if (failed.length) {
+        setRowError(`${ok ? `Se subieron ${ok}. ` : ""}No se pudieron subir ${failed.length}: ${failed[0].error}`);
+      } else {
+        onNotice(kind === "media" ? "Portada actualizada" : `${ok} archivo${ok === 1 ? "" : "s"} agregado${ok === 1 ? "" : "s"}`);
+      }
     } finally {
+      setProgress(null);
       setBusy(false);
     }
   };
 
-  const toggleActive = async () => {
+  const run = async (fn: () => Promise<unknown>, message?: string) => {
     setBusy(true);
+    setRowError(null);
     try {
-      await apiFetch(`/market/seller/products/${product.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: !product.isActive }),
-      });
+      await fn();
       await reload();
+      if (message) onNotice(message);
     } catch (err: any) {
-      onError(friendlyErrorMessage(err));
+      setRowError(friendlyErrorMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
-  const remove = async () => {
+  const toggleActive = () =>
+    run(() => apiFetch(`/market/seller/products/${product.id}`, { method: "PATCH", body: JSON.stringify({ isActive: !product.isActive }) }));
+
+  const remove = () => {
     if (!window.confirm("¿Eliminar este pack? Deja de venderse en Contenido.")) return;
-    setBusy(true);
-    try {
-      await apiFetch(`/market/seller/products/${product.id}`, { method: "DELETE" });
-      await reload();
-      onNotice("Pack eliminado");
-    } catch (err: any) {
-      onError(friendlyErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    run(() => apiFetch(`/market/seller/products/${product.id}`, { method: "DELETE" }), "Pack eliminado");
   };
+
+  const removeAsset = (asset: AssetRow) => {
+    if (!window.confirm("¿Quitar este archivo del pack? Quienes ya compraron lo conservan.")) return;
+    run(async () => {
+      await apiFetch(`/market/seller/assets/${asset.id}`, { method: "DELETE" });
+      await loadAssets();
+    });
+  };
+
+  const removeMedia = (mediaId: string) =>
+    run(() => apiFetch(`/market/seller/media/${mediaId}`, { method: "DELETE" }));
 
   const status = product.publishStatus ? PUBLISH_STATUS_UI[product.publishStatus] : null;
   const cover = productCoverMedia(product);
+  const assetImages = assets.filter((a) => a.type === "IMAGE").length;
+  const assetVideos = assets.filter((a) => a.type === "VIDEO").length;
 
   return (
     <div className="border-b border-white/[0.06]">
@@ -672,58 +973,91 @@ function ProductRow({
           </p>
           {status && <p className={`mt-0.5 text-[11px] font-medium ${status.className}`}>{status.label}</p>}
         </div>
+        <span className="shrink-0 text-xs text-fuchsia-300">{expanded ? "Cerrar" : "Editar"}</span>
       </button>
 
       {expanded && (
-        <div className="space-y-3 pb-4">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input ref={previewRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files, "media"); e.target.value = ""; }} />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => previewRef.current?.click()}
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
-            >
-              <ImagePlus className="h-4 w-4" /> Portada, pública ({product.media.length})
-            </button>
+        <div className="space-y-4 pb-4">
+          <input ref={assetRef} type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v" multiple hidden onChange={(e) => { upload(e.target.files, "assets"); e.target.value = ""; }} />
+          <input ref={coverRef} type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v" multiple hidden onChange={(e) => { upload(e.target.files, "media"); e.target.value = ""; }} />
 
-            <input ref={assetRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files, "assets"); e.target.value = ""; }} />
+          {progress && <ProgressBar progress={progress} label="Subiendo" />}
+          {rowError && <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{rowError}</p>}
+
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-white/70">
+                <Lock className="mr-1 inline h-3.5 w-3.5" />
+                Contenido del pack · {assetImages} foto{assetImages === 1 ? "" : "s"}, {assetVideos} video{assetVideos === 1 ? "" : "s"}
+              </p>
+            </div>
+            {assets.length > 0 && (
+              <div className="mt-2 divide-y divide-white/[0.05] rounded-xl border border-white/[0.07]">
+                {assets.map((asset, i) => (
+                  <div key={asset.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                    <span className="flex items-center gap-2 text-white/70">
+                      {asset.type === "VIDEO" ? <Video className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                      {asset.type === "VIDEO" ? "Video" : "Foto"} {i + 1}
+                      <span className="text-white/35">· {formatMb(asset.sizeBytes)}</span>
+                    </span>
+                    <button type="button" disabled={busy} onClick={() => removeAsset(asset)} aria-label="Quitar" className="rounded-lg p-1.5 text-rose-300 hover:bg-rose-500/10 disabled:opacity-40">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               disabled={busy}
               onClick={() => assetRef.current?.click()}
-              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-xs font-semibold text-emerald-200 disabled:opacity-40"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 text-sm font-semibold text-emerald-200 disabled:opacity-40"
             >
-              <Lock className="h-4 w-4" /> Contenido del pack ({assets.length || product.assetCount || 0})
+              <Plus className="h-4 w-4" /> Agregar fotos o videos
             </button>
           </div>
 
-          {product.media.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
+          <div>
+            <p className="text-xs font-semibold text-white/70">Portada pública ({product.media.length})</p>
+            <p className="text-[11px] text-white/40">Lo que ven todos antes de comprar. Usa tus mejores fotos.</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {product.media.map((item) => (
                 <div key={item.id} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40">
                   <MediaThumb url={resolveMediaUrl(item.url)} thumbnailUrl={resolveMediaUrl(item.thumbnailUrl)} type={item.type} />
                   {item.type === "VIDEO" && (
                     <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white">Video</span>
                   )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-label="Quitar"
+                    onClick={() => removeMedia(item.id)}
+                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/75 text-white"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               ))}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => coverRef.current?.click()}
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/20 text-white/50 disabled:opacity-40"
+                aria-label="Agregar portada"
+              >
+                <ImagePlus className="h-5 w-5" />
+              </button>
             </div>
-          )}
-
-          <p className="text-[11px] leading-relaxed text-white/40">
-            La portada es pública y es lo que hace que te compren: usa tus mejores fotos. El contenido del pack queda
-            guardado en privado y sólo lo ve quien pagó, dentro de UZEED, sin poder descargarlo.
-          </p>
+          </div>
 
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={toggleActive} className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-xs font-semibold text-white/70">
+            <button type="button" disabled={busy} onClick={toggleActive} className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-xs font-semibold text-white/70 disabled:opacity-40">
               {product.isActive ? "Pausar" : "Activar"}
             </button>
             <Link href={`/marketplace/producto/${product.id}`} className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-center text-xs font-semibold text-white/70">
               Ver pack
             </Link>
-            <button type="button" disabled={busy} onClick={remove} className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2.5 text-rose-200">
+            <button type="button" disabled={busy} onClick={remove} aria-label="Eliminar pack" className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2.5 text-rose-200 disabled:opacity-40">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
