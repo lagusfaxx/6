@@ -7,6 +7,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
+import heicConvert from "heic-convert";
 import type { MarketDeliveryMethod, MarketProductType, Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
@@ -56,13 +57,105 @@ const storage = new LocalStorageProvider({
   publicPathPrefix: `${(config.apiUrl || "").replace(/\/$/, "")}/uploads`,
 });
 
+/** Tope por archivo. El panel sube los packs de a un archivo por petición. */
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 41 },
 });
+
+/**
+ * `upload.any()` con errores legibles. Sin esto un archivo pesado (o
+ * demasiados) caía al manejador global como 500 "INTERNAL_SERVER_ERROR" y la
+ * vendedora no sabía qué hacer.
+ */
+function uploadAny(req: any, res: any, next: any) {
+  upload.any()(req, res, (err: any) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          error: "FILE_TOO_LARGE",
+          message: `El archivo pesa más de ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB. Prueba con un video más corto o en menor calidad.`,
+        });
+      }
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(400).json({ error: "TOO_MANY_FILES", message: "Demasiados archivos de una vez." });
+      }
+      return res.status(400).json({ error: "UPLOAD_FAILED", message: "No se pudo leer el archivo. Intenta de nuevo." });
+    }
+    return next(err);
+  });
+}
 
 const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_MEDIA_MIMES = [...ALLOWED_IMAGE_MIMES, "video/mp4", "video/quicktime", "video/webm"];
+
+/* Muchos celulares mandan el tipo con otro nombre, vacío o como
+   "application/octet-stream" (sobre todo las fotos HEIC del iPhone y algunos
+   videos de Android). Se deduce de la extensión antes de rechazarlo. */
+const MIME_ALIASES: Record<string, string> = {
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "image/heic-sequence": "image/heic",
+  "image/heif-sequence": "image/heif",
+  "video/x-m4v": "video/mp4",
+  "video/m4v": "video/mp4",
+  "video/x-quicktime": "video/quicktime",
+};
+const EXT_TO_MIME: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".jfif": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".mov": "video/quicktime",
+  ".qt": "video/quicktime",
+  ".webm": "video/webm",
+};
+const HEIC_MIMES = new Set(["image/heic", "image/heif"]);
+
+/**
+ * Deja el archivo listo para guardarse: tipo corregido y las fotos HEIC
+ * pasadas a JPEG (el navegador no las muestra y sharp no las decodifica).
+ * Devuelve false si no es una foto ni un video que se pueda vender.
+ */
+async function normalizeMarketUpload(file: Express.Multer.File): Promise<boolean> {
+  let mime = (file.mimetype || "").toLowerCase();
+  mime = MIME_ALIASES[mime] || mime;
+  if (!ALLOWED_MEDIA_MIMES.includes(mime) && !HEIC_MIMES.has(mime)) {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    mime = EXT_TO_MIME[ext] || mime;
+  }
+  if (HEIC_MIMES.has(mime)) {
+    try {
+      const jpeg = Buffer.from(await heicConvert({ buffer: file.buffer, format: "JPEG", quality: 0.92 }));
+      file.buffer = jpeg;
+      file.size = jpeg.length;
+      file.originalname = (file.originalname || "foto").replace(/\.(heic|heif)$/i, "") + ".jpg";
+      mime = "image/jpeg";
+    } catch {
+      return false;
+    }
+  }
+  file.mimetype = mime;
+  return ALLOWED_MEDIA_MIMES.includes(mime);
+}
+
+async function normalizeMarketUploads(files: Express.Multer.File[]): Promise<Express.Multer.File | null> {
+  for (const file of files) {
+    if (!(await normalizeMarketUpload(file))) return file;
+  }
+  return null;
+}
+
+const INVALID_FILE_MESSAGE = "Sólo se pueden subir fotos (JPG, PNG, HEIC, WEBP) y videos (MP4, MOV, WEBM).";
 
 const PRODUCT_TYPES: MarketProductType[] = ["PHOTO_SET", "VIDEO", "CLOTHING", "FETISH", "CUSTOM", "OTHER"];
 const DELIVERY_METHODS: MarketDeliveryMethod[] = ["DIGITAL", "MEET", "SHIPPING"];
@@ -82,6 +175,15 @@ const contentLimiter = rateLimit({
   max: 30,
   keyGenerator: (req) => (req as any).user?.id || req.ip,
   message: { error: "RATE_LIMIT", message: "Demasiadas acciones. Intenta en un minuto." },
+});
+
+/* Las subidas van de a un archivo: un pack de 40 archivos son 40 peticiones,
+   así que no pueden compartir el tope de 30 por minuto del resto. */
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 240,
+  keyGenerator: (req) => (req as any).user?.id || req.ip,
+  message: { error: "RATE_LIMIT", message: "Estás subiendo muy rápido. Espera un minuto y sigue." },
 });
 
 const messageLimiter = rateLimit({
@@ -1337,7 +1439,7 @@ marketRouter.delete("/market/seller/products/:id", requireAuth, contentLimiter, 
 }));
 
 /** POST /market/seller/products/:id/media — fotos de vitrina (públicas). */
-marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimiter, upload.any(), asyncHandler(async (req, res) => {
+marketRouter.post("/market/seller/products/:id/media", requireAuth, uploadLimiter, uploadAny, asyncHandler(async (req, res) => {
   const seller = await requireSeller(req, res);
   if (!seller) return;
 
@@ -1346,11 +1448,10 @@ marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimit
 
   const { files, posters } = splitUploads(req);
   if (!files.length) return res.status(400).json({ error: "NO_FILES" });
-  if (files.length > 8) return res.status(400).json({ error: "TOO_MANY_FILES" });
-  for (const file of files) {
-    if (!ALLOWED_MEDIA_MIMES.includes(file.mimetype)) {
-      return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `Tipo no permitido: ${file.mimetype}` });
-    }
+  if (files.length > 20) return res.status(400).json({ error: "TOO_MANY_FILES", message: "Sube máximo 20 archivos de una vez." });
+  const invalid = await normalizeMarketUploads(files);
+  if (invalid) {
+    return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `"${invalid.originalname}" no se puede subir. ${INVALID_FILE_MESSAGE}` });
   }
 
   const lastPos = await prisma.marketProductMedia.aggregate({ where: { productId: product.id }, _max: { pos: true } });
@@ -1416,7 +1517,7 @@ marketRouter.delete("/market/seller/media/:mediaId", requireAuth, contentLimiter
 
 /** POST /market/seller/products/:id/assets — el contenido que recibe quien compra.
  *  Se guarda en almacenamiento privado: nunca se sirve desde /uploads. */
-marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimiter, upload.any(), asyncHandler(async (req, res) => {
+marketRouter.post("/market/seller/products/:id/assets", requireAuth, uploadLimiter, uploadAny, asyncHandler(async (req, res) => {
   const seller = await requireSeller(req, res);
   if (!seller) return;
 
@@ -1425,11 +1526,10 @@ marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimi
 
   const { files, posters } = splitUploads(req);
   if (!files.length) return res.status(400).json({ error: "NO_FILES" });
-  if (files.length > 20) return res.status(400).json({ error: "TOO_MANY_FILES" });
-  for (const file of files) {
-    if (!ALLOWED_MEDIA_MIMES.includes(file.mimetype)) {
-      return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `Tipo no permitido: ${file.mimetype}` });
-    }
+  if (files.length > 20) return res.status(400).json({ error: "TOO_MANY_FILES", message: "Sube máximo 20 archivos de una vez." });
+  const invalid = await normalizeMarketUploads(files);
+  if (invalid) {
+    return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `"${invalid.originalname}" no se puede subir. ${INVALID_FILE_MESSAGE}` });
   }
 
   const lastPos = await prisma.marketProductAsset.aggregate({ where: { productId: product.id }, _max: { pos: true } });
