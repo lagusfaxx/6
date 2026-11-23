@@ -623,7 +623,8 @@ export async function sendCampaignEmail(
   subject: string,
   html: string,
 ) {
-  await send(to, subject, html, "bulk");
+  const result = await sendMail({ to, subject, html, priority: "bulk" });
+  if (!result.ok) throw new Error(`CAMPAIGN_EMAIL_NOT_SENT: ${result.reason}`);
 }
 
 /* ─── Registro rechazado en la verificación ─── */

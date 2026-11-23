@@ -31,7 +31,13 @@ type AudienceCounts = {
   all: number;
 };
 
-type Audience = "professionals" | "clients" | "all";
+type Audience = "professionals" | "clients" | "all" | "expired_professionals";
+
+type ExpiredAudienceReview = {
+  generatedAt: string;
+  blockedReason: string | null;
+  recipients: { id: string; email: string; username: string; displayName: string | null }[];
+};
 
 type SendResult = {
   ok: boolean;
@@ -40,6 +46,9 @@ type SendResult = {
   total?: number;
   sent?: number;
   failed?: number;
+  skipped?: number;
+  notAttempted?: number;
+  stopped?: boolean;
 };
 
 type UploadedImage = {
@@ -50,6 +59,11 @@ type UploadedImage = {
 const DEFAULT_BODY = `<p>Hola,</p>
 <p>Tenemos novedades para compartir contigo. Te invitamos a revisar las nuevas funciones y a aprovechar las oportunidades activas en UZEED.</p>
 <p>Si tienes dudas, escribenos a soporte@uzeed.cl.</p>`;
+
+const EXPIRED_TRIAL_BODY = `<p>Hola,</p>
+<p>Tu período de acceso gratuito terminó y actualmente no tienes un plan vigente. Por este motivo, tu perfil ya no aparece en los listados públicos de UZEED.</p>
+<p>Para volver a aparecer, ingresa a tu cuenta y activa tu plan desde la sección Planes.</p>
+<p>Si necesitas ayuda, escríbenos a soporte@uzeed.cl.</p>`;
 
 export default function EmailCampaignPage() {
   const { me, loading } = useMe();
@@ -64,6 +78,9 @@ export default function EmailCampaignPage() {
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [audience, setAudience] = useState<Audience>("professionals");
   const [testEmail, setTestEmail] = useState("");
+  const [review, setReview] = useState<ExpiredAudienceReview | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const campaignInFlight = useRef(false);
 
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -91,6 +108,31 @@ export default function EmailCampaignPage() {
       setCounts(res);
     } catch (err: any) {
       setError(err?.message || "Error al cargar audiencia");
+    }
+  };
+
+  const prepareExpiredNotice = () => {
+    setAudience("expired_professionals");
+    setReview(null);
+    setSubject("Tu perfil está oculto: activa tu plan en UZEED");
+    setTitle("Vuelve a aparecer en UZEED");
+    setBodyHtml(EXPIRED_TRIAL_BODY);
+    setCtaLabel("Activar mi plan");
+    setCtaUrl(`${window.location.origin}/planes`);
+    setHeaderImageUrl("");
+    setSendResult(null);
+  };
+
+  const reviewExpiredAudience = async () => {
+    setReviewing(true);
+    setReview(null);
+    setError(null);
+    try {
+      setReview(await apiFetch<ExpiredAudienceReview>("/admin/email-campaign/expired-professionals"));
+    } catch (err: any) {
+      setError(err?.message || "No se pudo comprobar la lista de destinatarios. No se enviará ningún correo.");
+    } finally {
+      setReviewing(false);
     }
   };
 
@@ -264,18 +306,27 @@ export default function EmailCampaignPage() {
   };
 
   const sendCampaign = async () => {
+    if (campaignInFlight.current || sending) return;
     if (!title.trim() || !bodyHtml.trim() || !subject.trim()) {
       setError("Completa asunto, titulo y contenido");
       return;
     }
+    if (audience === "expired_professionals" && (!review?.recipients.length || review.blockedReason)) {
+      setError("Revisa primero los destinatarios con prueba vencida.");
+      return;
+    }
     const audienceLabel =
-      audience === "professionals"
+      audience === "expired_professionals"
+        ? "profesionales revisados con perfil oculto por falta de plan"
+        : audience === "professionals"
         ? "profesionales"
         : audience === "clients"
           ? "clientes"
           : "todos los usuarios";
     const count =
-      audience === "professionals"
+      audience === "expired_professionals"
+        ? review?.recipients.length
+        : audience === "professionals"
         ? counts?.professionals
         : audience === "clients"
           ? counts?.clients
@@ -287,6 +338,7 @@ export default function EmailCampaignPage() {
     )
       return;
 
+    campaignInFlight.current = true;
     setSending(true);
     setError(null);
     setSendResult(null);
@@ -301,12 +353,19 @@ export default function EmailCampaignPage() {
           ctaUrl: ctaUrl || undefined,
           headerImageUrl: headerImageUrl || undefined,
           audience,
+          ...(audience === "expired_professionals" ? {
+            reviewedRecipients: review!.recipients.map(({ id, email }) => ({ id, email })),
+          } : {}),
         }),
       });
       setSendResult(res);
     } catch (err: any) {
-      setError(err?.message || "Error al enviar campana");
+      setError(audience === "expired_professionals"
+        ? "No se pudo confirmar el resultado del envío. Algunos correos podrían haberse enviado; no repitas la campaña completa sin comprobarlo."
+        : err?.message || "Error al enviar campana");
     } finally {
+      campaignInFlight.current = false;
+      if (audience === "expired_professionals") setReview(null);
       setSending(false);
     }
   };
@@ -347,6 +406,13 @@ export default function EmailCampaignPage() {
       </header>
 
       <div className="px-4 sm:px-6 py-5 max-w-6xl mx-auto space-y-5">
+        <button
+          onClick={prepareExpiredNotice}
+          disabled={sending || reviewing}
+          className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200 disabled:opacity-40"
+        >
+          Preparar aviso para profesionales con prueba vencida
+        </button>
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3">
             <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
@@ -361,9 +427,11 @@ export default function EmailCampaignPage() {
         )}
 
         {sendResult && (
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3">
-            <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div className="text-sm text-emerald-300 flex-1">
+          <div className={`flex items-start gap-2 rounded-xl border px-4 py-3 ${sendResult.stopped || sendResult.failed ? "border-amber-500/20 bg-amber-500/[0.06]" : "border-emerald-500/20 bg-emerald-500/[0.06]"}`}>
+            {sendResult.stopped || sendResult.failed
+              ? <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
+              : <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />}
+            <div className={`text-sm flex-1 ${sendResult.stopped || sendResult.failed ? "text-amber-200" : "text-emerald-300"}`}>
               {sendResult.mode === "test" ? (
                 <>
                   Correo de prueba enviado a{" "}
@@ -371,7 +439,7 @@ export default function EmailCampaignPage() {
                 </>
               ) : (
                 <>
-                  Campana enviada: <strong>{sendResult.sent ?? 0}</strong> ok
+                  Resultado de la campaña: <strong>{sendResult.sent ?? 0}</strong> enviados
                   {typeof sendResult.failed === "number" &&
                     sendResult.failed > 0 && (
                       <>
@@ -382,6 +450,8 @@ export default function EmailCampaignPage() {
                       </>
                     )}
                   {" "}de {sendResult.total ?? 0} destinatarios.
+                  {!!sendResult.skipped && <> Se omitieron {sendResult.skipped} por cambio de estado o duplicados.</>}
+                  {sendResult.stopped && <span className="block text-amber-200">Envío detenido: no se pudo volver a comprobar el estado. {sendResult.notAttempted} sin intentar. No repitas la campaña completa sin revisar los envíos realizados.</span>}
                 </>
               )}
             </div>
@@ -668,9 +738,15 @@ export default function EmailCampaignPage() {
               <label className="block text-[11px] font-semibold uppercase tracking-widest text-fuchsia-300/70 mb-3">
                 Destinatarios
               </label>
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 {(
                   [
+                    {
+                      value: "expired_professionals" as const,
+                      label: "Prueba vencida · perfil oculto",
+                      icon: EyeOff,
+                      count: review?.recipients.length,
+                    },
                     {
                       value: "professionals" as const,
                       label: "Profesionales",
@@ -693,7 +769,8 @@ export default function EmailCampaignPage() {
                 ).map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => setAudience(opt.value)}
+                    onClick={() => { setAudience(opt.value); setReview(null); }}
+                    disabled={sending || reviewing}
                     className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
                       audience === opt.value
                         ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-200"
@@ -707,14 +784,34 @@ export default function EmailCampaignPage() {
                     <span className="text-[10px] opacity-70">
                       {opt.count === undefined
                         ? "..."
-                        : `${opt.count.toLocaleString()} activos`}
+                        : `${opt.count.toLocaleString()} destinatarios`}
                     </span>
                   </button>
                 ))}
               </div>
+              {audience === "expired_professionals" && (
+                <div className="mb-4 space-y-3 text-xs text-white/65">
+                  <p>Solo profesionales aprobados, con cuenta activa y sin membresía, prueba ni gracia vigentes. Se excluyen clientes, tiendas, establecimientos y cuentas administradas por el equipo.</p>
+                  <button onClick={reviewExpiredAudience} disabled={sending || reviewing} className="rounded-lg border border-white/20 px-3 py-2 disabled:opacity-40">
+                    {reviewing ? "Comprobando…" : "Revisar destinatarios antes de enviar"}
+                  </button>
+                  {review?.blockedReason && <p className="text-amber-200">{review.blockedReason}</p>}
+                  {review && !review.blockedReason && (
+                    <>
+                      <p>{review.recipients.length} destinatarios revisados. Se volverá a comprobar cada cuenta antes del envío; quien pague o reciba más días de prueba será omitido.</p>
+                      {!review.recipients.length && <p>No hay destinatarios que cumplan estas condiciones.</p>}
+                      <ul aria-label="Destinatarios con prueba vencida" className="max-h-60 overflow-y-auto divide-y divide-white/10 rounded-lg border border-white/10">
+                        {review.recipients.map((r) => (
+                          <li key={r.id} className="px-3 py-2 break-words">{r.displayName || r.username} · {r.email}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
               <button
                 onClick={sendCampaign}
-                disabled={sending}
+                disabled={sending || reviewing || (audience === "expired_professionals" && (!review?.recipients.length || !!review.blockedReason))}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-bold text-white hover:from-fuchsia-500 hover:to-violet-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 {sending ? (
