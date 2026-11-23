@@ -5,6 +5,8 @@
  * limpias /escorts/{slug} en lugar de parámetros ?city= que Google trata como
  * duplicados de /escorts).
  */
+import { CHILE_COMUNAS, regionByKey } from "./chileGeo";
+
 export type CityGeo = {
   slug: string;
   name: string;
@@ -12,9 +14,16 @@ export type CityGeo = {
   lng: number;
   /** Región, para el texto SEO de la landing. */
   region?: string;
+  /**
+   * Landing "principal": las ciudades y comunas con demanda medida (Semrush)
+   * que se enlazan desde /escorts. El resto de las comunas de Chile tiene
+   * landing propia igual, enlazada desde su región y sus comunas vecinas.
+   */
+  main?: boolean;
 };
 
-export const CITY_LANDINGS: CityGeo[] = [
+/** Ciudades y comunas con búsquedas medidas: se enlazan desde /escorts. */
+export const MAIN_CITY_LANDINGS: CityGeo[] = ([
   { slug: "santiago", name: "Santiago", lat: -33.45, lng: -70.66, region: "Región Metropolitana" },
   { slug: "vina-del-mar", name: "Viña del Mar", lat: -33.02, lng: -71.55, region: "Valparaíso" },
   { slug: "valparaiso", name: "Valparaíso", lat: -33.05, lng: -71.62, region: "Valparaíso" },
@@ -76,6 +85,23 @@ export const CITY_LANDINGS: CityGeo[] = [
   { slug: "puerto-varas", name: "Puerto Varas", lat: -41.32, lng: -72.98, region: "Los Lagos" },
   { slug: "san-carlos", name: "San Carlos", lat: -36.42, lng: -71.96, region: "Ñuble" },
   { slug: "san-javier", name: "San Javier", lat: -35.6, lng: -71.73, region: "Maule" },
+] as CityGeo[]).map((c) => ({ ...c, main: true }));
+
+const MAIN_SLUGS = new Set(MAIN_CITY_LANDINGS.map((c) => c.slug));
+
+/**
+ * Todas las landings de ciudad: las principales y, después, cada una de las
+ * 346 comunas de Chile que no tenía página (lib/chileGeo.ts).
+ */
+export const CITY_LANDINGS: CityGeo[] = [
+  ...MAIN_CITY_LANDINGS,
+  ...CHILE_COMUNAS.filter((c) => !MAIN_SLUGS.has(c.slug)).map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    lat: c.lat,
+    lng: c.lng,
+    region: regionByKey(c.region)?.name,
+  })),
 ];
 
 const CITY_BY_SLUG = new Map(CITY_LANDINGS.map((c) => [c.slug, c]));

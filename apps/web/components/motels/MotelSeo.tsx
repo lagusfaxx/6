@@ -45,6 +45,8 @@ export function ComunaLinks({ counts, current }: { counts: Map<string, number>; 
   const groups = new Map<string, Comuna[]>();
   for (const c of COMUNAS) {
     if (c.isMetro || c.slug === current) continue;
+    /* De las 346 comunas se listan las de siempre y las que tienen moteles. */
+    if (!c.featured && !(counts.get(c.slug) || 0)) continue;
     const key = c.region === "Región Metropolitana" ? "Santiago y Región Metropolitana" : "Otras ciudades";
     groups.set(key, [...(groups.get(key) || []), c]);
   }

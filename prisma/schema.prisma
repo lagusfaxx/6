@@ -953,6 +953,9 @@ model WhatsAppRelay {
   userId    String   @db.Uuid
   peerId    String?  @db.Uuid
   waId      String
+  /// Qué aviso fue (MESSAGE_RECEIVED, PLAN_OFF_1, MCP_BROADCAST_TEMPLATE…),
+  /// para saber a qué respondió la profesional cuando no es un chat.
+  kind      String?
   createdAt DateTime @default(now())
 
   @@index([waId, createdAt])
@@ -986,10 +989,13 @@ model WhatsAppReply {
   kind      String
   body      String?
   status    String
+  /// WhatsAppRelay.kind del aviso al que respondió (si se sabe).
+  inReplyTo String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([userId, createdAt])
+  @@index([waId, createdAt])
 }
 
 /// Registro de cada aviso enviado (o intentado) por SMS o WhatsApp, para

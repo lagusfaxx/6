@@ -168,7 +168,8 @@ export function applyPromo(price: number, p?: { discountPercent: number | null; 
 
 /**
  * Moteles para la landing de una comuna: los de la comuna y, aparte, los más
- * cercanos (hasta 12 km) para que la página nunca quede vacía.
+ * cercanos (hasta 12 km, o hasta 50 km si no hay nada más cerca) para que la
+ * página nunca quede vacía.
  */
 export function motelsForComuna(all: MotelWithComuna[], comuna: Comuna) {
   if (comuna.isMetro) {
@@ -176,12 +177,14 @@ export function motelsForComuna(all: MotelWithComuna[], comuna: Comuna) {
     return { inside, nearby: [] as Array<MotelWithComuna & { distanceKm: number }> };
   }
   const inside = all.filter((m) => m.comunaSlug === comuna.slug);
-  const nearby = all
+  const others = all
     .filter((m) => m.comunaSlug !== comuna.slug && m.latitude != null && m.longitude != null)
     .map((m) => ({ ...m, distanceKm: distanceKm(comuna.lat, comuna.lng, m.latitude as number, m.longitude as number) }))
-    .filter((m) => m.distanceKm <= 12)
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 12);
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  let nearby = others.filter((m) => m.distanceKm <= 12).slice(0, 12);
+  /* Comuna chica sin moteles a 12 km (hay landing para las 346 comunas): los
+     más cercanos hasta 50 km, con su distancia, antes que una página vacía. */
+  if (!inside.length && !nearby.length) nearby = others.filter((m) => m.distanceKm <= 50).slice(0, 6);
   return { inside, nearby };
 }
 

@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
+import { CHILE_REGIONS } from "../lib/chileGeo";
+import { ESCORT_TAGS } from "../lib/escortTags";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { TAG_LANDINGS, tagLandingHref } from "../lib/escortSearchLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
@@ -122,26 +124,7 @@ async function getEstablishmentIds(): Promise<string[]> {
     .filter((id): id is string => Boolean(id));
 }
 
-// Tags de perfil y servicio para generar landing pages /escorts/[tag]
-const ESCORT_TAGS = [
-  // Físico
-  "tetona", "culona", "delgada", "fitness", "gordita", "flaca", "curvy",
-  // Apariencia
-  "rubia", "morena", "pelirroja", "trigueña", "latina", "colombiana", "venezolana",
-  // Personalidad
-  "sumisa", "dominante", "caliente", "cariñosa", "natural", "discreta",
-  // Estilo
-  "tatuada", "piercing",
-  // Edad
-  "maduras", "jovenes",
-  // Servicios
-  "anal", "trios", "packs", "videollamada",
-  "masaje-erotico", "despedidas", "discapacitados", "fetiches",
-  "bdsm", "sexo-oral", "lluvia-dorada", "rol", "nuru", "tantra",
-  // Disponibilidad
-  "disponible-hoy", "24-horas",
-  // /escorts/domicilio redirige a /escorts/a-domicilio (landing curada).
-];
+
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getWebBaseUrl();
@@ -191,8 +174,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // URLs LIMPIAS e indexables (/escorts/{ciudad}) con canonical propio y
   // resultados filtrados por ubicación. Antes se emitían como ?city= que
   // Google canonicalizaba a /escorts (duplicado) y no indexaba.
+  // Las 346 comunas de Chile tienen landing con contenido propio
+  // (lib/geoSeo.ts); las ciudades con demanda medida van con más prioridad.
   for (const city of CITY_LANDINGS) {
-    add(`/escorts/${city.slug}`, "daily", 0.8);
+    add(`/escorts/${city.slug}`, "daily", city.main ? 0.8 : 0.6);
+  }
+  // Una landing por región, que enlaza a todas sus comunas por provincia.
+  for (const region of CHILE_REGIONS) {
+    add(`/escorts/${region.slug}`, "daily", 0.75);
   }
 
   // ── Combinaciones tag + ciudad top eliminadas ──
