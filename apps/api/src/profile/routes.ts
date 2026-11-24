@@ -25,6 +25,7 @@ import {
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage, ImageOptimizationError } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { hidePrivateStats } from "../lib/publicProfileStats";
 import { emitAdminEvent } from "../lib/adminEvents";
 import {
   createProfessionalForumThread,
@@ -238,12 +239,16 @@ profileRouter.get(
     });
 
     const enrich = (p: (typeof profiles)[number]) => {
+        // Ubicación pública difuminada, la misma del buscador (mismo punto en
+        // todos lados). La distancia también sale de ese punto: con la exacta
+        // se podía triangular la dirección consultando desde varios lugares.
+        const obf = obfuscateLocation(p.latitude, p.longitude, `user:${p.id}`, 600);
         const distanceKm =
           lat !== null &&
           lng !== null &&
-          p.latitude !== null &&
-          p.longitude !== null
-            ? haversine(lat, lng, p.latitude, p.longitude)
+          obf.latitude !== null &&
+          obf.longitude !== null
+            ? haversine(lat, lng, obf.latitude, obf.longitude)
             : null;
         const hasActiveSession =
           Boolean(p.isOnline) && computeAvailableNow(p.lastSeen);
@@ -255,8 +260,8 @@ profileRouter.get(
           age: computeAge(p.birthdate),
           avatarUrl: p.avatarUrl,
           coverUrl: p.coverUrl,
-          lat: p.latitude,
-          lng: p.longitude,
+          lat: obf.latitude,
+          lng: obf.longitude,
           distanceKm,
           availableNow: hasActiveSession,
           isActive: p.isActive,
@@ -302,7 +307,7 @@ profileRouter.get(
           return 0;
         });
       return res.json({
-        profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
+        profiles: near.slice(0, limit).map(({ createdAt, ...row }) => hidePrivateStats(row)),
       });
     } else if (sort === "new") {
       // Ventana de 15 días; si en semanas flojas de registros quedan menos de
@@ -340,7 +345,7 @@ profileRouter.get(
       return res.json({
         profiles: ordered
           .slice(0, limit)
-          .map(({ createdAt, ...row }) => row),
+          .map(({ createdAt, ...row }) => hidePrivateStats(row)),
       });
     } else if (sort === "availableNow") {
       const available = [...enriched];
@@ -352,7 +357,7 @@ profileRouter.get(
         return (b.profileViews || 0) - (a.profileViews || 0);
       });
       return res.json({
-        profiles: available.slice(0, limit).map(({ createdAt, ...row }) => row),
+        profiles: available.slice(0, limit).map(({ createdAt, ...row }) => hidePrivateStats(row)),
       });
     } else {
       const featured = [...enriched];
@@ -366,13 +371,13 @@ profileRouter.get(
         return (b.profileViews || 0) - (a.profileViews || 0);
       });
       return res.json({
-        profiles: featured.slice(0, limit).map(({ createdAt, ...row }) => row),
+        profiles: featured.slice(0, limit).map(({ createdAt, ...row }) => hidePrivateStats(row)),
       });
     }
 
     const payload = enriched
       .slice(0, limit)
-      .map(({ createdAt, ...row }) => row);
+      .map(({ createdAt, ...row }) => hidePrivateStats(row));
 
     return res.json({ profiles: payload });
   }),

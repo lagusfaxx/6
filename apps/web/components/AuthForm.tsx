@@ -1,5 +1,6 @@
 "use client";
 
+import { withTurnstile } from "../lib/turnstile";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
@@ -189,9 +190,10 @@ export default function AuthForm({
           return;
         }
 
+        // Captcha invisible (sólo si está activo en la API).
         const res = await apiFetch("/auth/register", {
           method: "POST",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(await withTurnstile({ ...formData })),
         });
         const override = onSuccess?.(res);
         const next = searchParams.get("next");

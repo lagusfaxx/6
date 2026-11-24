@@ -10,6 +10,7 @@ import pg from "pg";
 import PgSession from "connect-pg-simple";
 import path from "path";
 import { randomUUID } from "crypto";
+import { isIP } from "net";
 import { Prisma } from "@prisma/client";
 
 import { config } from "./config";
@@ -154,8 +155,31 @@ const corsOptions: CorsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+// IP real del visitante. Detrás de Cloudflare y del proxy de Coolify, `req.ip`
+// queda con la IP del servidor de Cloudflare que atendió, no la de la persona:
+// los límites de intentos (login, registro, mensajes…) se compartían entre
+// todos los que pasaban por ese servidor. Cloudflare manda la IP real en
+// `CF-Connecting-IP`. Va después de las rutas del MCP para no cambiar su
+// lista de IPs permitidas.
+app.use((req, _res, next) => {
+  const cfIp = req.headers["cf-connecting-ip"];
+  const ip = typeof cfIp === "string" ? cfIp.trim() : "";
+  if (ip && isIP(ip)) {
+    Object.defineProperty(req, "ip", { value: ip, configurable: true, enumerable: true });
+  }
+  next();
+});
+
+// IPs que no cuentan para el límite general (p. ej. el servidor de la web, que
+// arma las páginas que lee Google pidiendo los datos a esta API). Separadas
+// por coma en RATE_LIMIT_ALLOWLIST.
+const rateLimitAllowlist = new Set(
+  (process.env.RATE_LIMIT_ALLOWLIST || "").split(",").map((s) => s.trim()).filter(Boolean)
+);
+
 app.use(
   rateLimit({
+    skip: (req) => rateLimitAllowlist.has(req.ip || ""),
     windowMs: 60 * 1000,
     limit: 600,
     standardHeaders: true,

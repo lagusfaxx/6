@@ -11,6 +11,7 @@ import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema, normalizeQuickReplies } from "@uzeed/shared";
 import { autoReplyFields } from "../messages/autoReply";
+import { requireTurnstile } from "../lib/turnstile";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
@@ -123,6 +124,9 @@ authRouter.post(
   // Professionals send multipart with their gallery photos; every other
   // profile type sends JSON, which multer leaves untouched.
   quickRegisterUpload.fields([{ name: "gallery", maxCount: 6 }]),
+  // Captcha (sólo si TURNSTILE_* está configurado). Después de multer, que es
+  // el que lee el formulario con fotos.
+  requireTurnstile,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body } as Record<string, any>;
     if (req.is("multipart/form-data")) {
@@ -553,6 +557,7 @@ authRouter.post(
     { name: "avatar", maxCount: 1 },
     { name: "gallery", maxCount: 6 },
   ]),
+  requireTurnstile,
   asyncHandler(async (req, res) => {
     const b = req.body;
     const body = {

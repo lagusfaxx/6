@@ -1,5 +1,6 @@
 "use client";
 
+import { useTrialText } from "../lib/publicConfig";
 import { startTransition, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -41,14 +42,6 @@ import {
   X,
 } from "lucide-react";
 
-/* ── Trial label ── */
-function trialLabel(days: number): string {
-  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
 
 /* ── Hero search: smart routing (categorías / tags / comunas) ── */
 const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
@@ -168,6 +161,7 @@ type NewProfile = {
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 
 export default function HomeClient() {
+  const trial = useTrialText();
   const router = useRouter();
   const [heroQuery, setHeroQuery] = useState("");
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
@@ -566,7 +560,7 @@ export default function HomeClient() {
                 href="/register?type=PROFESSIONAL"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-500/35 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:border-fuchsia-400/60 hover:text-white"
               >
-                Quiero publicarme — {TRIAL_TEXT}
+                Quiero publicarme — {trial.text}
               </Link>
               <Link
                 href="/register?type=ESTABLISHMENT"

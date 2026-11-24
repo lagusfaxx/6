@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import { planActiveWhere } from "../lib/billingSettings";
+import { hidePrivateStats } from "../lib/publicProfileStats";
 import multer from "multer";
 import path from "path";
 import { config } from "../config";
@@ -206,19 +207,21 @@ servicesRouter.get(
     const enriched = profiles
       .filter((p) => isBusinessPlanActive(p))
       .map((p) => {
-        const distance =
-          lat !== null &&
-          lng !== null &&
-          p.latitude !== null &&
-          p.longitude !== null
-            ? haversine(lat, lng, p.latitude, p.longitude)
-            : null;
         const obfuscated = obfuscateLocation(
           p.latitude,
           p.longitude,
           `services:${p.id}`,
           500,
         );
+        // Distancia desde el punto difuminado: con la exacta se podía
+        // triangular la dirección consultando desde varios lugares.
+        const distance =
+          lat !== null &&
+          lng !== null &&
+          obfuscated.latitude !== null &&
+          obfuscated.longitude !== null
+            ? haversine(lat, lng, obfuscated.latitude, obfuscated.longitude)
+            : null;
         return {
           ...p,
           latitude: obfuscated.latitude,
@@ -345,7 +348,23 @@ servicesRouter.get(
 
     const allProfiles = [...sorted, ...quickProfiles];
 
-    return res.json({ profiles: allProfiles });
+    // La fila trae la ficha completa (`...p`): fuera la fecha de nacimiento, las
+    // fechas de prueba y membresía (dicen quién paga), el rango y las visitas.
+    // Ninguna pantalla las usa; se quitan recién acá para no cambiar el orden.
+    const publicProfiles = allProfiles.map((row) => {
+      const {
+        birthdate: _birthdate,
+        membershipExpiresAt: _membershipExpiresAt,
+        shopTrialEndsAt: _shopTrialEndsAt,
+        createdAt: _createdAt,
+        tier: _tier,
+        isOnline: _isOnline,
+        ...rest
+      } = row as typeof row & Record<string, unknown>;
+      return hidePrivateStats(rest);
+    });
+
+    return res.json({ profiles: publicProfiles });
   }),
 );
 

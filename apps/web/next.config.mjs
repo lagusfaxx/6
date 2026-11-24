@@ -4,6 +4,8 @@ const apiHost = new URL(apiUrl).hostname;
 
 const nextConfig = {
   output: "standalone",
+  // No anunciar "X-Powered-By: Next.js": le dice a cualquiera qué buscar.
+  poweredByHeader: false,
   // Enable gzip/brotli compression for all responses
   compress: true,
   experimental: {
@@ -165,6 +167,30 @@ const nextConfig = {
           {
             key: 'Content-Type',
             value: 'image/x-icon',
+          },
+        ],
+      },
+      {
+        // JS/CSS de la web: llevan un hash en el nombre y nunca cambian. Va
+        // DESPUÉS de la regla general porque, con la misma cabecera, gana la
+        // última: la regla de arriba para /_next/static quedaba pisada por el
+        // no-store y Cloudflare no guardaba nada (cada visita los pedía al
+        // servidor). El HTML de las páginas sigue sin caché, como siempre.
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Logos e íconos de marca: un día (pueden reemplazarse con el mismo nombre).
+        source: '/brand/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400',
           },
         ],
       },

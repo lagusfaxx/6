@@ -1,5 +1,6 @@
 "use client";
 
+import { withTurnstile } from "../../lib/turnstile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -216,6 +217,8 @@ export default function PublicateClient() {
       fd.append("acceptsIncalls", String(data.acceptsIncalls));
       fd.append("acceptsOutcalls", String(data.acceptsOutcalls));
 
+      // Captcha invisible (sólo si está activo en la API).
+      await withTurnstile(fd);
       const res = await apiFetch<{ ok: boolean; paymentUrl?: string }>("/auth/quick-register", { method: "POST", body: fd });
 
       if (res.paymentUrl) {

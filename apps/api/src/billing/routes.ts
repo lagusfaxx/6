@@ -25,6 +25,7 @@ import {
   getBillingSettingsSync,
 } from "../lib/billingSettings";
 import { ensureFlowPlanForPrice } from "../lib/flowPlan";
+import { turnstileSiteKey } from "../lib/turnstile";
 import { getMarketSettings, publicTransferData, transferDataComplete } from "../market/settings";
 import {
   createFlowCustomer,
@@ -44,6 +45,19 @@ const BILLING_DISABLED = {
   error: "BILLING_DISABLED",
   message: "Por ahora publicar en UZEED es gratis. No necesitas pagar nada.",
 };
+
+// Datos públicos que la web muestra en el registro y el inicio: los días de
+// prueba que se configuran en /admin/cobros (antes la web tenía "3 meses" fijo
+// al compilar) y la clave del captcha si está activo. Sin datos de nadie.
+billingRouter.get("/billing/public-config", asyncHandler(async (_req, res) => {
+  const billing = await getBillingSettings();
+  res.setHeader("Cache-Control", "public, max-age=60");
+  return res.json({
+    billingEnabled: billing.enabled,
+    trialDays: billing.trialDays,
+    turnstileSiteKey: turnstileSiteKey(),
+  });
+}));
 
 // Public payment status by intent reference (used by /pago/exitoso after Flow return)
 billingRouter.get("/billing/status", asyncHandler(async (req, res) => {

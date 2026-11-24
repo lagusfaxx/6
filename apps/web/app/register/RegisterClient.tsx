@@ -1,5 +1,7 @@
 "use client";
 
+import { withTurnstile } from "../../lib/turnstile";
+import { TRIAL_BADGE, useTrialText } from "../../lib/publicConfig";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
@@ -24,14 +26,7 @@ import {
   Check,
 } from "lucide-react";
 
-function trialLabel(days: number): string {
-  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
 
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
@@ -65,7 +60,7 @@ const businessOptions: OptionConfig[] = [
     accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
     iconGradient: "from-fuchsia-400 to-pink-500",
     ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
-    badge: { text: TRIAL_TEXT, tone: "promo" },
+    badge: { text: TRIAL_BADGE, tone: "promo" },
   },
   {
     key: "ESTABLISHMENT",
@@ -88,6 +83,7 @@ const businessOptions: OptionConfig[] = [
 ];
 
 export default function RegisterClient() {
+  const trial = useTrialText();
   const searchParams = useSearchParams();
   const googleMode = searchParams.get("google") === "1";
   const googleInitialType = (searchParams.get("type") || "").toUpperCase() as ProfileType;
@@ -300,9 +296,13 @@ export default function RegisterClient() {
     }
 
     try {
+      // Captcha invisible (sólo si está activo en la API).
+      const registerBody = isProfessional
+        ? await withTurnstile(buildProfessionalForm(data))
+        : JSON.stringify(await withTurnstile({ ...data }));
       await apiFetch("/auth/register", {
         method: "POST",
-        body: isProfessional ? buildProfessionalForm(data) : JSON.stringify(data),
+        body: registerBody,
       });
       // Register auto-creates the session, no separate login needed.
     } catch (err: any) {
@@ -423,7 +423,7 @@ export default function RegisterClient() {
             </div>
             <span className="flex items-center gap-1 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/15 px-2.5 py-1 text-[11px] font-semibold text-fuchsia-100">
               <Sparkles className="h-3 w-3 text-amber-300" />
-              {TRIAL_TEXT}
+              {trial.text}
             </span>
           </div>
         )}
@@ -538,7 +538,7 @@ export default function RegisterClient() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                        <span className="text-sm font-bold text-white">{TRIAL_TEXT}</span>
+                        <span className="text-sm font-bold text-white">{trial.text}</span>
                       </div>
                       <p className="mt-0.5 text-xs text-white/65 leading-relaxed">
                         Sin tarjeta de crédito. Empieza a recibir clientes hoy.
@@ -665,10 +665,10 @@ export default function RegisterClient() {
                     <div>
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-amber-400" />
-                        <span className="text-sm font-bold text-white">Promo: {TRIAL_TEXT}</span>
+                        <span className="text-sm font-bold text-white">Promo: {trial.text}</span>
                       </div>
                       <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
-                        Regístrate ahora y disfruta {trialLabel(FREE_TRIAL_DAYS)} de membresía sin
+                        Regístrate ahora y disfruta {trial.label ?? "tu prueba"} de membresía sin
                         costo.
                       </p>
                     </div>
@@ -769,6 +769,7 @@ function OptionCard({
   onSelect: () => void;
 }) {
   const Icon = option.icon;
+  const trial = useTrialText();
   return (
     <button
       type="button"
@@ -814,7 +815,7 @@ function OptionCard({
             {option.badge && (
               <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-fuchsia-200">
                 <Sparkles className="h-2.5 w-2.5" />
-                {option.badge.text}
+                {option.badge.text === TRIAL_BADGE ? trial.text : option.badge.text}
               </span>
             )}
           </div>

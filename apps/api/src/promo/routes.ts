@@ -18,6 +18,7 @@ import {
 } from "../lib/promo";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
+import { obfuscateLocation } from "../lib/locationPrivacy";
 import { excludeContentOnly } from "../lib/serviceCategories";
 
 export const promoRouter = Router();
@@ -312,7 +313,12 @@ promoRouter.get(
         avatarUrl: u.avatarUrl,
         coverUrl: u.coverUrl,
         city: u.city,
-        distance: dist(u.latitude, u.longitude),
+        // Desde el punto difuminado (el mismo del buscador): con la exacta se
+        // podía triangular la dirección consultando desde varios lugares.
+        distance: (() => {
+          const obf = obfuscateLocation(u.latitude, u.longitude, `user:${u.id}`, 600);
+          return dist(obf.latitude, obf.longitude);
+        })(),
         availableNow: u.lastSeen ? now.getTime() - u.lastSeen.getTime() <= 5 * 60 * 1000 : false,
         serviceCategory: u.serviceCategory,
         profileTags: u.profileTags ?? [],

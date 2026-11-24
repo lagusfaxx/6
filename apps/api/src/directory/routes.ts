@@ -5,6 +5,7 @@ import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma, type ProfessionalTier } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
+import { hidePrivateStats } from "../lib/publicProfileStats";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { extractCommuneFromAddress } from "../lib/mapboxFeature";
 import { parseAndNormalizeTags } from "../lib/tags";
@@ -372,18 +373,6 @@ directoryRouter.get(
       const avg = counts.get(u.id)
         ? ratingByProfessional.get(u.id)! / counts.get(u.id)!
         : null;
-      const distance =
-        lat != null &&
-        lng != null &&
-        activeService?.latitude != null &&
-        activeService?.longitude != null
-          ? haversineKm(
-              lat,
-              lng,
-              activeService.latitude,
-              activeService.longitude,
-            )
-          : null;
       const areaRadius = 600;
       const obfuscated = obfuscateLocation(
         activeService?.latitude,
@@ -391,6 +380,15 @@ directoryRouter.get(
         `professional:${u.id}`,
         areaRadius,
       );
+      // Distancia desde el punto difuminado: con la exacta se podía
+      // triangular la dirección consultando desde varios lugares.
+      const distance =
+        lat != null &&
+        lng != null &&
+        obfuscated.latitude != null &&
+        obfuscated.longitude != null
+          ? haversineKm(lat, lng, obfuscated.latitude, obfuscated.longitude)
+          : null;
 
       const locality =
         (u.city && u.city.trim()) ||
@@ -764,9 +762,10 @@ directoryRouter.get(
         const serviceLocation = u.services[0];
         const profLat = serviceLocation?.latitude ?? u.latitude;
         const profLng = serviceLocation?.longitude ?? u.longitude;
+        const profObf = obfuscateLocation(profLat, profLng, `user:${u.id}`, 600);
         const distance =
-          lat != null && lng != null && profLat != null && profLng != null
-            ? haversineKm(lat, lng, profLat, profLng)
+          lat != null && lng != null && profObf.latitude != null && profObf.longitude != null
+            ? haversineKm(lat, lng, profObf.latitude, profObf.longitude)
             : null;
         const userLevel = resolveProfessionalLevel({
           baseRate: u.baseRate,
@@ -835,12 +834,14 @@ directoryRouter.get(
       getActiveBoostSets(),
     ]);
     return res.json({
-      professionals: highlighted.map((u) => ({
-        ...u,
-        galleryUrls: gallery.get(u.id) ?? [],
-        boost: boostLabel(u.id, recentBoosts),
-        boostEndsAt: spotlightEndsAt(u.id, recentBoosts),
-      })),
+      professionals: highlighted.map((u) =>
+        hidePrivateStats({
+          ...u,
+          galleryUrls: gallery.get(u.id) ?? [],
+          boost: boostLabel(u.id, recentBoosts),
+          boostEndsAt: spotlightEndsAt(u.id, recentBoosts),
+        }),
+      ),
     });
   }),
 );
@@ -1060,8 +1061,11 @@ directoryRouter.get(
     }));
 
     const detailBoosts = await getActiveBoostSets();
+    // Visitas y nota interna: sólo para la dueña y el equipo.
+    const showPrivateStats = isAdminViewer || req.session.userId === id;
+    const publishStats = <T extends object>(p: T): T => (showPrivateStats ? p : hidePrivateStats(p));
     return res.json({
-      professional: {
+      professional: publishStats({
         id: u.id,
         name: u.displayName || u.username,
         /* Destacada: la ficha muestra el sello con el contador. */
@@ -1140,7 +1144,7 @@ directoryRouter.get(
           : null,
         umateActive: umateCreator?.status === "ACTIVE",
         umateName: umateCreator?.status === "ACTIVE" ? umateCreator.displayName : null,
-      },
+      }),
     });
   }),
 );
@@ -1664,9 +1668,12 @@ directoryRouter.get(
       const svcLoc = u.services[0];
       const userLat = svcLoc?.latitude ?? u.latitude;
       const userLng = svcLoc?.longitude ?? u.longitude;
+      // Distancia desde el punto difuminado (el mismo que se publica): con la
+      // exacta se podía triangular la dirección consultando desde varios lugares.
+      const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
       const distance =
-        lat != null && lng != null && userLat != null && userLng != null
-          ? haversineKm(lat, lng, userLat, userLng)
+        lat != null && lng != null && obf.latitude != null && obf.longitude != null
+          ? haversineKm(lat, lng, obf.latitude, obf.longitude)
           : null;
       const age = resolveAge(u.birthdate, u.bio);
       const userIsOnline = u.lastSeen
@@ -1680,7 +1687,6 @@ directoryRouter.get(
         adminTier: u.tier,
       });
       const isMadura = age != null && age >= 40;
-      const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
       const planExpired = expiredIds.has(u.id);
 
       return {
@@ -1908,7 +1914,7 @@ directoryRouter.get(
     }
 
     return res.json({
-      results: allResults,
+      results: allResults.map(hidePrivateStats),
       total: merged.length,
       offset,
       limit,

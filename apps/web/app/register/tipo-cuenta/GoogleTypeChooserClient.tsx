@@ -1,5 +1,6 @@
 "use client";
 
+import { TRIAL_BADGE, useTrialText } from "../../../lib/publicConfig";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -35,16 +36,6 @@ type OptionConfig = {
   badge?: { text: string; tone: "promo" };
 };
 
-function trialLabel(days: number): string {
-  if (days >= 365)
-    return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30)
-    return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
-
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
 
 const clientOption: OptionConfig = {
   key: "CLIENT",
@@ -64,10 +55,11 @@ const professionalOption: OptionConfig = {
   accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
   iconGradient: "from-fuchsia-400 to-pink-500",
   ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
-  badge: { text: TRIAL_TEXT, tone: "promo" },
+  badge: { text: TRIAL_BADGE, tone: "promo" },
 };
 
 export default function GoogleTypeChooserClient() {
+  const trial = useTrialText();
   const [pending, setPending] = useState<PendingProfile | null>(null);
   const [loadingPending, setLoadingPending] = useState(true);
   const [profileType, setProfileType] = useState<ProfileType | null>(null);
@@ -201,7 +193,7 @@ export default function GoogleTypeChooserClient() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                      <span className="text-sm font-bold text-white">{TRIAL_TEXT}</span>
+                      <span className="text-sm font-bold text-white">{trial.text}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-white/65 leading-relaxed">
                       Sin tarjeta de crédito. Completa tu perfil (teléfono,
@@ -285,6 +277,7 @@ function OptionCard({
   onSelect: () => void;
 }) {
   const Icon = option.icon;
+  const trial = useTrialText();
   return (
     <button
       type="button"
@@ -299,7 +292,7 @@ function OptionCard({
       {option.badge && (
         <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
           <Sparkles className="h-2.5 w-2.5" />
-          {option.badge.text}
+          {option.badge.text === TRIAL_BADGE ? trial.text : option.badge.text}
         </span>
       )}
 
