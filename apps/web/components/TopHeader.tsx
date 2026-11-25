@@ -23,6 +23,7 @@ import {
   Radio,
   LayoutDashboard,
   Camera,
+  Bot,
   Settings,
   LogIn,
   Search,
@@ -113,6 +114,7 @@ const MEGA_MENU = [
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
   { label: "Contenido", route: "/contenido", icon: Camera },
+  { label: "Acompañantes IA", route: "/acompanantes-ia", icon: Bot },
 ] as const;
 
 export default function TopHeader() {

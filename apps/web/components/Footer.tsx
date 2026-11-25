@@ -12,6 +12,7 @@ const footerLinks = {
     { label: "Moteles", href: "/moteles" },
     { label: "Sex Shop Online", href: "/sexshop" },
     { label: "Creadoras de contenido", href: "/contenido" },
+    { label: "Acompañantes IA", href: "/acompanantes-ia" },
   ],
   "Ciudades": [
     { label: "Escort Santiago", href: "/escorts/santiago" },

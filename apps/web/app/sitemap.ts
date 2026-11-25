@@ -169,6 +169,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/escorts", "daily", 0.9);
   add("/masajistas", "daily", 0.9);
   add("/contenido", "daily", 0.8);
+  add("/acompanantes-ia", "weekly", 0.6);
   add("/hombres", "daily", 0.9);
   add("/moteles", "daily", 0.9);
   add("/establecimientos", "daily", 0.85);

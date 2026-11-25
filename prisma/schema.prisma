@@ -155,6 +155,7 @@ enum TokenTxType {
   TIP
   PRIVATE_SHOW
   PROMO_PURCHASE
+  AI_COMPANION
 }
 
 enum WithdrawalStatus {
@@ -637,6 +638,13 @@ model User {
   marketWithdrawals      MarketWithdrawal[]   @relation("MarketWithdrawals")
   marketReviews          MarketReview[]       @relation("MarketReviews")
   adminNotes             AdminUserNote[]      @relation("AdminNotesAbout")
+
+  // Acompañantes IA
+  aiCompanionAccount     AiCompanionAccount?
+  aiCompanionChats       AiCompanionChat[]
+  aiCompanionMemories    AiCompanionMemory[]
+  aiCompanionImages      AiCompanionImage[]
+  aiCompanionUnlocks     AiCompanionUnlock[]
 }
 
 model PushSubscription {
@@ -2594,4 +2602,209 @@ model AdminUserNote {
   user User @relation("AdminNotesAbout", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Acompañantes IA: personajes ficticios (siempre adultos) con chat, memoria e
+// imágenes generadas. Nada aquí representa a una persona real.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AiCompanionGender {
+  FEMALE
+  MALE
+}
+
+/// Qué plan hace falta para usar al personaje. EXCLUSIVE se desbloquea aparte
+/// (con tokens) o viene incluido en VIP.
+enum AiCompanionAccess {
+  FREE
+  PREMIUM
+  VIP
+  EXCLUSIVE
+}
+
+enum AiCompanionPlanTier {
+  FREE
+  PREMIUM
+  VIP
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AiImageStatus {
+  PENDING
+  DONE
+  FAILED
+  BLOCKED
+}
+
+enum AiMemoryKind {
+  FACT
+  PREFERENCE
+  SUMMARY
+}
+
+model AiCompanion {
+  id                 String            @id @default(uuid()) @db.Uuid
+  slug               String            @unique
+  name               String
+  gender             AiCompanionGender
+  /// Edad ficticia. La base exige >= 18 (CHECK en la migración).
+  age                Int
+  tagline            String?
+  bio                String?
+  /// Descripción visual fija: es el ancla de coherencia en cada imagen.
+  appearance         String
+  /// Personalidad por defecto (clave de PERSONALITIES en la API).
+  personality        String            @default("romantica")
+  /// Personalidades que el usuario puede elegir para este personaje.
+  personalities      String[]          @default([])
+  communicationStyle String?
+  roleplayNotes      String?
+  interests          String[]          @default([])
+  avatarUrl          String?
+  galleryUrls        String[]          @default([])
+  access             AiCompanionAccess @default(FREE)
+  /// Precio en tokens del desbloqueo individual (sólo EXCLUSIVE).
+  unlockTokens       Int               @default(0)
+  unlockDays         Int               @default(30)
+  /// Semilla fija para que el proveedor de imágenes mantenga la identidad.
+  imageSeed          Int               @default(0)
+  isActive           Boolean           @default(true)
+  sortOrder          Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  chats    AiCompanionChat[]
+  memories AiCompanionMemory[]
+  images   AiCompanionImage[]
+  unlocks  AiCompanionUnlock[]
+
+  @@index([isActive, gender, sortOrder])
+}
+
+/// Plan y consentimiento del usuario para la sección.
+model AiCompanionAccount {
+  id               String              @id @default(uuid()) @db.Uuid
+  userId           String              @unique @db.Uuid
+  tier             AiCompanionPlanTier @default(FREE)
+  tierExpiresAt    DateTime?
+  /// Declaración de mayoría de edad y aceptación de las reglas de la sección.
+  adultConfirmedAt DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiCompanionChat {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  companionId     String    @db.Uuid
+  /// Personalidad elegida por el usuario (null = la del personaje).
+  personality     String?
+  /// Cómo quiere el usuario que lo llamen.
+  userNickname    String?
+  /// Nivel de intensidad: "suave" | "picante" | "explicito".
+  intensity       String    @default("suave")
+  /// Resumen automático de lo conversado antes de `summarizedUntil`.
+  summary         String?
+  summarizedUntil DateTime?
+  lastMessageAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companion AiCompanion          @relation(fields: [companionId], references: [id], onDelete: Cascade)
+  messages  AiCompanionMessage[]
+
+  @@unique([userId, companionId])
+  @@index([userId, lastMessageAt])
+}
+
+model AiCompanionMessage {
+  id        String        @id @default(uuid()) @db.Uuid
+  chatId    String        @db.Uuid
+  role      AiMessageRole
+  content   String
+  imageId   String?       @db.Uuid
+  createdAt DateTime      @default(now())
+
+  chat AiCompanionChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+}
+
+/// Memoria por usuario y personaje. El usuario la ve, la corrige y la borra.
+model AiCompanionMemory {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  companionId String       @db.Uuid
+  kind        AiMemoryKind @default(FACT)
+  content     String
+  /// "user" (la escribió el usuario) | "auto" (la extrajo la IA).
+  source      String       @default("user")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companion AiCompanion @relation(fields: [companionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, companionId])
+}
+
+model AiCompanionImage {
+  id            String        @id @default(uuid()) @db.Uuid
+  userId        String        @db.Uuid
+  companionId   String        @db.Uuid
+  /// Lo que pidió el usuario.
+  request       String
+  /// Prompt final enviado al proveedor.
+  prompt        String
+  intensity     String        @default("suave")
+  status        AiImageStatus @default(PENDING)
+  /// Referencia privada (private://…): se sirve sólo a su dueño.
+  fileRef       String?
+  tokensCharged Int           @default(0)
+  error         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companion AiCompanion @relation(fields: [companionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, companionId, createdAt])
+}
+
+/// Desbloqueo individual de un personaje EXCLUSIVE.
+model AiCompanionUnlock {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  companionId String   @db.Uuid
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companion AiCompanion @relation(fields: [companionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companionId])
+}
+
+/// Bloqueos de seguridad (menores, personas reales, etc.) para revisión.
+model AiCompanionFlag {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String?   @db.Uuid
+  companionId String?   @db.Uuid
+  /// "chat_in" | "chat_out" | "image"
+  source      String
+  reason      String
+  excerpt     String
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }

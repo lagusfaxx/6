@@ -184,6 +184,7 @@ const NAV_ITEMS = [
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
+  { href: "/admin/acompanantes-ia", label: "Acompañantes IA", icon: Bot },
   { href: "/admin/chats", label: "Chats", icon: MessageSquare },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },
   { href: "/admin/weekly-highlights", label: "Correo Semanal", icon: Mail },

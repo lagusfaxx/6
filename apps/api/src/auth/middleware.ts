@@ -60,6 +60,8 @@ const PUBLIC_PREFIXES = [
   "/notifications/email/unsubscribe", // ✅ baja desde el enlace del correo (el HMAC es la autorización)
   "/face-verification", // ✅ enlace de verificación facial (el token del enlace es la autorización)
   "/ads/config",        // ✅ interruptor y zonas de los anuncios (ExoClick)
+  "/ai-companions/catalog", // ✅ catálogo público de Acompañantes IA (sólo lectura)
+  "/ai-companions/pricing", // ✅ planes de Acompañantes IA
 ];
 
 /**
@@ -195,6 +197,8 @@ const MODERATOR_BLOCKED_PREFIXES = [
   "/admin/billing/settings",
   "/admin/promo",
   "/admin/ads",
+  // Precios de Acompañantes IA: dinero de verdad.
+  "/admin/ai-companions-settings",
 ];
 
 /**

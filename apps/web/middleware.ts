@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPrefixes = ["/chat", "/chats", "/calificar", "/umate/account", "/umate/onboarding", "/admin", "/dashboard", "/cuenta", "/favoritos", "/wallet"];
+const protectedPrefixes = ["/chat", "/chats", "/calificar", "/umate/account", "/umate/onboarding", "/admin", "/dashboard", "/cuenta", "/favoritos", "/wallet", "/acompanantes-ia/chat"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

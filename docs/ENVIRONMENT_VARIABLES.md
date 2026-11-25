@@ -138,6 +138,33 @@ GSC_SERVICE_ACCOUNT_JSON=      # JSON de la cuenta de servicio, tal cual o en ba
 GSC_SITE_URL=sc-domain:uzeed.cl
 ```
 
+## 💋 Acompañantes IA (OPCIONAL)
+
+Sección `/acompanantes-ia`: personajes ficticios con chat, memoria e imágenes.
+El catálogo y los precios se administran en `/admin/acompanantes-ia`. Sin estas
+variables la sección se ve, pero el chat y las imágenes responden "no
+disponible". Ambos proveedores se hablan con la API compatible con OpenAI
+(`POST /chat/completions` y `POST /images/generations`), así que se cambia de
+proveedor sólo cambiando la URL. Detalle en [ACOMPANANTES_IA.md](./ACOMPANANTES_IA.md).
+
+```bash
+# Chat (modelo de lenguaje)
+AI_CHAT_API_URL=https://proveedor.example/v1
+AI_CHAT_API_KEY=<clave>
+AI_CHAT_MODEL=<modelo>
+AI_CHAT_ALLOW_EXPLICIT=false   # true SOLO si los términos del proveedor permiten contenido adulto explícito
+AI_CHAT_TIMEOUT_MS=60000
+
+# Imágenes
+AI_IMAGE_API_URL=https://proveedor.example/v1
+AI_IMAGE_API_KEY=<clave>
+AI_IMAGE_MODEL=<modelo>
+AI_IMAGE_SIZE=832x1216
+AI_IMAGE_ALLOW_EXPLICIT=false  # true SOLO con un proveedor que permita desnudos/explícito
+AI_IMAGE_EXTRA_JSON=           # parámetros extra del proveedor, p. ej. {"steps":30}
+AI_IMAGE_TIMEOUT_MS=180000
+```
+
 ## 🚀 Despliegue en Coolify
 
 ### Paso 1: Crear la aplicación API
