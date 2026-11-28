@@ -50,11 +50,20 @@ const withdrawLimiter = rateLimit({
 
 /* ── Helper: get or create wallet ── */
 async function getOrCreateWallet(userId: string) {
-  return prisma.wallet.upsert({
-    where: { userId },
-    create: { userId },
-    update: {},
-  });
+  try {
+    return await prisma.wallet.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+  } catch (err: any) {
+    // Concurrent requests can both try to create the wallet; the loser hits
+    // the unique constraint on userId. The wallet exists now, so just read it.
+    if (err?.code === "P2002") {
+      return prisma.wallet.findUniqueOrThrow({ where: { userId } });
+    }
+    throw err;
+  }
 }
 
 /* ── Helper: get token rate (CLP per token) ── */
