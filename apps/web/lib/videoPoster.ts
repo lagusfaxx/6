@@ -11,8 +11,13 @@ const POSTER_MAX_WIDTH = 720;
 const POSTER_TIMEOUT_MS = 12000;
 
 /** Devuelve un JPEG con el primer frame útil del video, o null si no se pudo. */
+/* Algunos celulares no informan el tipo del video: se mira también la extensión. */
+function isVideoFile(file: File): boolean {
+  return (file.type || "").toLowerCase().startsWith("video/") || /\.(mp4|m4v|mov|qt|webm)$/i.test(file.name);
+}
+
 export async function extractVideoPoster(file: File): Promise<Blob | null> {
-  if (typeof document === "undefined" || !file.type.startsWith("video/")) return null;
+  if (typeof document === "undefined" || !isVideoFile(file)) return null;
 
   const objectUrl = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -92,7 +97,7 @@ export async function extractVideoPoster(file: File): Promise<Blob | null> {
 export async function appendVideoPosters(form: FormData, files: File[]): Promise<void> {
   await Promise.all(
     files.map(async (file, index) => {
-      if (!file.type.startsWith("video/")) return;
+      if (!isVideoFile(file)) return;
       const poster = await extractVideoPoster(file);
       if (poster) form.append(`poster_${index}`, poster, `poster_${index}.jpg`);
     }),

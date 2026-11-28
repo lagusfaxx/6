@@ -355,12 +355,16 @@ async function boot() {
   await runStoriesTtlExtensionOnce().catch((err) => console.error("[api] stories ttl recovery failed", err));
   await prepareMcpDatabase();
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
     startWorker();
     initBaileys();
     startS3Mirror();
   });
+  /* Node corta cualquier petición que dure más de 5 minutos. Un video de un
+     pack (hasta 200 MB) subido desde el celular tarda más que eso y la subida
+     moría a mitad de camino con "Se cortó la conexión". */
+  server.requestTimeout = 30 * 60 * 1000;
 }
 
 boot().catch((err) => {
